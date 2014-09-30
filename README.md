@@ -1,2 +1,4 @@
 metrik
 ======
+
+It rocks!
