@@ -2,9 +2,6 @@ package com.despegar.metrik.service
 
 import org.specs2.mutable.Specification
 
-/**
- * Created by dberjman on 10/1/14.
- */
 class HistogramServiceTest extends Specification {
 
   "HistogramService" should {
