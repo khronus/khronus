@@ -1,0 +1,20 @@
+create keyspace metrik with placement_strategy = 'org.apache.cassandra.locator.SimpleStrategy' and strategy_options = {replication_factor:1};
+
+use metrik;
+
+create column family series with comparator = UTF8Type;
+
+create column family bucket0s with comparator = LongType and key_validation_class = UTF8Type and caching = 'NONE';
+create column family bucket30s with comparator = LongType and key_validation_class = UTF8Type and caching = 'NONE';
+create column family bucket1m with comparator = LongType and key_validation_class = UTF8Type and caching = 'NONE';
+create column family bucket5m with comparator = LongType and key_validation_class = UTF8Type and caching = 'NONE';
+create column family bucket10m with comparator = LongType and key_validation_class = UTF8Type and caching = 'NONE';
+create column family bucket30m with comparator = LongType and key_validation_class = UTF8Type and caching = 'NONE';
+create column family bucket1h with comparator = LongType and key_validation_class = UTF8Type and caching = 'NONE';
+
+create column family summary30s with comparator = LongType and key_validation_class = UTF8Type;
+create column family summary1m with comparator = LongType and key_validation_class = UTF8Type;
+create column family summary5m with comparator = LongType and key_validation_class = UTF8Type;
+create column family summary10m with comparator = LongType and key_validation_class = UTF8Type;
+create column family summary30m with comparator = LongType and key_validation_class = UTF8Type;
+create column family summary1h with comparator = LongType and key_validation_class = UTF8Type;
