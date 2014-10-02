@@ -23,5 +23,20 @@ class HistogramServiceTest extends Specification {
 
       histo.getPercentile(50) mustEqual(2000)
     }
+
+    "ADD another histogram must join recorded times" in {
+      val histo = new HistogramService
+      histo.recordTime(2000)
+      histo.recordTime(3000)
+      histo.recordTime(1000)
+
+      val ahotherHisto = new HistogramService
+      ahotherHisto.recordTime(1000)
+      ahotherHisto.recordTime(3000)
+
+      histo.add(ahotherHisto.histogram)
+
+      histo.getPercentile(50) mustEqual(2000)
+    }
   }
 }

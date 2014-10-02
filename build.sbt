@@ -17,7 +17,9 @@ libraryDependencies ++= {
     "com.typesafe.akka"   %%  "akka-actor"    % akkaV,
     "com.typesafe.akka"   %%  "akka-testkit"  % akkaV   % "test",
     "org.specs2"          %%  "specs2-core"   % "2.3.11" % "test",
-    "org.hdrhistogram"    %   "HdrHistogram"  % "1.2.1"
+    "org.scalatest"       %%  "scalatest"     % "2.2.1" % "test",
+    "org.hdrhistogram"    %   "HdrHistogram"  % "1.2.1",
+    "org.mockito"         %   "mockito-all"   % "1.9.5" % "test"
   )
 }
 

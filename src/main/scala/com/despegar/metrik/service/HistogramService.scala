@@ -17,4 +17,10 @@ class HistogramService {
   def getMax() = {
     histogram.getMaxValue
   }
+
+  def add(anotherHisto: Histogram) = {
+    histogram.add(anotherHisto)
+  }
+
 }
+
