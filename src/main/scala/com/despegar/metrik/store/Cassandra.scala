@@ -29,14 +29,5 @@ object Cassandra {
   context.start()
   
   val keyspace = context.getClient()
-  
-  def sliceUntilNow[T](columnFamily: String, key: String, columnMapper: Column[java.lang.Long] => T) = {
-    val cf = ColumnFamily.newColumnFamily(columnFamily, StringSerializer.get(), LongSerializer.get())
-    
-    val result = keyspace.prepareQuery(cf).getKey(key).withColumnRange(1, System.currentTimeMillis(), false, 1000).execute()
-    
-    result.getResult().asScala.map( columnMapper ).toSeq
-  }
-  
 
 }
