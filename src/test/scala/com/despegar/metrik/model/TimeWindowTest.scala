@@ -9,10 +9,10 @@ import org.specs2.mutable.Specification
 
 import scala.concurrent.duration._
 
-class WindowTest extends FunSuite with MockitoSugar {
+class TimeWindowTest extends FunSuite with MockitoSugar {
 
   test("lalala") {
-        val window = new Window(30 seconds, 0 seconds) with HistogramBucketSupport { override val histogramBucketStore = mock[HistogramBucketStore]}
+        val window = new TimeWindow(30 seconds, 0 seconds) with HistogramBucketSupport { override val histogramBucketStore = mock[HistogramBucketStore]}
 
         val histograms: Seq[HistogramBucket] = Seq(HistogramBucket(1,30 seconds, new Histogram(3000,3) ))
 
