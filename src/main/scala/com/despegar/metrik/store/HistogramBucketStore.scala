@@ -1,5 +1,7 @@
 package com.despegar.metrik.store
 
+import java.nio.ByteBuffer
+
 import scala.concurrent.duration.Duration
 import com.despegar.metrik.model.HistogramBucket
 import scala.collection.JavaConverters._
@@ -22,22 +24,41 @@ object CassandraHistogramBucketStore extends HistogramBucketStore {
   val LIMIT = 1000
 
   def sliceUntilNow(metric: String, windowDuration: Duration): Seq[HistogramBucket] = {
-    val key = s"$metric.$windowDuration"
-
-    val result = Cassandra.keyspace.prepareQuery(columnFamily).getKey(key).withColumnRange(1, System.currentTimeMillis(), false, LIMIT).execute()
+    val result = Cassandra.keyspace.prepareQuery(columnFamily).getKey(getKey(metric, windowDuration)).withColumnRange(1L, System.currentTimeMillis(), false, LIMIT).execute()
 
     result.getResult().asScala.map { column =>
       val timestamp = column.getName()
-      val histogram = deserializeHistogram(column.getByteArrayValue())
+      val histogram = deserializeHistogram(column.getByteBufferValue)
       HistogramBucket(timestamp / windowDuration.toMillis, windowDuration, histogram)
     }.toSeq
     
   }
 
-  def store(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket]) = {
 
+  def store(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket]) = {
+    val mutation = Cassandra.keyspace.prepareMutationBatch()
+    val colums = mutation.withRow(columnFamily, getKey(metric, windowDuration))
+    histogramBuckets.foreach( bucket => colums.putColumn(bucket.timestamp, serializeHistogram(bucket.histogram)))
+
+    mutation.execute
   }
 
-  private def deserializeHistogram(bytes: Array[Byte]): Histogram = null
+  def getKey(metric: String, windowDuration: Duration): String = {
+    s"$metric.${windowDuration.length}${windowDuration.unit}"
+  }
+
+  def serializeHistogram(histogram: Histogram) : ByteBuffer = {
+    val buffer = ByteBuffer.allocate(histogram.getEstimatedFootprintInBytes)
+    val bytesEncoded = histogram.encodeIntoCompressedByteBuffer(buffer)
+
+    buffer.limit(bytesEncoded)
+    buffer.rewind()
+
+    buffer
+  }
+
+  private def deserializeHistogram(bytes: ByteBuffer): Histogram = {
+    Histogram.decodeFromCompressedByteBuffer(bytes, 0)
+  }
 
 }
