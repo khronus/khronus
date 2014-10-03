@@ -1,30 +1,29 @@
 package com.despegar.metrik.service
 
+import org.scalatest.FunSuite
 import org.specs2.mutable.Specification
 
-class HistogramServiceTest extends Specification {
+class HistogramServiceTest extends FunSuite {
 
-  "HistogramService" should {
-
-    "return maximum time recorded for getMax" in {
+    test ("HistogramService  should return maximum time recorded for getMax") {
       val histo = new HistogramService
       histo.recordTime(2000)
       histo.recordTime(3000)
       histo.recordTime(1000)
 
-      histo.getMax() mustEqual(3000)
+      assert(histo.getMax() == 3000)
     }
 
-    "return 50% percentile time recorded for getPercentile" in {
+    test ("HistogramService  should return 50% percentile time recorded for getPercentile") {
       val histo = new HistogramService
       histo.recordTime(2000)
       histo.recordTime(3000)
       histo.recordTime(1000)
 
-      histo.getPercentile(50) mustEqual(2000)
+      assert(histo.getPercentile(50) == 2000)
     }
 
-    "ADD another histogram must join recorded times" in {
+    test("HistogramService  should ADD another histogram must join recorded times") {
       val histo = new HistogramService
       histo.recordTime(2000)
       histo.recordTime(3000)
@@ -36,7 +35,7 @@ class HistogramServiceTest extends Specification {
 
       histo.add(ahotherHisto.histogram)
 
-      histo.getPercentile(50) mustEqual(2000)
+      assert(histo.getPercentile(50) == 2000)
     }
-  }
 }
+
