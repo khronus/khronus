@@ -33,3 +33,7 @@ object Metrik extends App with Logging {
   // start a new HTTP server on port 8080 with our service actor as the handler
   IO(Http) ? Http.Bind(handler, interface = "localhost", port = 8080)
 }
+
+
+val system = ActorSystem("metrik-system")
+
