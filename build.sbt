@@ -23,7 +23,8 @@ libraryDependencies ++= {
     "org.mockito"         	%   "mockito-all"   		% "1.9.5" % "test",
     "com.netflix.astyanax"	%	"astyanax-core"			%	astyanaxVersion,
     "com.netflix.astyanax"	%	"astyanax-thrift"		%	astyanaxVersion,
-    "com.netflix.astyanax"	%	"astyanax-cassandra"	%	astyanaxVersion
+    "com.netflix.astyanax"	%	"astyanax-cassandra"	%	astyanaxVersion,
+    "com.typesafe" % "config" % "1.2.1"
   )
 }
 

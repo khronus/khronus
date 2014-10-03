@@ -24,7 +24,7 @@ object CassandraHistogramBucketStore extends HistogramBucketStore {
   val columnFamilis = predefinedDurations.map(duration => (duration, ColumnFamily.newColumnFamily(getColumnFamilyName(duration), StringSerializer.get(), LongSerializer.get()))).toMap
   val LIMIT = 1000
 
-  
+
   def sliceUntilNow(metric: String, windowDuration: Duration): Seq[HistogramBucket] = {
     val result = Cassandra.keyspace.prepareQuery(columnFamilis(windowDuration)).getKey(getKey(metric, windowDuration)).withColumnRange(1L, System.currentTimeMillis(), false, LIMIT).execute()
 
