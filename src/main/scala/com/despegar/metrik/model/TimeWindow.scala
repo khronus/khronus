@@ -1,9 +1,15 @@
 package com.despegar.metrik.model
 
-import com.despegar.metrik.store.{HistogramBucketStore, StatisticSummaryStore}
+import com.despegar.metrik.store.{CassandraHistogramBucketStore, HistogramBucketStore, StatisticSummaryStore}
 import org.HdrHistogram.Histogram
 import scala.concurrent.duration.Duration
 import com.despegar.metrik.model.HistogramBucket._
+
+trait HistogramBucketSupport {
+
+  def histogramBucketStore: HistogramBucketStore = CassandraHistogramBucketStore
+
+}
 
 class TimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true) extends HistogramBucketSupport {
 

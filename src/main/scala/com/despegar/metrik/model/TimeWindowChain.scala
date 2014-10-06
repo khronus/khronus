@@ -1,7 +1,6 @@
-package com.despegar.metrik.service
+package com.despegar.metrik.model
 
 import scala.concurrent.duration._
-import com.despegar.metrik.model.TimeWindow
 
 class TimeWindowChain {
 

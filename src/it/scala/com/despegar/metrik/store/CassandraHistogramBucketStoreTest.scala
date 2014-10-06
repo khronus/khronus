@@ -58,7 +58,7 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BeforeAndAfterAll 
   
   private def createColumnFamilies = {
     CassandraHistogramBucketStore.columnFamilies.values.foreach{ cf => 
-    Cassandra.keyspace.createColumnFamily(cf, Map().asJava)
+    Cassandra.keyspace.createColumnFamily(cf, Map[String,Object]().asJava)
    } 
   }
   
