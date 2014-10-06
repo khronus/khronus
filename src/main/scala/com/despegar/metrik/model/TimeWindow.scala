@@ -1,17 +1,19 @@
 package com.despegar.metrik.model
 
-import com.despegar.metrik.store.{CassandraHistogramBucketStore, HistogramBucketStore, StatisticSummaryStore}
+import com.despegar.metrik.store.{CassandraStatisticSummaryStore, StatisticSummaryStore, CassandraHistogramBucketStore, HistogramBucketStore}
 import org.HdrHistogram.Histogram
 import scala.concurrent.duration.Duration
 import com.despegar.metrik.model.HistogramBucket._
 
 trait HistogramBucketSupport {
-
   def histogramBucketStore: HistogramBucketStore = CassandraHistogramBucketStore
-
 }
 
-class TimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true) extends HistogramBucketSupport {
+trait StatisticSummarySupport {
+  def statisticSummaryStore: StatisticSummaryStore = CassandraStatisticSummaryStore
+}
+
+class TimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true) extends HistogramBucketSupport with StatisticSummarySupport {
 
   def process(metric: String) = {
     //retrieve the temporal histogram buckets from previous window
@@ -32,7 +34,7 @@ class TimeWindow(duration: Duration, previousWindowDuration: Duration, shouldSto
     val statisticsSummaries = resultingBuckets.map(_.summary)
 
     //store the statistic summaries
-    StatisticSummaryStore.store(statisticsSummaries)
+    statisticSummaryStore.store(statisticsSummaries)
   }
 
 }
