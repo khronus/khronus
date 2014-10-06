@@ -24,7 +24,8 @@ libraryDependencies ++= {
     "com.netflix.astyanax"	%	"astyanax-core"			%	astyanaxVersion,
     "com.netflix.astyanax"	%	"astyanax-thrift"		%	astyanaxVersion,
     "com.netflix.astyanax"	%	"astyanax-cassandra"	%	astyanaxVersion,
-    "com.typesafe" % "config" % "1.2.1"
+    "com.typesafe" % "config" % "1.2.1",
+    "com.esotericsoftware.kryo" % "kryo" % "2.24.0"
   )
 }
 

@@ -34,7 +34,7 @@ class TimeWindow(duration: Duration, previousWindowDuration: Duration, shouldSto
     val statisticsSummaries = resultingBuckets.map(_.summary)
 
     //store the statistic summaries
-    statisticSummaryStore.store(statisticsSummaries)
+    statisticSummaryStore.store(metric, duration, statisticsSummaries)
   }
 
 }
