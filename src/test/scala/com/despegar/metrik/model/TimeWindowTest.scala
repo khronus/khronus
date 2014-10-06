@@ -11,7 +11,7 @@ import scala.concurrent.duration._
 
 class TimeWindowTest extends FunSuite with MockitoSugar {
 
-  test("process 30 seconds window should store 2 buckets with their summary statistics") {
+  test("process 30 seconds window should store 2 buckets with their summary statistics and remove previous buckets") {
     val window = new TimeWindow(30 seconds, 1 millis) with HistogramBucketSupport with StatisticSummarySupport {
       override val histogramBucketStore = mock[HistogramBucketStore]
 
@@ -55,5 +55,8 @@ class TimeWindowTest extends FunSuite with MockitoSugar {
 
     //verify the summaries for each bucket
     Mockito.verify(window.statisticSummaryStore).store(Seq(summaryBucketB, summaryBucketA))
+    
+    //verify removal of previous buckets
+    Mockito.verify(window.histogramBucketStore).remove("metrickA", 1 millis, Seq(bucket1, bucket2, bucket3))
   }
 }

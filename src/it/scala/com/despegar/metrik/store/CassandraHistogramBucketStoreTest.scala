@@ -10,17 +10,23 @@ import scala.concurrent.duration._
 import java.util.HashMap
 import org.scalatest.Matchers
 import scala.util.Random
+import com.netflix.astyanax.model.ColumnFamily
+import org.scalatest.BeforeAndAfter
 
-class CassandraHistogramBucketStoreTest extends FunSuite with BeforeAndAfterAll with Config with Matchers {
+class CassandraHistogramBucketStoreTest extends FunSuite with BeforeAndAfter with BeforeAndAfterAll with Config with Matchers {
 
   override def beforeAll = {
     createKeyspace
     createColumnFamilies
   }
+  
+  after {
+	truncateColumnFamilies
+  }
 
   override def afterAll = dropKeyspace
 
-  test("An Histogram should be capable of serialize and deserialize from Cassandra") {
+  test("should store and retrieve buckets properly") {
     val histogram = HistogramBucket.newHistogram
     fill(histogram)
     val buckets = Seq(HistogramBucket(30, 30 seconds, histogram))
@@ -42,8 +48,21 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BeforeAndAfterAll 
     CassandraHistogramBucketStore.store("testMetric", 30 seconds, buckets)
     val bucketsFromCassandra = CassandraHistogramBucketStore.sliceUntilNow("testMetric", 30 seconds)
     
-    bucketsFromCassandra.length shouldEqual 1
+    bucketsFromCassandra should have length 1
     bucketsFromCassandra(0) shouldEqual bucketFromThePast
+  }
+  
+  test("should remove buckets") {
+    val bucket1 = HistogramBucket(1, 30 seconds, HistogramBucket.newHistogram)
+    val bucket2 = HistogramBucket(2, 30 seconds, HistogramBucket.newHistogram)
+    
+    CassandraHistogramBucketStore.store("testMetric", 30 seconds, Seq(bucket1, bucket2))
+    
+    CassandraHistogramBucketStore.remove("testMetric", 30 seconds, Seq(bucket1, bucket2))
+    
+    val bucketsFromCassandra = CassandraHistogramBucketStore.sliceUntilNow("testMetric", 30 seconds)
+    
+    bucketsFromCassandra should be ('empty)
   }
   
   private def fill(histogram: Histogram) = {
@@ -56,10 +75,12 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BeforeAndAfterAll 
     result.getSchemaId()
   }
   
-  private def createColumnFamilies = {
-    CassandraHistogramBucketStore.columnFamilies.values.foreach{ cf => 
-    Cassandra.keyspace.createColumnFamily(cf, Map[String,Object]().asJava)
-   } 
+  private def createColumnFamilies = foreachColumnFamily {  Cassandra.keyspace.createColumnFamily(_, Map[String,Object]().asJava) }
+  
+  private def truncateColumnFamilies = foreachColumnFamily { Cassandra.keyspace.truncateColumnFamily(_) }
+  
+  private def foreachColumnFamily(f: ColumnFamily[String,java.lang.Long] => Unit) = {
+    CassandraHistogramBucketStore.columnFamilies.values.foreach{ f }
   }
   
   private def dropKeyspace = Cassandra.keyspace.dropKeyspace()
