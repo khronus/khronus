@@ -88,6 +88,7 @@ com_crashlytics_export_strings.xml
 
 # sbt specific
 .cache/
+.cache
 .history/
 .lib/
 dist/*
@@ -100,3 +101,4 @@ project/plugins/project/
 # Scala-IDE specific
 .scala_dependencies
 .worksheet
+
