@@ -1,58 +1,102 @@
 package com.despegar.metrik.cluster
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import akka.routing.FromConfig
+import java.util.Date
+
+import akka.actor.SupervisorStrategy.{Stop, Restart}
+import akka.actor._
+import akka.routing.{Broadcast, FromConfig}
+import us.theatr.akka.quartz.AddCronScheduleFailure
+import us.theatr.akka.quartz._
 
 class Master extends Actor with ActorLogging {
 
-  import com.despegar.metrik.cluster.Master._
+  import MasterWorkerProtocol._
+  import Master._
+  import context._
 
-  val masterInfo = {
-    val config = context.system.settings.config.getConfig("metrik.master")
-    val cronExpression = config.getString("cron-expression")
+  var idleWorkers = Set[ActorRef]()
+  var pendingMetrics = Seq[String]()
 
-    MasterConfig(cronExpression)
+  val settings = Settings(system).Master
+
+  override val supervisorStrategy =  OneForOneStrategy() {
+    case _: ActorInitializationException ⇒ Stop
+    case _: Exception                => Restart
   }
 
-  override def preStart(): Unit = {
-    super.preStart()
-    initialize()
+  self ! Initialize
+
+  def receive: Receive = uninitialized
+
+  def uninitialized: Receive = {
+    case Initialize => {
+      val router = actorOf(Props[Worker].withRouter(FromConfig()), "workerRouter")
+      val tickScheduler = actorOf(Props[QuartzActor])
+
+      system.scheduler.schedule(settings.DiscoveryStartDelay, settings.DiscoveryInterval, router, Broadcast(WorkerDiscovery))
+      tickScheduler ! AddCronSchedule(self, settings.TickCronExpression, Tick, true)
+
+      become(initialized(router))
+    }
+    case AddCronScheduleFailure(reason) => throw reason
+    case everythingElse => //ignore
   }
 
-  def initialize():Unit = {
-    import us.theatr.akka.quartz._
+  def getMetrics(): Seq[String] = Seq("a","b","c", "d","e")
 
-    val scheduler = context.actorOf(Props[QuartzActor])
-    scheduler ! AddCronSchedule(self, masterInfo.cronExpression, Tick)
+  var i:Int = 0
+  def initialized(router: ActorRef): Receive = {
+    case Tick => {
+      pendingMetrics ++= getMetrics().filterNot(x => pendingMetrics contains x)
 
-    val router = context.actorOf(Props[Worker].withRouter(FromConfig()), "workerRouter")
 
-    self ! Initialize(masterInfo.cronExpression, router)
-  }
+      while (pendingMetrics.nonEmpty && idleWorkers.nonEmpty) {
+        val worker = idleWorkers.head
+        val pending = pendingMetrics.head
 
-  def receive: Receive = {
-    case Initialize(cronExpression, router) =>
-      log.info("Master initialized with cron-expression: [{}]", cronExpression)
+        worker ! Work(pending)
 
-      context become doWork(router)
-  }
+        idleWorkers = idleWorkers.tail
+        pendingMetrics = pendingMetrics.tail
+      }
+    }
+    case Register(worker) => {
+      log.info("Registring worker [{}]", worker.path)
+      watch(worker)
+      idleWorkers += worker
+    }
 
-  def doWork(router:ActorRef): Receive = {
-    case Tick => router ! MasterWorkerProtocol.Work("myserie")
-    case MasterWorkerProtocol.Finish(series) => println("Finished sserie " + series)
+    case Completed(worker) => {
+      if (pendingMetrics.nonEmpty) {
+        i+=1
+        println("i = " + i)
+        if(i == 5) worker ! PoisonPill
+        worker ! Work(pendingMetrics.head)
+        pendingMetrics = pendingMetrics.tail
+      } else {
+        idleWorkers += worker
+      }
+    }
+    case Terminated(worker) => {
+      log.info("Removing worker [{}] from worker list", worker.path)
+      idleWorkers -= worker
+    }
   }
 }
 
 object Master {
-  case class Tick()
-  case class Initialize(cronExpression:String, router:ActorRef)
-
-  case class MasterConfig(cronExpression:String)
+  case object Tick
+  case class Initialize(cronExpression: String, router: ActorRef)
+  case class MasterConfig(cronExpression: String)
 
   def props: Props = Props(classOf[Master])
 }
 
 object MasterWorkerProtocol {
-  case class Finish(series:String)
-  case class Work(series:String)
+  case class WorkerDiscovery()
+  case class Register(worker: ActorRef)
+  //change name
+  case class Completed(worker: ActorRef)
+  case class Work(series: String)
+
 }
