@@ -17,7 +17,6 @@ import org.scalatest.BeforeAndAfter
 class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTest with Config with Matchers {
 
   test("should store and retrieve buckets properly") {
-    println("ejecutando test")
     val histogram = HistogramBucket.newHistogram
     fill(histogram)
     val buckets = Seq(HistogramBucket(30, 30 seconds, histogram))
@@ -29,7 +28,6 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
   }
   
   test("should not retrieve buckets from the future") {
-    println("ejecutando test")
     val histogram = HistogramBucket.newHistogram
     val futureBucket = System.currentTimeMillis() + 60000 / (30 seconds).toMillis
     val bucketFromTheFuture = HistogramBucket(futureBucket, 30 seconds, histogram)
@@ -45,7 +43,6 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
   }
   
   test("should remove buckets") {
-    println("ejecutando test")
     val bucket1 = HistogramBucket(1, 30 seconds, HistogramBucket.newHistogram)
     val bucket2 = HistogramBucket(2, 30 seconds, HistogramBucket.newHistogram)
     
