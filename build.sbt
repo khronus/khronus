@@ -1,4 +1,5 @@
 import scalariform.formatter.preferences._
+import AssemblyKeys._
 
 organization  := "com.example"
 
@@ -24,8 +25,8 @@ libraryDependencies ++= {
     "com.typesafe.akka"   %%  "akka-cluster"              % akkaV,
     "com.typesafe.akka"   %%  "akka-contrib"              % "2.3.6",
     "com.typesafe.akka"   %%  "akka-multi-node-testkit"   % akkaV         % "test",
+    "org.scalatest"       %%  "scalatest"                 % "2.2.1"       % "test",
     "us.theatr"           %% "akka-quartz"                % "0.3.0",
-    "org.specs2"          %%  "specs2-core"               % "2.3.11"      % "test",
     "org.hdrhistogram"    %   "HdrHistogram"              % "1.2.1"
   )
 }
@@ -40,3 +41,11 @@ ScalariformKeys.preferences := ScalariformKeys.preferences.value
   .setPreference(AlignSingleLineCaseStatements, true)
   .setPreference(DoubleIndentClassDeclaration, true)
   .setPreference(PreserveDanglingCloseParenthesis, true)
+
+
+// Assembly settings
+mainClass in Global := Some("com.despegar.metrik.util.Boot")
+
+jarName in assembly := "metrik.jar"
+
+assemblySettings
