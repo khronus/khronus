@@ -17,10 +17,10 @@ class TimeWindow(duration: Duration, previousWindowDuration: Duration, shouldSto
 
   def process(metric: String) = {
     //retrieve the temporal histogram buckets from previous window
-    val histogramBuckets = histogramBucketStore.sliceUntilNow(metric, previousWindowDuration)
+    val previousWindowBuckets = histogramBucketStore.sliceUntilNow(metric, previousWindowDuration)
 
     //group histograms in buckets of my window duration
-    val groupedHistogramBuckets = histogramBuckets.groupBy(_.timestamp / duration.toMillis)
+    val groupedHistogramBuckets = previousWindowBuckets.groupBy(_.timestamp / duration.toMillis)
 
     //sum histograms on each bucket
     val resultingBuckets = groupedHistogramBuckets.collect{case (bucketNumber, histogramBuckets) => HistogramBucket(bucketNumber, duration, histogramBuckets)}.toSeq
@@ -35,6 +35,9 @@ class TimeWindow(duration: Duration, previousWindowDuration: Duration, shouldSto
 
     //store the statistic summaries
     statisticSummaryStore.store(metric, duration, statisticsSummaries)
+   
+    //remove previous histogram buckets
+    histogramBucketStore.remove(metric, previousWindowDuration, previousWindowBuckets)
   }
 
 }

@@ -59,5 +59,8 @@ class TimeWindowTest extends FunSuite with MockitoSugar {
 
     //verify the summaries for each bucket
     Mockito.verify(window.statisticSummaryStore).store(metricKey, windowDuration, Seq(summaryBucketB, summaryBucketA))
+    
+    //verify removal of previous buckets
+    Mockito.verify(window.histogramBucketStore).remove("metrickA", 1 millis, Seq(bucket1, bucket2, bucket3))
   }
 }

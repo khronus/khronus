@@ -1,8 +1,9 @@
 package com.despegar.metrik.store
 
 import com.despegar.metrik.model.HistogramBucket
-import com.despegar.metrik.util.Config
+import com.despegar.metrik.util.{BaseIntegrationTest, Config}
 import com.netflix.astyanax.Keyspace
+import com.netflix.astyanax.connectionpool.OperationResult
 import org.HdrHistogram.Histogram
 import org.scalatest.{ BeforeAndAfterAll, FunSuite }
 import scala.collection.JavaConverters._
@@ -10,17 +11,12 @@ import scala.concurrent.duration._
 import java.util.HashMap
 import org.scalatest.Matchers
 import scala.util.Random
+import com.netflix.astyanax.model.ColumnFamily
+import org.scalatest.BeforeAndAfter
 
-class CassandraHistogramBucketStoreTest extends FunSuite with BeforeAndAfterAll with Config with Matchers {
+class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTest with Config with Matchers {
 
-  override def beforeAll = {
-    createKeyspace
-    createColumnFamilies
-  }
-
-  override def afterAll = dropKeyspace
-
-  test("An Histogram should be capable of serialize and deserialize from Cassandra") {
+  test("should store and retrieve buckets properly") {
     val histogram = HistogramBucket.newHistogram
     fill(histogram)
     val buckets = Seq(HistogramBucket(30, 30 seconds, histogram))
@@ -42,26 +38,34 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BeforeAndAfterAll 
     CassandraHistogramBucketStore.store("testMetric", 30 seconds, buckets)
     val bucketsFromCassandra = CassandraHistogramBucketStore.sliceUntilNow("testMetric", 30 seconds)
     
-    bucketsFromCassandra.length shouldEqual 1
+    bucketsFromCassandra should have length 1
     bucketsFromCassandra(0) shouldEqual bucketFromThePast
+  }
+  
+  test("should remove buckets") {
+    val bucket1 = HistogramBucket(1, 30 seconds, HistogramBucket.newHistogram)
+    val bucket2 = HistogramBucket(2, 30 seconds, HistogramBucket.newHistogram)
+    
+    CassandraHistogramBucketStore.store("testMetric", 30 seconds, Seq(bucket1, bucket2))
+    
+    CassandraHistogramBucketStore.remove("testMetric", 30 seconds, Seq(bucket1, bucket2))
+    
+    val bucketsFromCassandra = CassandraHistogramBucketStore.sliceUntilNow("testMetric", 30 seconds)
+    
+    bucketsFromCassandra should be ('empty)
   }
   
   private def fill(histogram: Histogram) = {
     (1 to 10000) foreach { i => histogram.recordValue(Random.nextInt(200)) }
   }
 
-  private def createKeyspace = {
-    val keyspace = Map("strategy_options" -> Map("replication_factor" -> "1").asJava, "strategy_class" -> "SimpleStrategy")
-    val result = Cassandra.keyspace.createKeyspaceIfNotExists(keyspace.asJava).getResult();
-    result.getSchemaId()
+  def foreachColumnFamily(f: ColumnFamily[String,java.lang.Long] => OperationResult[_]) = {
+    CassandraHistogramBucketStore.columnFamilies.values.foreach{ cf => val or = f(cf); or.getResult }
   }
-  
-  private def createColumnFamilies = {
-    CassandraHistogramBucketStore.columnFamilies.values.foreach{ cf => 
-    Cassandra.keyspace.createColumnFamily(cf, Map[String,Object]().asJava)
-   } 
+
+  def createColumnFamilies = {
+    CassandraHistogramBucketStore.columnFamilies.values.foreach{ cf =>
+      Cassandra.keyspace.createColumnFamily(cf, Map[String,Object]().asJava)
+    }
   }
-  
-  private def dropKeyspace = Cassandra.keyspace.dropKeyspace()
-  
 }
