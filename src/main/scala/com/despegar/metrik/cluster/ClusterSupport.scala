@@ -14,14 +14,15 @@
  * =========================================================================================
  */
 
-package com.despegar.metrik
+package com.despegar.metrik.cluster
 
-import akka.actor.ActorRef
+import akka.actor.PoisonPill
+import akka.contrib.pattern.ClusterSingletonManager
+import com.despegar.metrik.util.ActorSystemSupport
 
-package object cluster {
-  case class Register(worker: ActorRef)
-  case class Work(metrics: String)
-  case class WorkDone(worker: ActorRef)
-  case object DiscoverWorkers
+trait ClusterSupport {
+  this: ActorSystemSupport ⇒
+
+  system.actorOf(ClusterDomainEventListener.props, "cluster-listener")
+  system.actorOf(ClusterSingletonManager.props(Master.props, "master", PoisonPill, Some("master")), "singleton-manager")
 }
-

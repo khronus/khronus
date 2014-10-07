@@ -1,3 +1,5 @@
+import scalariform.formatter.preferences._
+
 organization  := "com.example"
 
 version       := "0.1"
@@ -43,3 +45,12 @@ libraryDependencies ++= {
 }
 
 Revolver.settings
+
+scalariformSettings
+
+ScalariformKeys.preferences := ScalariformKeys.preferences.value
+  .setPreference(RewriteArrowSymbols, true)
+  .setPreference(AlignParameters, false)
+  .setPreference(AlignSingleLineCaseStatements, true)
+  .setPreference(DoubleIndentClassDeclaration, true)
+  .setPreference(PreserveDanglingCloseParenthesis, true)

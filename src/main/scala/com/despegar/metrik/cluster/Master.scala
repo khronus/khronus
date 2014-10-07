@@ -1,9 +1,26 @@
+/*
+ * =========================================================================================
+ * Copyright © 2014 the metrik project <https://github.com/hotels-tech/metrik>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
+ * except in compliance with the License. You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the
+ * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+ * either express or implied. See the License for the specific language governing permissions
+ * and limitations under the License.
+ * =========================================================================================
+ */
+
 package com.despegar.metrik.cluster
 
-import akka.actor.SupervisorStrategy.{Restart, Stop}
+import akka.actor.SupervisorStrategy.{ Restart, Stop }
 import akka.actor._
-import akka.routing.{Broadcast, FromConfig}
-import us.theatr.akka.quartz.{AddCronScheduleFailure, _}
+import akka.routing.{ Broadcast, FromConfig }
+import com.despegar.metrik.util.Settings
+import us.theatr.akka.quartz.{ AddCronScheduleFailure, _ }
 
 class Master extends Actor with ActorLogging {
 
@@ -15,9 +32,9 @@ class Master extends Actor with ActorLogging {
 
   val settings = Settings(system).Master
 
-  override val supervisorStrategy =  OneForOneStrategy() {
+  override val supervisorStrategy = OneForOneStrategy() {
     case _: ActorInitializationException ⇒ Stop
-    case _: Exception                => Restart
+    case _: Exception                    ⇒ Restart
   }
 
   self ! Initialize
@@ -25,7 +42,7 @@ class Master extends Actor with ActorLogging {
   def receive: Receive = uninitialized
 
   def uninitialized: Receive = {
-    case Initialize =>
+    case Initialize ⇒
       val router = actorOf(Props[Worker].withRouter(FromConfig()), "workerRouter")
       val tickScheduler = actorOf(Props[QuartzActor])
 
@@ -34,15 +51,15 @@ class Master extends Actor with ActorLogging {
 
       become(initialized(router))
 
-    case AddCronScheduleFailure(reason) => throw reason
-    case everythingElse => //ignore
+    case AddCronScheduleFailure(reason) ⇒ throw reason
+    case everythingElse                 ⇒ //ignore
   }
 
-  def getMetrics(): Seq[String] = Seq("a","b","c", "d","e")
+  def metrics: Seq[String] = Seq("a", "b", "c", "d", "e")
 
   def initialized(router: ActorRef): Receive = {
-    case Tick =>
-      pendingMetrics ++= getMetrics().filterNot(metric => pendingMetrics contains metric)
+    case Tick ⇒
+      pendingMetrics ++= metrics filterNot (metric ⇒ pendingMetrics contains metric)
 
       while (pendingMetrics.nonEmpty && idleWorkers.nonEmpty) {
         val worker = idleWorkers.head
@@ -54,12 +71,12 @@ class Master extends Actor with ActorLogging {
         pendingMetrics = pendingMetrics.tail
       }
 
-    case Register(worker) =>
+    case Register(worker) ⇒
       log.info("Registring worker [{}]", worker.path)
       watch(worker)
       idleWorkers += worker
 
-    case WorkDone(worker) =>
+    case WorkDone(worker) ⇒
       if (pendingMetrics.nonEmpty) {
         worker ! Work(pendingMetrics.head)
         pendingMetrics = pendingMetrics.tail
@@ -67,7 +84,7 @@ class Master extends Actor with ActorLogging {
         idleWorkers += worker
       }
 
-    case Terminated(worker) =>
+    case Terminated(worker) ⇒
       log.info("Removing worker [{}] from worker list", worker.path)
       idleWorkers -= worker
   }
