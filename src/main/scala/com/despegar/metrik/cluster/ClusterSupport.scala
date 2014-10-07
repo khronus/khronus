@@ -14,16 +14,15 @@
  * =========================================================================================
  */
 
-package com.despegar.metrik.util
+package com.despegar.metrik.cluster
 
-import akka.actor._
-import com.despegar.metrik.cluster.ClusterSupport
-import com.despegar.metrik.web.service.MetrikService
+import akka.actor.PoisonPill
+import akka.contrib.pattern.ClusterSingletonManager
+import com.despegar.metrik.util.ActorSystemSupport
 
-trait ActorSystemSupport {
-  import Settings.Metrik
+trait ClusterSupport {
+  this: ActorSystemSupport ⇒
 
-  implicit lazy val system = ActorSystem(Metrik.ActorSystem)
+  system.actorOf(ClusterDomainEventListener.props, "cluster-listener")
+  system.actorOf(ClusterSingletonManager.props(Master.props, "master", PoisonPill, Some("master")), "singleton-manager")
 }
-
-object Boot extends App with ActorSystemSupport with MetrikService with ClusterSupport

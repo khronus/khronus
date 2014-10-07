@@ -8,9 +8,9 @@ object HistogramBucketStore {
   def sliceUntilNow(metric: String, windowDuration: Duration): Seq[HistogramBucket] = {
     null
   }
-  
+
   def store(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket]) = {
-    
+
   }
-  
+
 }

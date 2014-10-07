@@ -14,19 +14,19 @@ class Window(duration: Duration, previousWindowDuration: Duration, shouldStoreTe
     val histograms: Seq[HistogramBucket] = HistogramBucketStore.sliceUntilNow(metric, previousWindowDuration)
 
     //group histograms in buckets of my window duration
-    val groups: Map[Long, Seq[HistogramBucket]] = histograms.groupBy{ histogramBucket => (histogramBucket.timestamp - zeroTime) / duration.toMillis }
+    val groups: Map[Long, Seq[HistogramBucket]] = histograms.groupBy { histogramBucket ⇒ (histogramBucket.timestamp - zeroTime) / duration.toMillis }
 
     //sum histograms on each bucket
-    val resultingBuckets = groups.collect{ case (bucketNumber, histogramBuckets) => HistogramBucket(bucketNumber * duration.toMillis + zeroTime, sum(histogramBuckets)) }.toSeq
-    
+    val resultingBuckets = groups.collect { case (bucketNumber, histogramBuckets) ⇒ HistogramBucket(bucketNumber * duration.toMillis + zeroTime, sum(histogramBuckets)) }.toSeq
+
     //store temporal histogram buckets for next window if needed
     if (shouldStoreTemporalHistograms) {
       HistogramBucketStore.store(metric, duration, resultingBuckets)
     }
-    
+
     //calculate the statistic summaries (percentiles, min, max, etc...)
-    val statisticsSummaries = resultingBuckets.map( histogramBucket => statisticSummary(histogramBucket) )
-    
+    val statisticsSummaries = resultingBuckets.map(histogramBucket ⇒ statisticSummary(histogramBucket))
+
     //store the statistic summaries
     StatisticSummaryStore.store(statisticsSummaries)
 
@@ -35,7 +35,7 @@ class Window(duration: Duration, previousWindowDuration: Duration, shouldStoreTe
   private def sum(histogramBuckets: Seq[HistogramBucket]): Histogram = {
     null
   }
-  
+
   private def statisticSummary(histogramBucket: HistogramBucket): StatisticSummary = {
     null
   }
