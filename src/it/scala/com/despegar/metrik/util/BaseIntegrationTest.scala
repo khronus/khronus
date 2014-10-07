@@ -9,70 +9,35 @@ import scala.util.Try
 
 trait BaseIntegrationTest extends FunSuite with BeforeAndAfterAll with BeforeAndAfter {
 
- /* override def beforeAll = {
-    try {
-      println("start BEFORE ALL")
-      createKeyspace
-      println("beforeAll - keyspace created")
-    } catch {
-      case e: Exception => println("beforeAll createKeyspace fail. continue")
-    }
-
-    try {
-      truncateColumnFamilies
-      println("beforeAll - column families truncated")
-    } catch {
-      case e: Exception => println("beforeAll truncateColumnFamilies fail. continue")
-    }
-
-    try {
-      createColumnFamilies
-      println("beforeAll - column families created")
-    } catch {
-      case e: Exception => println("beforeAll createColumnFamilies fail. continue")
-    }
-  }
-
-  override def afterAll = {
-    println("AFTER ALL")
-    //dropKeyspace
-  }*/
-
   override def beforeAll = {
-    Try {
-      dropKeyspace
-    }
+    createKeyspace
 
-    Try {
-      createKeyspace
-    }
+    createColumnFamilies
 
-    Try {
-      createColumnFamilies
-    }
-
+    truncateColumnFamilies
   }
 
+  after {
+    truncateColumnFamilies
+  }
 
-  private def createKeyspace = {
+  private def createKeyspace = Try {
     val keyspace = Map("strategy_options" -> Map("replication_factor" -> "1").asJava, "strategy_class" -> "SimpleStrategy")
     val result = Cassandra.keyspace.createKeyspaceIfNotExists(keyspace.asJava).getResult();
-    println(s"Result from create keyspace $result")
     result.getSchemaId()
   }
 
   def createColumnFamilies
 
-  private def dropKeyspace = Cassandra.keyspace.dropKeyspace().getResult
+  private def dropKeyspace = {
+    val result = Cassandra.keyspace.dropKeyspace().getResult
+  }
 
-
-  after {
-    Try {
-      truncateColumnFamilies
+  private def truncateColumnFamilies = Try {
+    foreachColumnFamily {
+      Cassandra.keyspace.truncateColumnFamily(_)
     }
   }
 
-  private def truncateColumnFamilies = foreachColumnFamily { Cassandra.keyspace.truncateColumnFamily(_) }
-
-  def foreachColumnFamily(f: ColumnFamily[String,java.lang.Long] => OperationResult[_])
+  def foreachColumnFamily(f: ColumnFamily[String, java.lang.Long] => OperationResult[_])
 }

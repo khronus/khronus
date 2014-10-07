@@ -7,10 +7,12 @@ import com.netflix.astyanax.model.ColumnFamily
 import org.scalatest.{BeforeAndAfter, Matchers, BeforeAndAfterAll, FunSuite}
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
+import scala.util.Try
 
 class CassandraStatisticSummaryStoreTest extends FunSuite with BaseIntegrationTest with Config with Matchers{
 
   test("An StatisticSummary should be capable of serialize and deserialize from Cassandra") {
+    println("ejecutando test")
     val summary = StatisticSummary(1,50,50,50,90,99,100,50,100,20,50)
     val summaries = Seq(summary)
     CassandraStatisticSummaryStore.store("testMetric", 30 seconds, summaries)
@@ -24,7 +26,7 @@ class CassandraStatisticSummaryStoreTest extends FunSuite with BaseIntegrationTe
     CassandraStatisticSummaryStore.columnFamilies.values.foreach{ cf => val or = f(cf); or.getResult }
   }
 
-  def createColumnFamilies = {
+  override def createColumnFamilies = Try {
     CassandraStatisticSummaryStore.columnFamilies.values.foreach{ cf =>
       Cassandra.keyspace.createColumnFamily(cf, Map[String,Object]().asJava)
     }
