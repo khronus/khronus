@@ -26,7 +26,8 @@ libraryDependencies ++= {
     "com.typesafe.akka"   %%  "akka-contrib"              % "2.3.6",
     "com.typesafe.akka"   %%  "akka-multi-node-testkit"   % akkaV         % "test",
     "org.scalatest"       %%  "scalatest"                 % "2.2.1"       % "test",
-    "us.theatr"           %% "akka-quartz"                % "0.3.0",
+    "org.specs2"          %%  "specs2-core"               % "2.3.11"      % "test",
+    "us.theatr"           %%  "akka-quartz"               % "0.3.0",
     "org.hdrhistogram"    %   "HdrHistogram"              % "1.2.1"
   )
 }
