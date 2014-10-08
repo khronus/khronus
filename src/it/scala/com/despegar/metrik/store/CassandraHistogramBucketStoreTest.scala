@@ -2,17 +2,16 @@ package com.despegar.metrik.store
 
 import com.despegar.metrik.model.HistogramBucket
 import com.despegar.metrik.util.{BaseIntegrationTest, Config}
-import com.netflix.astyanax.Keyspace
 import com.netflix.astyanax.connectionpool.OperationResult
 import org.HdrHistogram.Histogram
-import org.scalatest.{ BeforeAndAfterAll, FunSuite }
+import org.scalatest.{ FunSuite }
 import scala.collection.JavaConverters._
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
-import java.util.HashMap
 import org.scalatest.Matchers
 import scala.util.{Try, Random}
 import com.netflix.astyanax.model.ColumnFamily
-import org.scalatest.BeforeAndAfter
+import scala.concurrent.ExecutionContext.Implicits.global
 
 class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTest with Config with Matchers {
 
@@ -21,10 +20,11 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
     fill(histogram)
     val buckets = Seq(HistogramBucket(30, 30 seconds, histogram))
     CassandraHistogramBucketStore.store("testMetric", 30 seconds, buckets)
-    val bucketsFromCassandra = CassandraHistogramBucketStore.sliceUntilNow("testMetric", 30 seconds)
+
+    val bucketsFromCassandra = Await.result(CassandraHistogramBucketStore.sliceUntilNow("testMetric", 30 seconds), 10 seconds)
     val bucketFromCassandra = bucketsFromCassandra(0)
-    
-    histogram shouldEqual bucketFromCassandra.histogram 
+
+    histogram shouldEqual bucketFromCassandra.histogram
   }
   
   test("should not retrieve buckets from the future") {
@@ -36,7 +36,7 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
     val buckets = Seq(bucketFromThePast, bucketFromTheFuture)
     
     CassandraHistogramBucketStore.store("testMetric", 30 seconds, buckets)
-    val bucketsFromCassandra = CassandraHistogramBucketStore.sliceUntilNow("testMetric", 30 seconds)
+    val bucketsFromCassandra = Await.result(CassandraHistogramBucketStore.sliceUntilNow("testMetric", 30 seconds), 10 seconds)
     
     bucketsFromCassandra should have length 1
     bucketsFromCassandra(0) shouldEqual bucketFromThePast
@@ -50,7 +50,7 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
     
     CassandraHistogramBucketStore.remove("testMetric", 30 seconds, Seq(bucket1, bucket2))
     
-    val bucketsFromCassandra = CassandraHistogramBucketStore.sliceUntilNow("testMetric", 30 seconds)
+    val bucketsFromCassandra = Await.result(CassandraHistogramBucketStore.sliceUntilNow("testMetric", 30 seconds), 10 seconds)
     
     bucketsFromCassandra should be ('empty)
   }

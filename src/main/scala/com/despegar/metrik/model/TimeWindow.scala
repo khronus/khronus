@@ -1,9 +1,9 @@
 package com.despegar.metrik.model
 
 import com.despegar.metrik.store.{CassandraStatisticSummaryStore, StatisticSummaryStore, CassandraHistogramBucketStore, HistogramBucketStore}
-import org.HdrHistogram.Histogram
 import scala.concurrent.duration.Duration
 import com.despegar.metrik.model.HistogramBucket._
+import scala.concurrent.ExecutionContext.Implicits.global
 
 trait HistogramBucketSupport {
   def histogramBucketStore: HistogramBucketStore = CassandraHistogramBucketStore
@@ -20,24 +20,24 @@ class TimeWindow(duration: Duration, previousWindowDuration: Duration, shouldSto
     val previousWindowBuckets = histogramBucketStore.sliceUntilNow(metric, previousWindowDuration)
 
     //group histograms in buckets of my window duration
-    val groupedHistogramBuckets = previousWindowBuckets.groupBy(_.timestamp / duration.toMillis)
+    val groupedHistogramBuckets = previousWindowBuckets map (buckets => buckets.groupBy(_.timestamp / duration.toMillis))
 
     //sum histograms on each bucket
-    val resultingBuckets = groupedHistogramBuckets.collect{case (bucketNumber, histogramBuckets) => HistogramBucket(bucketNumber, duration, histogramBuckets)}.toSeq
+    val resultingBuckets = groupedHistogramBuckets map (buckets => buckets.collect{case (bucketNumber, histogramBuckets) => HistogramBucket(bucketNumber, duration, histogramBuckets)}.toSeq)
 
     //store temporal histogram buckets for next window if needed
     if (shouldStoreTemporalHistograms) {
-      histogramBucketStore.store(metric, duration, resultingBuckets)
+      resultingBuckets map (buckets => histogramBucketStore.store(metric, duration, buckets))
     }
 
     //calculate the statistic summaries (percentiles, min, max, etc...)
-    val statisticsSummaries = resultingBuckets.map(_.summary)
+    val statisticsSummaries = resultingBuckets.map(buckets => buckets map (_.summary))
 
     //store the statistic summaries
-    statisticSummaryStore.store(metric, duration, statisticsSummaries)
+    statisticsSummaries map (summaries => statisticSummaryStore.store(metric, duration, summaries))
    
     //remove previous histogram buckets
-    histogramBucketStore.remove(metric, previousWindowDuration, previousWindowBuckets)
+    previousWindowBuckets map (windows => histogramBucketStore.remove(metric, previousWindowDuration, windows))
   }
 
 }

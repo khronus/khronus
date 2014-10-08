@@ -1,18 +1,21 @@
 package com.despegar.metrik.store
 
 import java.nio.ByteBuffer
+import java.util.concurrent.Executors
 import com.despegar.metrik.model.HistogramBucket
 import scala.collection.JavaConverters._
 import org.HdrHistogram.Histogram
 import com.netflix.astyanax.model.ColumnFamily
 import com.netflix.astyanax.serializers.StringSerializer
 import com.netflix.astyanax.serializers.LongSerializer
+import scala.concurrent._
 import scala.concurrent.duration._
 import com.netflix.astyanax.ColumnListMutation
 
+
 trait HistogramBucketStore {
 
-  def sliceUntilNow(metric: String, windowDuration: Duration): Seq[HistogramBucket]
+  def sliceUntilNow(metric: String, windowDuration: Duration):  Future[Seq[HistogramBucket]]
 
   def store(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket])
   
@@ -26,26 +29,32 @@ object CassandraHistogramBucketStore extends HistogramBucketStore {
   val columnFamilies = windowDurations.map(duration => (duration, ColumnFamily.newColumnFamily(getColumnFamilyName(duration), StringSerializer.get(), LongSerializer.get()))).toMap
   val LIMIT = 1000
 
-  def sliceUntilNow(metric: String, windowDuration: Duration): Seq[HistogramBucket] = {
-    val result = Cassandra.keyspace.prepareQuery(columnFamilies(windowDuration)).getKey(getKey(metric, windowDuration))
-    								.withColumnRange(infinite, now, false, LIMIT).execute()
-    result.getResult().asScala.map { column =>
-      val timestamp = column.getName()
-      val histogram = deserializeHistogram(column.getByteBufferValue)
-      HistogramBucket(timestamp / windowDuration.toMillis, windowDuration, histogram)
-    }.toSeq
-  }
+  implicit val asyncExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(50))
 
-  def store(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket]) = {
-    mutate(metric, windowDuration, histogramBuckets) { (mutation, bucket) =>
-      mutation.putColumn(bucket.timestamp, serializeHistogram(bucket.histogram))
+  def sliceUntilNow(metric: String, windowDuration: Duration): Future[Seq[HistogramBucket]] = {
+    val asyncResult = Future {
+      Cassandra.keyspace.prepareQuery(columnFamilies(windowDuration)).getKey(getKey(metric, windowDuration))
+        .withColumnRange(infinite, now, false, LIMIT).execute().getResult().asScala
+    }
+
+    asyncResult map { slice => slice.map { column =>
+        val timestamp = column.getName()
+        val histogram = deserializeHistogram(column.getByteBufferValue)
+        HistogramBucket(timestamp / windowDuration.toMillis, windowDuration, histogram)
+      }.toSeq
     }
   }
 
-  def remove(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket]) = {
-    mutate(metric, windowDuration, histogramBuckets) { (mutation, bucket) =>
-      mutation.deleteColumn(bucket.timestamp)
-    }
+  def store(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket]) =  {
+      mutate(metric, windowDuration, histogramBuckets) { (mutation, bucket) =>
+        mutation.putColumn(bucket.timestamp, serializeHistogram(bucket.histogram))
+      }
+  }
+
+  def remove(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket]) =  {
+      mutate(metric, windowDuration, histogramBuckets) { (mutation, bucket) =>
+        mutation.deleteColumn(bucket.timestamp)
+      }
   }
 
   private def mutate(metric:String, windowDuration:Duration, histogramBuckets: Seq[HistogramBucket])(f: (ColumnListMutation[java.lang.Long],HistogramBucket) => Unit) = {
