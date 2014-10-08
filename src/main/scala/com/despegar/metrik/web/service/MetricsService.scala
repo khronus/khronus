@@ -15,10 +15,13 @@ import com.despegar.metrik.store.HistogramBucketSupport
 import spray.http.StatusCodes._
 import com.despegar.metrik.model.MetricBatch
 import com.despegar.metrik.model.Metric
+import com.despegar.metrik.util.Logging
 
-trait MetricsService extends HttpService with HistogramBucketSupport with MetricSupport {
+trait MetricsService extends HttpService with HistogramBucketSupport with MetricSupport with Logging {
 
-  val metricsRoute =
+  override def loggerName = classOf[MetricsService].getName()
+  
+  val metricsRoute = 
     path("metrik" / "metrics") {
       post {
         entity(as[MetricBatch]) { metricBatch =>
@@ -32,10 +35,14 @@ trait MetricsService extends HttpService with HistogramBucketSupport with Metric
       }
     }
 
-  def store(metrics: List[Metric]) = metrics foreach storeMetric
+  private def store(metrics: List[Metric]) = {
+    log.info(s"Received ${metrics.length} metrics to be stored")
+    metrics foreach storeMetric
+  }
 
-  def storeMetric(metric: Metric) = {
+  private def storeMetric(metric: Metric) = {
     track(metric)
+    log.debug(s"Storing metric $metric")
     metric.mtype match {
       case "timer" => storeHistogramMetric(metric)
       case "gauge" => storeHistogramMetric(metric)
@@ -43,14 +50,19 @@ trait MetricsService extends HttpService with HistogramBucketSupport with Metric
     }
   }
 
-  def track(metric: Metric) = if (isNew(metric)) storeMetadata(metric)
+  private def track(metric: Metric) = if (isNew(metric)) {
+    log.info(s"Got a new metric: $metric. Will store metadata for it")
+    storeMetadata(metric)
+  }
 
-  def storeMetadata(metric: Metric) = metricStore.store(metric)
+  private def storeMetadata(metric: Metric) = metricStore.store(metric)
 
-  def storeHistogramMetric(metric: Metric) = histogramBucketStore.store(metric.name, 1 millis, metric.asHistogramBuckets.filter(!alreadyProcessed(_)))
+  private def storeHistogramMetric(metric: Metric) = {
+    histogramBucketStore.store(metric.name, 1 millis, metric.asHistogramBuckets.filter(!alreadyProcessed(_)))
+  }
 
-  def alreadyProcessed(histogramBucket: HistogramBucket) = false
+  private def alreadyProcessed(histogramBucket: HistogramBucket) = false
 
-  def isNew(metric: Metric) = true
+  private def isNew(metric: Metric) = true
 
 }

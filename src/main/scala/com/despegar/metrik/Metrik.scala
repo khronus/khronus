@@ -1,15 +1,20 @@
-package com.despegar.metrik.util
+package com.despegar.metrik
 
 import akka.actor.{ActorSystem, Props}
 import akka.io.IO
-import akka.pattern.ask
 import akka.util.Timeout
+import akka.pattern.ask
 import spray.can.Http
 import scala.concurrent.duration._
 import com.despegar.metrik.web.service.HandlerActor
+import org.slf4j.LoggerFactory
+import com.typesafe.scalalogging.Logger
+import com.despegar.metrik.util.Logging
 
-object Metrik extends App {
+object Metrik extends App with Logging {
 
+  log.info("Starting Metrik...")
+  
   // we need an ActorSystem to host our application in
   implicit val system = ActorSystem("metrik-system")
 

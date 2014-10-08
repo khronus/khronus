@@ -6,6 +6,8 @@ scalaVersion  := "2.11.2"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 
+net.virtualvoid.sbt.graph.Plugin.graphSettings
+
 libraryDependencies ++= {
   val akkaV = "2.3.5"
   val sprayV = "1.3.1"
@@ -16,16 +18,20 @@ libraryDependencies ++= {
     "io.spray"            	%%  "spray-testkit" 		% sprayV  % "test",
     "io.spray"            	%%  "spray-json"    		% "1.2.6",
     "com.typesafe.akka"   	%%  "akka-actor"    		% akkaV,
+    "com.typesafe.akka"   	%%  "akka-slf4j"    		% akkaV,
     "com.typesafe.akka"   	%%  "akka-testkit"  		% akkaV   % "test",
     "org.specs2"          	%%  "specs2-core"   		% "2.3.11" % "test",
     "org.scalatest"       	%%  "scalatest"     		% "2.2.1" % "test",
     "org.hdrhistogram"    	%   "HdrHistogram"  		% "1.2.1",
     "org.mockito"         	%   "mockito-all"   		% "1.9.5" % "test",
-    "com.netflix.astyanax"	%	"astyanax-core"			%	astyanaxVersion,
-    "com.netflix.astyanax"	%	"astyanax-thrift"		%	astyanaxVersion,
-    "com.netflix.astyanax"	%	"astyanax-cassandra"	%	astyanaxVersion,
+    "com.netflix.astyanax"	%	"astyanax-core"			%	astyanaxVersion excludeAll(ExclusionRule(name = "log4j"), ExclusionRule(name = "slf4j-log4j12")),
+    "com.netflix.astyanax"	%	"astyanax-thrift"		%	astyanaxVersion excludeAll(ExclusionRule(name = "log4j"), ExclusionRule(name = "slf4j-log4j12")),
+    "com.netflix.astyanax"	%	"astyanax-cassandra"	%	astyanaxVersion excludeAll(ExclusionRule(name = "log4j"), ExclusionRule(name = "slf4j-log4j12")),
     "com.typesafe" % "config" % "1.2.1",
-    "com.esotericsoftware.kryo" % "kryo" % "2.24.0"
+    "com.esotericsoftware.kryo" % "kryo" % "2.24.0",
+    "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
+    "org.slf4j" % "slf4j-api" % "1.7.7",
+    "ch.qos.logback" % "logback-classic" % "1.1.2"
   )
 }
 

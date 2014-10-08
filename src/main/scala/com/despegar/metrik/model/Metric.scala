@@ -8,6 +8,8 @@ import org.HdrHistogram.Histogram
 
 case class Metric(name: String, mtype: String, measurements: List[Measurement]) {
 
+  override def toString = s"Metric($name,$mtype)"
+  
   def asHistogramBuckets = measurements.map(measurement => HistogramBucket(measurement.ts, 1 millis, histogramOf(measurement.values)))
 
   private def histogramOf(values: Seq[Long]): Histogram = {

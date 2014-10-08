@@ -17,9 +17,12 @@ class TimeWindow(duration: Duration, previousWindowDuration: Duration, shouldSto
 
     //group histograms in buckets of my window duration
     val groupedHistogramBuckets = previousWindowBuckets map (buckets => buckets.groupBy(_.timestamp / duration.toMillis))
+    
+    //filter out buckets already processed. we don't want to override our precious buckets with late data
+    val filteredGroupedHistogramBuckets = groupedHistogramBuckets map ( _.filterNot(alreadyProcessed(metric)) )
 
     //sum histograms on each bucket
-    val resultingBuckets = groupedHistogramBuckets map (buckets => buckets.collect{case (bucketNumber, histogramBuckets) => HistogramBucket(bucketNumber, duration, histogramBuckets)}.toSeq)
+    val resultingBuckets = filteredGroupedHistogramBuckets map (buckets => buckets.collect{case (bucketNumber, histogramBuckets) => HistogramBucket(bucketNumber, duration, histogramBuckets)}.toSeq)
 
     //store temporal histogram buckets for next window if needed
     if (shouldStoreTemporalHistograms) {
@@ -34,6 +37,10 @@ class TimeWindow(duration: Duration, previousWindowDuration: Duration, shouldSto
    
     //remove previous histogram buckets
     previousWindowBuckets map (windows => histogramBucketStore.remove(metric, previousWindowDuration, windows))
+  }
+  
+  private def alreadyProcessed(metric: String): PartialFunction[(Long,Seq[HistogramBucket]), Boolean] = {
+    case (bucketNumber, _) => false //how? a query over the statistics summaries to get the last one? -> yes
   }
 
 }
