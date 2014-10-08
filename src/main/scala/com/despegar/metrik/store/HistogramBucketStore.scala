@@ -18,6 +18,10 @@ trait HistogramBucketStore {
 
 }
 
+trait HistogramBucketSupport {
+  def histogramBucketStore: HistogramBucketStore = CassandraHistogramBucketStore
+}
+
 object CassandraHistogramBucketStore extends HistogramBucketStore {
   //create column family definition for every bucket duration
   val windowDurations:Seq[Duration] = Seq(0 seconds, 30 seconds, 1 minute, 5 minute, 10 minute, 30 minute, 1 hour) //FIXME put configured windows

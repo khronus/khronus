@@ -6,8 +6,9 @@ import org.mockito.Mockito
 import org.scalatest.{FunSuite, FlatSpec}
 import org.scalatest.mock.MockitoSugar
 import org.specs2.mutable.Specification
-
 import scala.concurrent.duration._
+import com.despegar.metrik.store.HistogramBucketSupport
+import com.despegar.metrik.store.StatisticSummarySupport
 
 class TimeWindowTest extends FunSuite with MockitoSugar {
 
