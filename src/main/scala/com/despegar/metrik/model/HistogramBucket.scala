@@ -17,7 +17,7 @@ case class HistogramBucket(bucketNumer: Long, duration: Duration, histogram: His
     val max = histogram.getMaxValue
     val count = histogram.getTotalCount
     val avg = histogram.getMean()
-    StatisticSummary(p50, p80, p90, p95, p99, p999, min, max, count, avg)
+    StatisticSummary(timestamp, p50, p80, p90, p95, p99, p999, min, max, count, avg)
   }
 }
 

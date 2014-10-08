@@ -7,6 +7,7 @@ object B extends Build {
     Project("root", file(".")).
       configs( IntegrationTest ).
       settings( Defaults.itSettings : _*).
+      settings(parallelExecution in IntegrationTest := false).
       settings( libraryDependencies += specs ).
       settings(EclipseKeys.configurations := Set(Compile, Test, IntegrationTest), EclipseKeys.createSrc := EclipseCreateSrc.Default + EclipseCreateSrc.Resource)
 
