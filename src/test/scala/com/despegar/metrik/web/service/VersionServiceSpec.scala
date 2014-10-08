@@ -9,10 +9,10 @@ import com.despegar.metrik.model.MyJsonProtocol._
 import com.despegar.metrik.model.Version
 import spray.httpx.SprayJsonSupport._
 
-class MyServiceSpec extends Specification with Specs2RouteTest with VersionService {
+class VersionServiceSpec extends Specification with Specs2RouteTest with VersionService {
   def actorRefFactory = system
   
-  "MyService" should {
+  "VersionService" should {
 
     "return version for GET requests to the version path" in {
       Get("/metrik/version") ~> versionRoute ~> check {
