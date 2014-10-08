@@ -16,7 +16,6 @@
 
 package com.despegar.metrik.cluster
 
-import akka.actor.SupervisorStrategy.{ Restart, Stop }
 import akka.actor._
 import akka.routing.{ Broadcast, FromConfig }
 import com.despegar.metrik.util.Settings
@@ -31,11 +30,6 @@ class Master extends Actor with ActorLogging {
   var pendingMetrics = Seq[String]()
 
   val settings = Settings(system).Master
-
-  override val supervisorStrategy = OneForOneStrategy() {
-    case _: ActorInitializationException ⇒ Stop
-    case _: Exception                    ⇒ Restart
-  }
 
   self ! Initialize
 

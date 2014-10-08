@@ -16,12 +16,19 @@
 
 package com.despegar.metrik
 
-import akka.actor.ActorRef
+import akka.actor.SupervisorStrategy.Restart
+import akka.actor._
 
 package object cluster {
   case class Register(worker: ActorRef)
   case class Work(metrics: String)
   case class WorkDone(worker: ActorRef)
   case object DiscoverWorkers
+
+  final class RouterSupervisorStrategy extends SupervisorStrategyConfigurator {
+    override def create(): SupervisorStrategy = OneForOneStrategy() {
+      case _: Exception ⇒ Restart
+    }
+  }
 }
 
