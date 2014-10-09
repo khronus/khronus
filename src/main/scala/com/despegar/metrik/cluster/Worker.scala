@@ -16,7 +16,7 @@
 
 package com.despegar.metrik.cluster
 
-import akka.actor.{ Actor, ActorLogging }
+import akka.actor.{ Props, Actor, ActorLogging }
 
 class Worker extends Actor with ActorLogging {
   import context._
@@ -43,4 +43,8 @@ class Worker extends Actor with ActorLogging {
     super.postRestart(reason)
     log.info(s"Restarted because of ${reason.getMessage}")
   }
+}
+
+object Worker {
+  def props: Props = Props(classOf[Worker])
 }
