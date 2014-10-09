@@ -11,7 +11,9 @@
     <appender-ref ref="STDOUT" />
   </appender> 
    
-  <root level="debug">
+  <logger name="com.despegar.metrik" level="debug"/>
+  
+  <root level="info">
     <appender-ref ref="ASYNC" />
   </root>
 </configuration>
