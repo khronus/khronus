@@ -24,11 +24,9 @@ trait BaseIntegrationTest extends FunSuite with BeforeAndAfterAll with BeforeAnd
 
   def await[T](f: => Future[T]):T = Await.result(f, 10 seconds)
   
-  private def truncateColumnFamilies = Try {
-    foreachColumnFamily {
-      Cassandra.keyspace.truncateColumnFamily(_)
-    }
+  def truncateColumnFamilies = Try {
+    foreachColumnFamily( cf => Cassandra.keyspace.truncateColumnFamily(cf))
   }
 
-  def foreachColumnFamily(f: ColumnFamily[String, java.lang.Long] => OperationResult[_])
+  def foreachColumnFamily(f: ColumnFamily[String, java.lang.Long] => OperationResult[_]) = {}
 }

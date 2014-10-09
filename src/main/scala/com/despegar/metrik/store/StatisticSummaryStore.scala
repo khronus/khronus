@@ -42,6 +42,33 @@ object CassandraStatisticSummaryStore extends StatisticSummaryStore {
     serializer.serialize(summary)
   }
   
-  def sliceUntilNow(metric: String, windowDuration: Duration): Future[Seq[StatisticSummary]] = Future(Seq())
-  def store(metric: String, windowDuration: Duration, statisticSummaries: Seq[StatisticSummary]) = Future{}
+  
+  def store(metric: String, windowDuration: Duration, statisticSummaries: Seq[StatisticSummary]) = {
+    Future {
+      val mutation = Cassandra.keyspace.prepareMutationBatch()
+      val colums = mutation.withRow(columnFamilies(windowDuration), getKey(metric, windowDuration))
+      statisticSummaries.foreach(summary => colums.putColumn(summary.timestamp, serializeSummary(summary)))
+
+      mutation.execute
+    }
+  }
+
+
+  def sliceUntilNow(metric: String, windowDuration: Duration): Future[Seq[StatisticSummary]] = {
+    val asyncResult = Future {
+      Cassandra.keyspace.prepareQuery(columnFamilies(windowDuration)).getKey(getKey(metric, windowDuration))
+        .withColumnRange(infinite, now, false, LIMIT).execute().getResult().asScala
+    }
+
+    asyncResult map { slice => slice.map { column =>
+        val timestamp = column.getName()
+        val summary: StatisticSummary = serializer.deserialize(column.getByteArrayValue)
+        summary
+      }.toSeq
+    }
+  }
+
+  private def now = System.currentTimeMillis()
+
+  private def infinite = 1L
 }

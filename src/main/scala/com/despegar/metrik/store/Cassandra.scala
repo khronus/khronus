@@ -39,7 +39,7 @@ object Cassandra extends Config with Logging {
     CassandraHistogramBucketStore.initialize
     CassandraStatisticSummaryStore.initialize
   }
-
+  
   private def initializeKeyspace = {
     Try {
       log.info("Initializing metrik keyspace...")

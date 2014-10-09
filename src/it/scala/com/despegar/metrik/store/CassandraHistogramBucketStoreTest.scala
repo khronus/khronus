@@ -60,7 +60,7 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
     (1 to 10000) foreach { i => histogram.recordValue(Random.nextInt(200)) }
   }
 
-  def foreachColumnFamily(f: ColumnFamily[String,java.lang.Long] => OperationResult[_]) = {
+  override def foreachColumnFamily(f: ColumnFamily[String,java.lang.Long] => OperationResult[_]) = {
     CassandraHistogramBucketStore.columnFamilies.values.foreach{ cf => val or = f(cf); or.getResult }
   }
 

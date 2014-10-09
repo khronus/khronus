@@ -65,7 +65,7 @@ trait MetricsService extends HttpService with HistogramBucketSupport with MetaSu
     }
   }
 
-  private def storeMetadata(metric: Metric) = metaStore.store(metric)
+  private def storeMetadata(metric: Metric) = metaStore.store(metric.name )
 
   private def storeHistogramMetric(metric: Metric) = {
     histogramBucketStore.store(metric.name, 1 millis, metric.asHistogramBuckets.filter(!alreadyProcessed(_)))
