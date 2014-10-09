@@ -25,7 +25,7 @@ trait MetricsService extends HttpService with HistogramBucketSupport with MetaSu
   val metricsRoute =
     path("metrik" / "metrics") {
       post {
-        entity(as[MetricBatch]) { metricBatch =>
+        entity(as[MetricBatch]) { metricBatch ⇒
           respondWithStatus(OK) {
             complete {
               store(metricBatch.metrics)
@@ -45,8 +45,8 @@ trait MetricsService extends HttpService with HistogramBucketSupport with MetaSu
     track(metric)
     log.debug(s"Storing metric $metric")
     metric.mtype match {
-      case ("timer" | "gauge") => storeHistogramMetric(metric)
-      case _ => {
+      case ("timer" | "gauge") ⇒ storeHistogramMetric(metric)
+      case _ ⇒ {
         val msg = s"Discarding $metric. Unknown metric type: ${metric.mtype}"
         log.warn(msg)
         throw new UnsupportedOperationException(msg)
@@ -55,7 +55,7 @@ trait MetricsService extends HttpService with HistogramBucketSupport with MetaSu
   }
 
   private def track(metric: Metric) = {
-    isNew(metric) map { isNew =>
+    isNew(metric) map { isNew ⇒
       if (isNew) {
         log.info(s"Got a new metric: $metric. Will store metadata for it")
         storeMetadata(metric)
@@ -65,7 +65,7 @@ trait MetricsService extends HttpService with HistogramBucketSupport with MetaSu
     }
   }
 
-  private def storeMetadata(metric: Metric) = metaStore.store(metric.name )
+  private def storeMetadata(metric: Metric) = metaStore.store(metric.name)
 
   private def storeHistogramMetric(metric: Metric) = {
     histogramBucketStore.store(metric.name, 1 millis, metric.asHistogramBuckets.filter(!alreadyProcessed(_)))
@@ -74,6 +74,6 @@ trait MetricsService extends HttpService with HistogramBucketSupport with MetaSu
   private def alreadyProcessed(histogramBucket: HistogramBucket) = false //how?
 
   //ok, this has to be improved. maybe scheduling a reload at some interval and only going to meta if not found
-  private def isNew(metric: Metric) = metaStore.retrieveMetrics map { !_.contains(metric.name) }  
+  private def isNew(metric: Metric) = metaStore.retrieveMetrics map { !_.contains(metric.name) }
 
 }

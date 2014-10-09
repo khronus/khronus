@@ -35,19 +35,19 @@ libraryDependencies ++= {
     "org.scalatest"       	      %%  "scalatest"     		        % "2.2.1"       % "test",
     "org.hdrhistogram"    	      %   "HdrHistogram"  		        % "1.2.1",
     "org.mockito"         	      %   "mockito-all"   		        % "1.9.5"       % "test",
-    "com.netflix.astyanax"	      %	"astyanax-core"			          %	astyanaxVersion excludeAll(ExclusionRule(name = "log4j"), ExclusionRule(name = "slf4j-log4j12")),
-    "com.netflix.astyanax"	      %	"astyanax-thrift"		          %	astyanaxVersion excludeAll(ExclusionRule(name = "log4j"), ExclusionRule(name = "slf4j-log4j12")),
-    "com.netflix.astyanax"	      %	"astyanax-cassandra" 	        %	astyanaxVersion excludeAll(ExclusionRule(name = "log4j"), ExclusionRule(name = "slf4j-log4j12")),
-    "com.typesafe"                % "config"                      % "1.2.1",
-    "com.esotericsoftware.kryo"   % "kryo"                        % "2.24.0",
+    "com.netflix.astyanax"	      %	  "astyanax-core"		          %	astyanaxVersion excludeAll(ExclusionRule(name = "log4j"), ExclusionRule(name = "slf4j-log4j12")),
+    "com.netflix.astyanax"	      %	  "astyanax-thrift"	          %	astyanaxVersion excludeAll(ExclusionRule(name = "log4j"), ExclusionRule(name = "slf4j-log4j12")),
+    "com.netflix.astyanax"	      %	  "astyanax-cassandra"        %	astyanaxVersion excludeAll(ExclusionRule(name = "log4j"), ExclusionRule(name = "slf4j-log4j12")),
+    "com.esotericsoftware.kryo"   %   "kryo"                      % "2.24.0",
     "com.typesafe.scala-logging"  %% "scala-logging"              % "3.1.0",
     "org.slf4j"                   % "slf4j-api"                   % "1.7.7",
-    "ch.qos.logback"              % "logback-classic"             % "1.1.2"
+    "ch.qos.logback"              % "logback-classic"             % "1.1.2",
+    "commons-lang"                % "commons-lang"                % "2.6"
   )
 }
 
 lazy val metrik = Project (
-  "metrik",
+  "root",
   file("."),
   settings = Defaults.defaultSettings ++ multiJvmSettings,
   configurations = Configurations.default :+ MultiJvm

@@ -11,7 +11,7 @@ import scala.collection.JavaConverters._
 import scala.util.Try
 
 trait MetaStore {
-  def store(metric: String): Future[Unit] 
+  def store(metric: String): Future[Unit]
   def retrieveMetrics: Future[Seq[String]]
 }
 
@@ -26,7 +26,7 @@ object CassandraMetaStore extends MetaStore with Logging {
   implicit val asyncExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(5))
 
   def initialize = Cassandra.createColumnFamily(columnFamily)
-  
+
   def store(metric: String) = {
     val future = Future {
       val mutationBatch = Cassandra.keyspace.prepareMutationBatch()
@@ -35,7 +35,7 @@ object CassandraMetaStore extends MetaStore with Logging {
       log.info(s"Stored meta for $metric successfully")
     }
     future onFailure {
-      case e: Exception => log.error(s"Failed to store meta for $metric", e)
+      case e: Exception ⇒ log.error(s"Failed to store meta for $metric", e)
     }
     future
   }
@@ -47,7 +47,7 @@ object CassandraMetaStore extends MetaStore with Logging {
       metrics
     }
     future.onFailure {
-      case e: Exception => log.error(s"Failed to retrieve metrics from meta", e)
+      case e: Exception ⇒ log.error(s"Failed to retrieve metrics from meta", e)
     }
     future
   }

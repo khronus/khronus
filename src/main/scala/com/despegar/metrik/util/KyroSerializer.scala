@@ -1,3 +1,19 @@
+/*
+ * =========================================================================================
+ * Copyright © 2014 the metrik project <https://github.com/hotels-tech/metrik>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
+ * except in compliance with the License. You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the
+ * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+ * either express or implied. See the License for the specific language governing permissions
+ * and limitations under the License.
+ * =========================================================================================
+ */
+
 package com.despegar.metrik.util
 
 import java.io.ByteArrayOutputStream
@@ -5,7 +21,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicLong
 
 import com.esotericsoftware.kryo.Kryo
-import com.esotericsoftware.kryo.io.{UnsafeInput, UnsafeOutput}
+import com.esotericsoftware.kryo.io.{ UnsafeInput, UnsafeOutput }
 import org.objenesis.strategy.StdInstantiatorStrategy
 
 trait Serializer[A] {
@@ -15,14 +31,14 @@ trait Serializer[A] {
   def serialize(anObject: A): Array[Byte]
 }
 
-class KryoSerializer[T](name:String, hintedClasses: List[Class[_]] = List.empty) extends Serializer[T] {
+class KryoSerializer[T](name: String, hintedClasses: List[Class[_]] = List.empty) extends Serializer[T] {
 
   val kryoFactory = new Factory[Kryo] {
     def newInstance(): Kryo = {
       val kryo = new Kryo()
       kryo.setReferences(false)
       kryo.setInstantiatorStrategy(new StdInstantiatorStrategy)
-      hintedClasses.foreach( hintedClass => kryo.register(hintedClass))
+      hintedClasses.foreach(hintedClass ⇒ kryo.register(hintedClass))
       kryo
     }
   }
@@ -69,7 +85,7 @@ class KryoPool(name: String, factory: Factory[Kryo], initInstances: Int) {
   val maxInstances = initInstances * 2
   val objects = new ConcurrentLinkedQueue[Kryo]()
 
-  (1 to initInstances) foreach { _ => objects.offer(factory.newInstance())}
+  (1 to initInstances) foreach { _ ⇒ objects.offer(factory.newInstance()) }
   def take(): Kryo = {
     val pooledKryo = objects.poll()
     if (pooledKryo == null) {
@@ -90,7 +106,7 @@ class KryoPool(name: String, factory: Factory[Kryo], initInstances: Int) {
 }
 
 class KryoSerializerFactory {
-  def create[T](name:String, hintedClasses: List[Class[_]]) = {
+  def create[T](name: String, hintedClasses: List[Class[_]]) = {
     new KryoSerializer[T](name, hintedClasses)
   }
 }

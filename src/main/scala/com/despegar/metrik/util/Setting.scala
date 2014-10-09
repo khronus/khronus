@@ -19,11 +19,10 @@ package com.despegar.metrik.util
 import java.util.concurrent.TimeUnit
 
 import akka.actor._
-import com.typesafe.config.Config
 
 import scala.concurrent.duration.FiniteDuration
 
-class Settings(config: Config, extendedSystem: ExtendedActorSystem) extends Extension {
+class Settings(config: com.typesafe.config.Config, extendedSystem: ExtendedActorSystem) extends Extension {
 
   object Master {
     val TickCronExpression = config.getString("metrik.master.tick-expression")

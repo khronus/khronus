@@ -21,9 +21,7 @@ import com.despegar.metrik.cluster.ClusterSupport
 import com.despegar.metrik.web.service.MetrikService
 
 trait ActorSystemSupport {
-  import Settings.Metrik
-
-  implicit lazy val system = ActorSystem(Metrik.ActorSystem)
+  implicit lazy val system = ActorSystem(Settings.Metrik.ActorSystem)
 }
 
-object Boot extends App with ActorSystemSupport with MetrikService with ClusterSupport
+object Metrik extends App with ActorSystemSupport with MetrikService with ClusterSupport
