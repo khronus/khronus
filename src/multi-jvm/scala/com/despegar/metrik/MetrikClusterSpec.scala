@@ -1,24 +1,31 @@
 package com.despegar.metrik.com.despegar.metrik
 
-import akka.actor.{Props, Actor, ActorRef}
+import akka.actor.{ActorRef, Actor, PoisonPill, Props}
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent.{CurrentClusterState, MemberUp}
-import akka.remote.testkit.{MultiNodeSpecCallbacks, MultiNodeConfig, MultiNodeSpec}
+import akka.cluster.routing.{ClusterRouterPoolSettings, ClusterRouterPool}
+import akka.contrib.pattern.ClusterSingletonManager
+import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec, MultiNodeSpecCallbacks}
 import akka.routing.RoundRobinPool
 import akka.testkit.ImplicitSender
-import com.despegar.metrik.cluster.{Master, RouterProvider, WorkDone}
+import com.despegar.metrik.cluster.{RouterProvider, Master}
 import com.typesafe.config.ConfigFactory
 import org.scalatest.{BeforeAndAfterAll, MustMatchers, WordSpecLike}
 
 import scala.concurrent.duration._
 
-class WordsClusterSpecMultiJvmNode1 extends MetrikClusterSpec
-class WordsClusterSpecMultiJvmNode2 extends MetrikClusterSpec
-class WordsClusterSpecMultiJvmNode3 extends MetrikClusterSpec
-class WordsClusterSpecMultiJvmNode4 extends MetrikClusterSpec
+class MetrikClusterSpecMultiJvmNode1 extends MetrikClusterSpec
 
-class MetrikClusterSpec extends MultiNodeSpec(WordsClusterSpecConfig) with STMultiNodeSpec with ImplicitSender{
-  import WordsClusterSpecConfig._
+class MetrikClusterSpecMultiJvmNode2 extends MetrikClusterSpec
+
+class MetrikClusterSpecMultiJvmNode3 extends MetrikClusterSpec
+
+class MetrikClusterSpecMultiJvmNode4 extends MetrikClusterSpec
+
+
+class MetrikClusterSpec extends MultiNodeSpec(MetrikClusterSpecConfig) with STMultiNodeSpec with ImplicitSender {
+
+  import MetrikClusterSpecConfig._
 
   def initialParticipants = roles.size
 
@@ -45,27 +52,28 @@ class MetrikClusterSpec extends MultiNodeSpec(WordsClusterSpecConfig) with STMul
       enterBarrier("cluster-up")
     }
 
-    "process a metric once the cluster is running" in  within(3 seconds) {
-        runOn(master) {
-          system.actorOf(Props(new TestMaster), "Master")
-          expectMsg(WorkDone)
-        }
-        enterBarrier("work-done")
+    "process a metric once the cluster is running" in within(30 seconds) {
+      runOn(seed) {
+        system.actorOf(ClusterSingletonManager.props(Props(new TestMaster), "master", PoisonPill, Some("master")), "singleton-manager")
       }
+      enterBarrier("work-done")
     }
   }
-
-  class TestMaster extends Master with LocalRouterProvider
-
-  trait LocalRouterProvider extends RouterProvider {
-    this: Actor ⇒
-
-    override def createRouter: ActorRef = {
-      context.actorOf(RoundRobinPool(1).props(com.despegar.metrik.cluster.Worker.props), "worker-router")
-    }
 }
 
-object WordsClusterSpecConfig extends MultiNodeConfig {
+class TestMaster extends Master with LocalRouterProvider
+
+trait LocalRouterProvider extends RouterProvider {
+  this: Actor ⇒
+
+  override def createRouter: ActorRef = {
+    context.actorOf(ClusterRouterPool(RoundRobinPool(10), ClusterRouterPoolSettings(
+      totalInstances = 100, maxInstancesPerNode = 20,
+      allowLocalRoutees = true, useRole = None)).props(com.despegar.metrik.cluster.Worker.props), "worker-router")
+  }
+}
+
+object MetrikClusterSpecConfig extends MultiNodeConfig {
 
   val seed = role("seed")
   val master = role("master")
@@ -75,12 +83,11 @@ object WordsClusterSpecConfig extends MultiNodeConfig {
   commonConfig(ConfigFactory.parseString(
     """
       | akka.actor.provider="akka.cluster.ClusterActorRefProvider"
-      | akka.cluster.auto-join = off
-      | akka.cluster.auto-down = on
       | akka.loggers = ["akka.testkit.TestEventListener"]
       | akka.loglevel = INFO
       | akka.remote.log-remote-lifecycle-events = off
       | akka.log-dead-letters = off
+      | akka.cluster.auto-down-unreachable-after = 0s
       |
       | metrik {
       |   master {
@@ -90,6 +97,8 @@ object WordsClusterSpecConfig extends MultiNodeConfig {
       |   }
       |}
     """.stripMargin))
+
+  nodeConfig(seed, master)(ConfigFactory.parseString("akka.cluster.roles =[master]"))
 }
 
 trait STMultiNodeSpec extends MultiNodeSpecCallbacks with WordSpecLike with MustMatchers with BeforeAndAfterAll {
