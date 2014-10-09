@@ -21,7 +21,7 @@ import akka.routing.{ Broadcast, FromConfig }
 import com.despegar.metrik.util.Settings
 import us.theatr.akka.quartz.{ AddCronScheduleFailure, _ }
 
-class Master extends Actor with ActorLogging {
+class Master extends Actor with ActorLogging with RouterProvider {
 
   import Master._
   import context._
@@ -37,10 +37,10 @@ class Master extends Actor with ActorLogging {
 
   def uninitialized: Receive = {
     case Initialize ⇒
-      val router = actorOf(Props[Worker].withRouter(FromConfig()), "workerRouter")
+      val router = createRouter()
       val tickScheduler = actorOf(Props[QuartzActor])
 
-      system.scheduler.schedule(settings.DiscoveryStartDelay, settings.DiscoveryInterval, router, Broadcast(DiscoverWorkers))
+      system.scheduler.schedule(settings.DiscoveryStartDelay, settings.DiscoveryInterval, router, Broadcast(Heartbeat))
       tickScheduler ! AddCronSchedule(self, settings.TickCronExpression, Tick, true)
 
       become(initialized(router))
@@ -85,9 +85,17 @@ class Master extends Actor with ActorLogging {
 }
 
 object Master {
-  case object Tick
+  case class Tick()
   case class Initialize(cronExpression: String, router: ActorRef)
   case class MasterConfig(cronExpression: String)
 
   def props: Props = Props(classOf[Master])
+}
+
+trait RouterProvider {
+  this: Actor ⇒
+
+  def createRouter(): ActorRef = {
+    context.actorOf(Props[Worker].withRouter(FromConfig()), "workerRouter")
+  }
 }

@@ -24,7 +24,7 @@ class Worker extends Actor with ActorLogging {
   def receive: Receive = idle
 
   def idle: Receive = {
-    case DiscoverWorkers ⇒
+    case Heartbeat ⇒
       sender ! Register(self)
       become(ready)
       log.info("Worker ready to work: [{}]", self.path)
@@ -33,9 +33,14 @@ class Worker extends Actor with ActorLogging {
   def ready: Receive = {
     case Work(metric) ⇒
       log.info("Starting to process Metric: [{}]", metric)
-      Thread.sleep(10000)
+      Thread.sleep(1000)
       sender() ! WorkDone(self)
 
     case everythingElse ⇒ //ignore
+  }
+
+  override def postRestart(reason: Throwable): Unit = {
+    super.postRestart(reason)
+    log.info(s"Restarted because of ${reason.getMessage}")
   }
 }
