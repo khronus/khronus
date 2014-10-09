@@ -8,11 +8,13 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import com.despegar.metrik.store.HistogramBucketSupport
 import com.despegar.metrik.store.StatisticSummarySupport
 import scala.concurrent.duration._
+import com.despegar.metrik.util.Logging
 
 
-case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true) extends HistogramBucketSupport with StatisticSummarySupport {
+case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true) extends HistogramBucketSupport with StatisticSummarySupport with Logging {
 
   def process(metric: String) = {
+    log.debug(s"Processing window of $duration for metric $metric...")
     //retrieve the temporal histogram buckets from previous window
     val previousWindowBuckets = histogramBucketStore.sliceUntilNow(metric, previousWindowDuration)
 
