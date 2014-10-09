@@ -23,7 +23,7 @@ package object cluster {
   case class Register(worker: ActorRef)
   case class Work(metrics: String)
   case class WorkDone(worker: ActorRef)
-  case object DiscoverWorkers
+  case object Heartbeat
 
   final class RouterSupervisorStrategy extends SupervisorStrategyConfigurator {
     override def create(): SupervisorStrategy = OneForOneStrategy() {

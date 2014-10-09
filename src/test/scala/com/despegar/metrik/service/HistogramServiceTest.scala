@@ -12,7 +12,7 @@ class HistogramServiceTest extends Specification {
       histo.recordTime(3000)
       histo.recordTime(1000)
 
-      histo.getMax() mustEqual(3000)
+      histo.getMax() mustEqual (3000)
     }
 
     "return 50% percentile time recorded for getPercentile" in {
@@ -21,7 +21,7 @@ class HistogramServiceTest extends Specification {
       histo.recordTime(3000)
       histo.recordTime(1000)
 
-      histo.getPercentile(50) mustEqual(2000)
+      histo.getPercentile(50) mustEqual (2000)
     }
   }
 }
