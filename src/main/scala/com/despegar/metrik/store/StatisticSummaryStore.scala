@@ -32,6 +32,8 @@ object CassandraStatisticSummaryStore extends StatisticSummaryStore {
 
   val serializer: KryoSerializer[StatisticSummary] = new KryoSerializer("statistic", List(StatisticSummary.getClass))
 
+  def initialize = columnFamilies.foreach(cf => Cassandra.createColumnFamily(cf._2))
+  
   private def getColumnFamilyName(duration: Duration) = s"summary${duration.length}${duration.unit}"
 
   private def getKey(metric: String, windowDuration: Duration): String = s"$metric.${windowDuration.length}${windowDuration.unit}"

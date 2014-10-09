@@ -10,10 +10,18 @@ import com.despegar.metrik.web.service.HandlerActor
 import org.slf4j.LoggerFactory
 import com.typesafe.scalalogging.Logger
 import com.despegar.metrik.util.Logging
+import com.despegar.metrik.store.Cassandra
+import com.despegar.metrik.store.HistogramBucketStore
+import com.despegar.metrik.store.CassandraHistogramBucketStore
+import com.despegar.metrik.store.StatisticSummaryStore
+import com.despegar.metrik.store.CassandraMetaStore
+import com.despegar.metrik.store.CassandraStatisticSummaryStore
 
 object Metrik extends App with Logging {
 
   log.info("Starting Metrik...")
+  
+  Cassandra initialize
   
   // we need an ActorSystem to host our application in
   implicit val system = ActorSystem("metrik-system")

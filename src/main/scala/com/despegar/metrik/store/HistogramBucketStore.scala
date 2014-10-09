@@ -32,10 +32,13 @@ object CassandraHistogramBucketStore extends HistogramBucketStore with Logging {
   //create column family definition for every bucket duration
   val windowDurations: Seq[Duration] = Seq(1 millis, 30 seconds, 1 minute, 5 minute, 10 minute, 30 minute, 1 hour) //FIXME put configured windows
   val columnFamilies = windowDurations.map(duration => (duration, ColumnFamily.newColumnFamily(getColumnFamilyName(duration), StringSerializer.get(), LongSerializer.get()))).toMap
+
   val LIMIT = 1000
 
   implicit val asyncExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(50))
 
+  def initialize = columnFamilies.foreach(cf => Cassandra.createColumnFamily(cf._2))
+  
   def sliceUntilNow(metric: String, windowDuration: Duration): Future[Seq[HistogramBucket]] = {
     Future {
       executeSlice(metric, windowDuration)
@@ -61,16 +64,22 @@ object CassandraHistogramBucketStore extends HistogramBucketStore with Logging {
   }
 
   def remove(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket]) = {
+    log.debug(s"Removing ${histogramBuckets.length} histogram buckets for metric $metric in window $windowDuration")
     mutate(metric, windowDuration, histogramBuckets) { (mutation, bucket) =>
       mutation.deleteColumn(bucket.timestamp)
     }
   }
 
   private def mutate(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket])(f: (ColumnListMutation[java.lang.Long], HistogramBucket) => Unit) = {
-    val mutationBatch = Cassandra.keyspace.prepareMutationBatch()
-    val mutation = mutationBatch.withRow(columnFamilies(windowDuration), getKey(metric, windowDuration))
-    histogramBuckets.foreach(f(mutation, _))
-    mutationBatch.execute
+    Future {
+      val mutationBatch = Cassandra.keyspace.prepareMutationBatch()
+      val mutation = mutationBatch.withRow(columnFamilies(windowDuration), getKey(metric, windowDuration))
+      histogramBuckets.foreach(f(mutation, _))
+      mutationBatch.execute
+      log.debug("Mutation successful")
+    } onFailure {
+      case e: Exception => log.error("Mutation failed", e)
+    }
   }
 
   private def getColumnFamilyName(duration: Duration) = s"bucket${duration.length}${duration.unit}"

@@ -10,18 +10,19 @@ import org.HdrHistogram.Histogram
 import com.despegar.metrik.store.CassandraHistogramBucketStore
 import com.despegar.metrik.model.HistogramBucket
 import scala.concurrent.duration._
-import com.despegar.metrik.store.MetricSupport
 import com.despegar.metrik.store.HistogramBucketSupport
 import spray.http.StatusCodes._
 import com.despegar.metrik.model.MetricBatch
 import com.despegar.metrik.model.Metric
 import com.despegar.metrik.util.Logging
+import com.despegar.metrik.store.MetaSupport
+import scala.concurrent.ExecutionContext.Implicits.global
 
-trait MetricsService extends HttpService with HistogramBucketSupport with MetricSupport with Logging {
+trait MetricsService extends HttpService with HistogramBucketSupport with MetaSupport with Logging {
 
   override def loggerName = classOf[MetricsService].getName()
-  
-  val metricsRoute = 
+
+  val metricsRoute =
     path("metrik" / "metrics") {
       post {
         entity(as[MetricBatch]) { metricBatch =>
@@ -44,25 +45,35 @@ trait MetricsService extends HttpService with HistogramBucketSupport with Metric
     track(metric)
     log.debug(s"Storing metric $metric")
     metric.mtype match {
-      case "timer" => storeHistogramMetric(metric)
-      case "gauge" => storeHistogramMetric(metric)
-      case "counter" => throw new UnsupportedOperationException("Counters not yet supported")
+      case ("timer" | "gauge") => storeHistogramMetric(metric)
+      case _ => {
+        val msg = s"Discarding $metric. Unknown metric type: ${metric.mtype}"
+        log.warn(msg)
+        throw new UnsupportedOperationException(msg)
+      }
     }
   }
 
-  private def track(metric: Metric) = if (isNew(metric)) {
-    log.info(s"Got a new metric: $metric. Will store metadata for it")
-    storeMetadata(metric)
+  private def track(metric: Metric) = {
+    isNew(metric) map { isNew =>
+      if (isNew) {
+        log.info(s"Got a new metric: $metric. Will store metadata for it")
+        storeMetadata(metric)
+      } else {
+        log.info(s"$metric is already known. No need to store meta for it")
+      }
+    }
   }
 
-  private def storeMetadata(metric: Metric) = metricStore.store(metric)
+  private def storeMetadata(metric: Metric) = metaStore.store(metric)
 
   private def storeHistogramMetric(metric: Metric) = {
     histogramBucketStore.store(metric.name, 1 millis, metric.asHistogramBuckets.filter(!alreadyProcessed(_)))
   }
 
-  private def alreadyProcessed(histogramBucket: HistogramBucket) = false
+  private def alreadyProcessed(histogramBucket: HistogramBucket) = false //how?
 
-  private def isNew(metric: Metric) = true
+  //ok, this has to be improved. maybe scheduling a reload at some interval and only going to meta if not found
+  private def isNew(metric: Metric) = metaStore.retrieveMetrics map { !_.contains(metric.name) }  
 
 }

@@ -12,8 +12,10 @@ import com.netflix.astyanax.serializers.StringSerializer
 import com.netflix.astyanax.serializers.LongSerializer
 import scala.collection.JavaConverters._
 import com.netflix.astyanax.model.Column
+import scala.util.Try
+import com.despegar.metrik.util.Logging
 
-object Cassandra extends Config {
+object Cassandra extends Config with Logging {
 
   private val context = new AstyanaxContext.Builder()
     .forCluster(config.getString("cassandra.cluster"))
@@ -28,7 +30,29 @@ object Cassandra extends Config {
     .buildKeyspace(ThriftFamilyFactory.getInstance())
 
   context.start()
-  
+
   val keyspace = context.getClient()
+
+  def initialize = {
+    initializeKeyspace
+    CassandraMetaStore.initialize
+    CassandraHistogramBucketStore.initialize
+    CassandraStatisticSummaryStore.initialize
+  }
+
+  private def initializeKeyspace = {
+    Try {
+      log.info("Initializing metrik keyspace...")
+      keyspace.createKeyspaceIfNotExists(
+        Map("strategy_options" -> Map("replication_factor" -> "1").asJava, "strategy_class" -> "SimpleStrategy").asJava)
+        .getResult();
+    }
+  }
+
+  def createColumnFamily[T, U](columnFamily: ColumnFamily[T, U]) = Try {
+    log.info(s"Initializing columnFamily[${columnFamily.getName()}]...")
+    keyspace.createColumnFamily(columnFamily, Map[String, Object]().asJava)
+    log.info(s"columnFamily[${columnFamily.getName()}] created successfully")
+  }
 
 }
