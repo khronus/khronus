@@ -1,39 +1,29 @@
-package com.despegar.metrik
+/*
+ * =========================================================================================
+ * Copyright © 2014 the metrik project <https://github.com/hotels-tech/metrik>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
+ * except in compliance with the License. You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the
+ * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+ * either express or implied. See the License for the specific language governing permissions
+ * and limitations under the License.
+ * =========================================================================================
+ */
 
-import akka.actor.{ActorSystem, Props}
-import akka.io.IO
-import akka.util.Timeout
-import akka.pattern.ask
-import spray.can.Http
-import scala.concurrent.duration._
-import com.despegar.metrik.web.service.HandlerActor
-import org.slf4j.LoggerFactory
-import com.typesafe.scalalogging.Logger
-import com.despegar.metrik.util.Logging
-import com.despegar.metrik.store.Cassandra
-import com.despegar.metrik.store.HistogramBucketStore
-import com.despegar.metrik.store.CassandraHistogramBucketStore
-import com.despegar.metrik.store.StatisticSummaryStore
-import com.despegar.metrik.store.CassandraMetaStore
-import com.despegar.metrik.store.CassandraStatisticSummaryStore
+package com.despegar.metrik.util
 
-object Metrik extends App with Logging {
+import akka.actor._
+import com.despegar.metrik.cluster.ClusterSupport
+import com.despegar.metrik.web.service.MetrikService
 
-  log.info("Starting Metrik...")
-  
-  Cassandra initialize
-  
-  // we need an ActorSystem to host our application in
-  implicit val system = ActorSystem("metrik-system")
+trait ActorSystemSupport {
+  import Settings.Metrik
 
-  // create and start our service actor
-  val handler = system.actorOf(Props[HandlerActor], "handler-actor")
-
-  implicit val timeout = Timeout(5.seconds)
-  // start a new HTTP server on port 8080 with our service actor as the handler
-  IO(Http) ? Http.Bind(handler, interface = "localhost", port = 8080)
+  implicit lazy val system = ActorSystem(Metrik.ActorSystem)
 }
 
-
-val system = ActorSystem("metrik-system")
-
+object Boot extends App with ActorSystemSupport with MetrikService with ClusterSupport

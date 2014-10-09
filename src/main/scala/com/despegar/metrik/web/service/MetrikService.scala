@@ -8,7 +8,7 @@ import spray.can.Http
 trait MetrikService {
   this: ActorSystemSupport ⇒
 
-  val service = system.actorOf(Props[VersionActor], "version-service")
+  val service = system.actorOf(Props[HandlerActor], "version-service")
 
   IO(Http) ! Http.Bind(service, Settings(system).Http.Interface, Settings(system).Http.Port)
 }
