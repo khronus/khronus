@@ -18,9 +18,9 @@ trait HistogramBucketStore {
 
   def sliceUntilNow(metric: String, windowDuration: Duration): Future[Seq[HistogramBucket]]
 
-  def store(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket])
+  def store(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket]): Future[Unit]
 
-  def remove(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket])
+  def remove(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket]): Future[Unit]
 
 }
 
@@ -71,15 +71,17 @@ object CassandraHistogramBucketStore extends HistogramBucketStore with Logging {
   }
 
   private def mutate(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket])(f: (ColumnListMutation[java.lang.Long], HistogramBucket) => Unit) = {
-    Future {
+    val future = Future {
       val mutationBatch = Cassandra.keyspace.prepareMutationBatch()
       val mutation = mutationBatch.withRow(columnFamilies(windowDuration), getKey(metric, windowDuration))
       histogramBuckets.foreach(f(mutation, _))
       mutationBatch.execute
       log.debug("Mutation successful")
-    } onFailure {
+    } 
+    future onFailure {
       case e: Exception => log.error("Mutation failed", e)
     }
+    future
   }
 
   private def getColumnFamilyName(duration: Duration) = s"bucket${duration.length}${duration.unit}"

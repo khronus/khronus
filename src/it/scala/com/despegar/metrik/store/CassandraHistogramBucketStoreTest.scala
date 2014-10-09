@@ -19,9 +19,9 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
     val histogram = HistogramBucket.newHistogram
     fill(histogram)
     val buckets = Seq(HistogramBucket(30, 30 seconds, histogram))
-    CassandraHistogramBucketStore.store("testMetric", 30 seconds, buckets)
+    await { CassandraHistogramBucketStore.store("testMetric", 30 seconds, buckets) }
 
-    val bucketsFromCassandra = Await.result(CassandraHistogramBucketStore.sliceUntilNow("testMetric", 30 seconds), 10 seconds)
+    val bucketsFromCassandra = await {  CassandraHistogramBucketStore.sliceUntilNow("testMetric", 30 seconds) }
     val bucketFromCassandra = bucketsFromCassandra(0)
 
     histogram shouldEqual bucketFromCassandra.histogram
@@ -35,8 +35,9 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
     
     val buckets = Seq(bucketFromThePast, bucketFromTheFuture)
     
-    CassandraHistogramBucketStore.store("testMetric", 30 seconds, buckets)
-    val bucketsFromCassandra = Await.result(CassandraHistogramBucketStore.sliceUntilNow("testMetric", 30 seconds), 10 seconds)
+    await { CassandraHistogramBucketStore.store("testMetric", 30 seconds, buckets) }
+    
+    val bucketsFromCassandra = await { CassandraHistogramBucketStore.sliceUntilNow("testMetric", 30 seconds) }
     
     bucketsFromCassandra should have length 1
     bucketsFromCassandra(0) shouldEqual bucketFromThePast
@@ -46,11 +47,11 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
     val bucket1 = HistogramBucket(1, 30 seconds, HistogramBucket.newHistogram)
     val bucket2 = HistogramBucket(2, 30 seconds, HistogramBucket.newHistogram)
     
-    CassandraHistogramBucketStore.store("testMetric", 30 seconds, Seq(bucket1, bucket2))
+    await { CassandraHistogramBucketStore.store("testMetric", 30 seconds, Seq(bucket1, bucket2)) }
     
-    CassandraHistogramBucketStore.remove("testMetric", 30 seconds, Seq(bucket1, bucket2))
-    
-    val bucketsFromCassandra = Await.result(CassandraHistogramBucketStore.sliceUntilNow("testMetric", 30 seconds), 10 seconds)
+    await { CassandraHistogramBucketStore.remove("testMetric", 30 seconds, Seq(bucket1, bucket2)) }
+
+    val bucketsFromCassandra = await { CassandraHistogramBucketStore.sliceUntilNow("testMetric", 30 seconds) }
     
     bucketsFromCassandra should be ('empty)
   }
@@ -63,9 +64,4 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
     CassandraHistogramBucketStore.columnFamilies.values.foreach{ cf => val or = f(cf); or.getResult }
   }
 
-  override def createColumnFamilies = Try {
-    CassandraHistogramBucketStore.columnFamilies.values.foreach{ cf =>
-      Cassandra.keyspace.createColumnFamily(cf, Map[String,Object]().asJava)
-    }
-  }
 }

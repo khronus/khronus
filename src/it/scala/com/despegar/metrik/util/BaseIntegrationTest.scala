@@ -6,13 +6,14 @@ import com.netflix.astyanax.model.ColumnFamily
 import org.scalatest.{BeforeAndAfter, FunSuite, BeforeAndAfterAll}
 import scala.collection.JavaConverters._
 import scala.util.Try
+import scala.concurrent.Future
+import scala.concurrent.Await
+import scala.concurrent.duration._
 
 trait BaseIntegrationTest extends FunSuite with BeforeAndAfterAll with BeforeAndAfter {
 
   override def beforeAll = {
-    createKeyspace
-
-    createColumnFamilies
+    Cassandra initialize
 
     truncateColumnFamilies
   }
@@ -21,18 +22,8 @@ trait BaseIntegrationTest extends FunSuite with BeforeAndAfterAll with BeforeAnd
     truncateColumnFamilies
   }
 
-  private def createKeyspace = Try {
-    val keyspace = Map("strategy_options" -> Map("replication_factor" -> "1").asJava, "strategy_class" -> "SimpleStrategy")
-    val result = Cassandra.keyspace.createKeyspaceIfNotExists(keyspace.asJava).getResult();
-    result.getSchemaId()
-  }
-
-  def createColumnFamilies
-
-  private def dropKeyspace = {
-    val result = Cassandra.keyspace.dropKeyspace().getResult
-  }
-
+  def await[T](f: => Future[T]):T = Await.result(f, 10 seconds)
+  
   private def truncateColumnFamilies = Try {
     foreachColumnFamily {
       Cassandra.keyspace.truncateColumnFamily(_)

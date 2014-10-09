@@ -16,8 +16,8 @@ class CassandraStatisticSummaryStoreTest extends FunSuite with BaseIntegrationTe
   test("An StatisticSummary should be capable of serialize and deserialize from Cassandra") {
     val summary = StatisticSummary(1,50,50,50,90,99,100,50,100,20,50)
     val summaries = Seq(summary)
-    CassandraStatisticSummaryStore.store("testMetric", 30 seconds, summaries)
-    val bucketsFromCassandra = Await.result(CassandraStatisticSummaryStore.sliceUntilNow("testMetric", 30 seconds), 10 seconds)
+    await { CassandraStatisticSummaryStore.store("testMetric", 30 seconds, summaries) }
+    val bucketsFromCassandra = await { CassandraStatisticSummaryStore.sliceUntilNow("testMetric", 30 seconds) }
     val summaryFromCassandra = bucketsFromCassandra(0)
 
     summary shouldEqual summaryFromCassandra
@@ -27,9 +27,4 @@ class CassandraStatisticSummaryStoreTest extends FunSuite with BaseIntegrationTe
     CassandraStatisticSummaryStore.columnFamilies.values.foreach{ cf => val or = f(cf); or.getResult }
   }
 
-  override def createColumnFamilies = Try {
-    CassandraStatisticSummaryStore.columnFamilies.values.foreach{ cf =>
-      Cassandra.keyspace.createColumnFamily(cf, Map[String,Object]().asJava)
-    }
-  }
 }

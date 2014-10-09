@@ -13,7 +13,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 
 trait StatisticSummaryStore {
-  def store(metric: String, windowDuration: Duration, statisticSummaries: Seq[StatisticSummary])
+  def store(metric: String, windowDuration: Duration, statisticSummaries: Seq[StatisticSummary]): Future[Unit]
   def sliceUntilNow(metric: String, windowDuration: Duration): Future[Seq[StatisticSummary]]
 }
 
@@ -43,5 +43,5 @@ object CassandraStatisticSummaryStore extends StatisticSummaryStore {
   }
   
   def sliceUntilNow(metric: String, windowDuration: Duration): Future[Seq[StatisticSummary]] = Future(Seq())
-  def store(metric: String, windowDuration: Duration, statisticSummaries: Seq[StatisticSummary]) = {}
+  def store(metric: String, windowDuration: Duration, statisticSummaries: Seq[StatisticSummary]) = Future{}
 }
