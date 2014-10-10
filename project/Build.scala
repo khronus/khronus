@@ -2,7 +2,6 @@ import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
 import spray.revolver.RevolverPlugin._
 import sbt.Defaults.itSettings
 import sbtassembly.Plugin._
-import AssemblyKeys._
 import sbt.Keys._
 import sbt._
 
@@ -13,7 +12,7 @@ object Metrik extends Build {
   import Settings._
 
   lazy val root =
-    Project("root", file("."))
+    Project("metrik", file("."))
       .configs(IntegrationTest)
       .configs(MultiJvm)
       .settings(itSettings: _*)
