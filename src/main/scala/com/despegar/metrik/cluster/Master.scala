@@ -20,8 +20,9 @@ import akka.actor._
 import akka.routing.{ Broadcast, FromConfig }
 import com.despegar.metrik.util.Settings
 import us.theatr.akka.quartz.{ AddCronScheduleFailure, _ }
+import scala.concurrent.duration.FiniteDuration
 
-class Master extends Actor with ActorLogging with RouterProvider {
+class Master extends Actor with ActorLogging with RouterProvider with MetricFinder {
 
   import Master._
   import context._
@@ -38,10 +39,9 @@ class Master extends Actor with ActorLogging with RouterProvider {
   def uninitialized: Receive = {
     case Initialize ⇒
       val router = createRouter()
-      val tickScheduler = actorOf(Props[QuartzActor])
 
-      system.scheduler.schedule(settings.DiscoveryStartDelay, settings.DiscoveryInterval, router, Broadcast(Heartbeat))
-      tickScheduler ! AddCronSchedule(self, settings.TickCronExpression, Tick, true)
+      scheduleHeartbeat(router)
+      scheduleTick()
 
       become(initialized(router))
 
@@ -49,11 +49,10 @@ class Master extends Actor with ActorLogging with RouterProvider {
     case everythingElse                 ⇒ //ignore
   }
 
-  def metrics: Seq[String] = Seq("a", "b", "c", "d", "e")
-
   def initialized(router: ActorRef): Receive = {
+
     case Tick ⇒
-      pendingMetrics ++= metrics filterNot (metric ⇒ pendingMetrics contains metric)
+      pendingMetrics ++= lookupMetrics filterNot (metric ⇒ pendingMetrics contains metric)
 
       while (pendingMetrics.nonEmpty && idleWorkers.nonEmpty) {
         val worker = idleWorkers.head
@@ -82,6 +81,16 @@ class Master extends Actor with ActorLogging with RouterProvider {
       log.info("Removing worker [{}] from worker list", worker.path)
       idleWorkers -= worker
   }
+
+  def scheduleHeartbeat(router: ActorRef) {
+    system.scheduler.schedule(settings.DiscoveryStartDelay, settings.DiscoveryInterval, router, Broadcast(Heartbeat))
+  }
+
+  def scheduleTick() {
+    val tickScheduler = actorOf(Props[QuartzActor])
+    tickScheduler ! AddCronSchedule(self, settings.TickCronExpression, Tick, true)
+  }
+
 }
 
 object Master {
@@ -98,4 +107,8 @@ trait RouterProvider {
   def createRouter(): ActorRef = {
     context.actorOf(Props[Worker].withRouter(FromConfig()), "workerRouter")
   }
+}
+
+trait MetricFinder {
+  def lookupMetrics: Seq[String] = Seq("a", "b", "c", "d", "e")
 }
