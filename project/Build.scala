@@ -1,15 +1,34 @@
+import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
+import spray.revolver.RevolverPlugin._
+import sbt.Defaults.itSettings
+import sbtassembly.Plugin._
+import AssemblyKeys._
+import sbt.Keys._
 import sbt._
-import Keys._
-import com.typesafe.sbteclipse.plugin.EclipsePlugin._
 
-object B extends Build {
+object Metrik extends Build {
+
+  import Dependencies._
+  import MultiJVM._
+  import Settings._
+
   lazy val root =
-    Project("root", file(".")).
-      configs( IntegrationTest ).
-      settings( Defaults.itSettings : _*).
-      settings(parallelExecution in IntegrationTest := false).
-      settings( libraryDependencies += specs ).
-      settings(EclipseKeys.configurations := Set(Compile, Test, IntegrationTest), EclipseKeys.createSrc := EclipseCreateSrc.Default + EclipseCreateSrc.Resource)
-
-  lazy val specs = "org.scalatest" %%  "scalatest" % "2.2.1" % "it,test"
+    Project("root", file("."))
+      .configs(IntegrationTest)
+      .configs(MultiJvm)
+      .settings(itSettings: _*)
+      .settings(itExtraSettings: _*)
+      .settings(basicSettings: _*)
+      .settings(formatSettings: _*)
+      .settings(multiJvmSettings: _*)
+      .settings(eclipseSettings:_*)
+      .settings(Revolver.settings:_*)
+      .settings(assemblySettings: _*)
+      .settings(
+        libraryDependencies ++=
+          compile(sprayCan, sprayRouting, sprayTestKit, sprayJson, akkaActor, akkaTestKit, akkaRemote, akkaCluster, akkaContrib, multiNodeTestKit, scalaTest, akkaQuartz,
+            hdrHistogram, specs2, mockito, astyanaxCore, astyanaxThrift, astyanaxCassandra, kryo, scalaLogging, slf4j, logbackClassic, commonsLang) ++
+          test(sprayTestKit, akkaTestKit, multiNodeTestKit, scalaTest, specs2, mockito) ++
+          it(scalaTest)
+      )
 }
