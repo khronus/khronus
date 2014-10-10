@@ -44,4 +44,3 @@ object Settings extends ExtensionId[Settings] with ExtensionIdProvider {
     val ActorSystem = "metrik-system"
   }
 }
-
