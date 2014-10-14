@@ -13,6 +13,13 @@ import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration._
 
 trait StatisticSummaryStore {
+  /**
+   * Get the last summary stored
+   * @param metric key of the metric
+   * @param windowDuration duration of the window to search on
+   * @return
+   */
+  def getLast(metric: String, windowDuration: Duration): Future[StatisticSummary]
   def store(metric: String, windowDuration: Duration, statisticSummaries: Seq[StatisticSummary]): Future[Unit]
   def sliceUntilNow(metric: String, windowDuration: Duration): Future[Seq[StatisticSummary]]
 }
@@ -65,6 +72,10 @@ object CassandraStatisticSummaryStore extends StatisticSummaryStore {
         summary
       }.toSeq
     }
+  }
+
+  override def getLast(metric: String, windowDuration: Duration): Future[StatisticSummary] = {
+    null
   }
 
   private def now = System.currentTimeMillis()
