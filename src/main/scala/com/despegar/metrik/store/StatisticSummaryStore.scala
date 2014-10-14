@@ -19,7 +19,7 @@ trait StatisticSummaryStore {
    * @param windowDuration duration of the window to search on
    * @return
    */
-  def getLast(metric: String, windowDuration: Duration): Future[StatisticSummary]
+  def getLast(metric: String, windowDuration: Duration): Future[Option[StatisticSummary]]
   def store(metric: String, windowDuration: Duration, statisticSummaries: Seq[StatisticSummary]): Future[Unit]
   def sliceUntilNow(metric: String, windowDuration: Duration): Future[Seq[StatisticSummary]]
 }
@@ -74,7 +74,7 @@ object CassandraStatisticSummaryStore extends StatisticSummaryStore {
     }
   }
 
-  override def getLast(metric: String, windowDuration: Duration): Future[StatisticSummary] = {
+  override def getLast(metric: String, windowDuration: Duration): Future[Option[StatisticSummary]] = {
     null
   }
 

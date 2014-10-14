@@ -38,32 +38,49 @@ case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shou
     val groupedHistogramBuckets = previousWindowBuckets map (buckets ⇒ buckets.groupBy(_.timestamp / duration.toMillis))
 
     //filter out buckets already processed. we don't want to override our precious buckets with late data
-    val lastBucketNumber = statisticSummaryStore.getLast(metric, duration) map (summary => summary.timestamp / duration.toMillis)
-    val filteredGroupedHistogramBuckets = lastBucketNumber map (bucketNumber => groupedHistogramBuckets map (histogramsBuckets => histogramsBuckets.filterNot(_._1 <= bucketNumber)))
+    val filteredGroupedHistogramBuckets = for {
+      lastBucketNumber ← getLastBucketNumer(metric)
+      filteredHistograms ← groupedHistogramBuckets map (histogramsBuckets ⇒ histogramsBuckets.filterNot(_._1 <= lastBucketNumber))
+    } yield {
+      filteredHistograms
+    }
 
     //sum histograms on each bucket
-    val resultingBuckets = filteredGroupedHistogramBuckets map (buckets => buckets map ( x ⇒ x.collect { case (bucketNumber, histogramBuckets) ⇒ HistogramBucket(bucketNumber, duration, histogramBuckets) }.toSeq))
+    val resultingBuckets = filteredGroupedHistogramBuckets map (buckets ⇒ buckets.collect { case (bucketNumber, histogramBuckets) ⇒ HistogramBucket(bucketNumber, duration, histogramBuckets) }.toSeq)
 
     //store temporal histogram buckets for next window if needed
     if (shouldStoreTemporalHistograms) {
-      resultingBuckets map (buckets ⇒ histogramBucketStore.store(metric, duration, buckets))
+      resultingBuckets map (buckets ⇒ ifNotEmpty(buckets)(histogramBucketStore.store(metric, duration, buckets)))
     }
 
     //calculate the statistic summaries (percentiles, min, max, etc...)
     val statisticsSummaries = resultingBuckets.map(buckets ⇒ buckets map (_.summary))
 
     //store the statistic summaries
-    statisticsSummaries map (summaries ⇒ statisticSummaryStore.store(metric, duration, summaries))
+    statisticsSummaries map (summaries ⇒ ifNotEmpty(summaries)(statisticSummaryStore.store(metric, duration, summaries)))
 
     //remove previous histogram buckets
     previousWindowBuckets map (windows ⇒ histogramBucketStore.remove(metric, previousWindowDuration, windows))
   }
 
-  private def alreadyProcessed(metric: String, duration: Duration): PartialFunction[(Long, Seq[HistogramBucket]), Future[Boolean]] = {
-    case (bucketNumber, _) ⇒ {
-      val asyncSummary = statisticSummaryStore.getLast(metric, duration)
-      asyncSummary map (summary => summary.timestamp / duration.toMillis >= bucketNumber)
-    } //how? a query over the statistics summaries to get the last one? -> yes
+  /**
+   * Call the function f only if the collection is not empty
+   */
+  def ifNotEmpty(col: Seq[AnyRef])(f: ⇒ Future[Unit]) = {
+    if (col.size > 0) {
+      f
+    }
+  }
+
+  /**
+   * Returns the last bucket number found in statistics summaries
+   * @param metric
+   * @return a Long representing the bucket number. If nothing if found -1 is returned
+   */
+  private def getLastBucketNumer(metric: String): Future[Long] = {
+    statisticSummaryStore.getLast(metric, duration) map (summary ⇒ {
+      summary.map(s ⇒ s.timestamp / duration.toMillis).getOrElse(-1L)
+    })
   }
 
 }
