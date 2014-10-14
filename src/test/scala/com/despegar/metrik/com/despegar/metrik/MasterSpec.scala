@@ -18,25 +18,17 @@
 package com.despegar.metrik.com.despegar.metrik
 
 import akka.actor._
-import akka.routing.{ RoundRobinGroup, RoundRobinPool, Broadcast }
+import akka.routing.RoundRobinGroup
 import akka.testkit._
-import com.despegar.metrik.cluster.Master.{ Tick, Initialize }
-import com.despegar.metrik.cluster._
+import com.despegar.metrik.cluster.Master.{ PendingMetrics, Tick }
+import com.despegar.metrik.cluster.{ Work, WorkDone, _ }
 import com.typesafe.config.ConfigFactory
-import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfter, Matchers, WordSpecLike }
-import scala.concurrent.duration.FiniteDuration
-import java.util.concurrent.{ Future, TimeUnit }
-import akka.actor.Actor.Receive
-import scala.concurrent.duration._
-import com.despegar.metrik.cluster.Work
-import com.despegar.metrik.cluster.WorkDone
-import akka.routing.RoundRobinGroup
-import com.despegar.metrik.cluster.Work
-import com.despegar.metrik.cluster.WorkDone
-import akka.routing.RoundRobinGroup
-import akka.pattern.gracefulStop
+import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpecLike }
+
 import scala.concurrent.Await
-import akka.util.BoxedType
+import scala.concurrent.duration._
+
+import scala.concurrent.ExecutionContext.Implicits.global
 
 class MasterSpec extends TestKitBase with ImplicitSender
     with Matchers
@@ -166,41 +158,49 @@ class MasterSpec extends TestKitBase with ImplicitSender
       assert(!pendingMetrics.contains(firstMetric))
     }
 
-    "tick when there is no iddle workers nor pending metrics add all metrics as pendings" in new MasterWithoutSchedulersProbeWorkerFixture {
+    "when receive a PendingMetrics message without idle workers nor pending metrics add all metrics as pending" in new MasterWithoutSchedulersProbeWorkerFixture {
       underlyingMaster.pendingMetrics = Seq()
 
-      master ! Tick
-      assert(pendingMetrics.size == underlyingMaster.lookupMetrics.size)
-      underlyingMaster.lookupMetrics.foreach(x ⇒ pendingMetrics.contains(x))
+      val expectedMetrics = Seq("a", "b", "c", "d", "e")
+
+      master ! PendingMetrics(expectedMetrics)
+
+      assert(pendingMetrics.size == expectedMetrics.size)
+      expectedMetrics.foreach(x ⇒ pendingMetrics.contains(x))
     }
 
-    "tick when there are some pending metrics queue the rest of the metrics" in new MasterWithoutSchedulersProbeWorkerFixture {
+    "when receive a PendingMetrics message with some pending metrics queue the rest of the metrics" in new MasterWithoutSchedulersProbeWorkerFixture {
       underlyingMaster.pendingMetrics = Seq("d", "e")
 
-      master ! Tick
-      assert(pendingMetrics.size == underlyingMaster.lookupMetrics.size)
+      val expectedMetrics = Seq("a", "b", "c", "d", "e")
+
+      master ! PendingMetrics(expectedMetrics)
+
+      assert(pendingMetrics.size == expectedMetrics.size)
       assert(pendingMetrics == Seq("d", "e", "a", "b", "c"))
     }
 
-    "tick when there are pending metrics and idle workers assign work" in new MasterWithoutSchedulersProbeWorkerFixture {
+    "when receive a PendingMetrics message with pending metrics and idle workers assign work" in new MasterWithoutSchedulersProbeWorkerFixture {
+      val allMetrics = Seq("a", "b", "c", "d", "e")
+
       underlyingMaster.idleWorkers = Set(worker1, worker2)
       underlyingMaster.pendingMetrics = Seq("a", "b", "c", "d", "e")
 
-      master ! Tick
+      master ! PendingMetrics(allMetrics)
       workerProbe1.expectMsg(Work("a"))
       workerProbe2.expectMsg(Work("b"))
       assert(idleWorkers.isEmpty)
       assert(pendingMetrics == Seq("c", "d", "e"))
 
       underlyingMaster.idleWorkers = Set(worker1, worker2)
-      master ! Tick
+      master ! PendingMetrics(allMetrics)
       workerProbe1.expectMsg(Work("c"))
       workerProbe2.expectMsg(Work("d"))
       assert(idleWorkers.isEmpty)
       assert(pendingMetrics == Seq("e", "a", "b"))
 
       underlyingMaster.idleWorkers = Set(worker1, worker2)
-      master ! Tick
+      master ! PendingMetrics(allMetrics)
       workerProbe1.expectMsg(Work("e"))
       workerProbe2.expectMsg(Work("a"))
       assert(idleWorkers.isEmpty)
@@ -297,11 +297,12 @@ class MasterSpec extends TestKitBase with ImplicitSender
       val paths = List(worker1.path.toStringWithoutAddress, worker2.path.toStringWithoutAddress)
       context.actorOf(RoundRobinGroup(paths).props(), "worker-router")
     }
-
   }
 
   trait DummyMetricFinder extends MetricFinder {
-    override def lookupMetrics: Seq[String] = Seq("a", "b", "c", "d", "e")
+    import scala.concurrent.Future
+
+    override def lookupMetrics: Future[Seq[String]] = Future(Seq("a", "b", "c", "d", "e"))
   }
 
   trait NoScheduledMaster extends Master {

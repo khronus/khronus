@@ -18,13 +18,16 @@ package com.despegar.metrik.cluster
 
 import akka.actor._
 import akka.routing.{ Broadcast, FromConfig }
+import com.despegar.metrik.store.MetaSupport
 import com.despegar.metrik.util.Settings
 import us.theatr.akka.quartz.{ AddCronScheduleFailure, _ }
-import scala.concurrent.duration.FiniteDuration
+
+import scala.concurrent.Future
+import scala.util.{ Failure, Success }
 
 class Master extends Actor with ActorLogging with RouterProvider with MetricFinder {
 
-  import Master._
+  import com.despegar.metrik.cluster.Master._
   import context._
 
   var idleWorkers = Set[ActorRef]()
@@ -51,8 +54,13 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
   def initialized(router: ActorRef): Receive = {
 
-    case Tick ⇒
-      pendingMetrics ++= lookupMetrics filterNot (metric ⇒ pendingMetrics contains metric)
+    case Tick ⇒ lookupMetrics onComplete {
+      case Success(metrics) ⇒ self ! PendingMetrics(metrics)
+      case Failure(reason)  ⇒ log.error(reason, "Error trying to get metrics.")
+    }
+
+    case PendingMetrics(metrics) ⇒ {
+      pendingMetrics ++= metrics filterNot (metric ⇒ pendingMetrics contains metric)
 
       while (pendingMetrics.nonEmpty && idleWorkers.nonEmpty) {
         val worker = idleWorkers.head
@@ -63,9 +71,10 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
         idleWorkers = idleWorkers.tail
         pendingMetrics = pendingMetrics.tail
       }
+    }
 
     case Register(worker) ⇒
-      log.info("Registring worker [{}]", worker.path)
+      log.info("Registering worker [{}]", worker.path)
       watch(worker)
       idleWorkers += worker
 
@@ -90,11 +99,11 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
     val tickScheduler = actorOf(Props[QuartzActor])
     tickScheduler ! AddCronSchedule(self, settings.TickCronExpression, Tick, true)
   }
-
 }
 
 object Master {
-  case class Tick()
+  case object Tick
+  case class PendingMetrics(metrics: Seq[String])
   case class Initialize(cronExpression: String, router: ActorRef)
   case class MasterConfig(cronExpression: String)
 
@@ -109,6 +118,6 @@ trait RouterProvider {
   }
 }
 
-trait MetricFinder {
-  def lookupMetrics: Seq[String] = Seq("a", "b", "c", "d", "e")
+trait MetricFinder extends MetaSupport {
+  def lookupMetrics: Future[Seq[String]] = metaStore.retrieveMetrics
 }

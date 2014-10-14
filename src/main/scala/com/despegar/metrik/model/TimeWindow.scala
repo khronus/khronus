@@ -18,18 +18,16 @@ package com.despegar.metrik.model
 
 import com.despegar.metrik.store.{ CassandraStatisticSummaryStore, StatisticSummaryStore, CassandraHistogramBucketStore, HistogramBucketStore }
 import org.HdrHistogram.Histogram
+import com.despegar.metrik.model.HistogramBucket._
+import com.despegar.metrik.store.{ HistogramBucketSupport, StatisticSummarySupport }
+import com.despegar.metrik.util.Logging
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
-import com.despegar.metrik.model.HistogramBucket._
-import scala.concurrent.ExecutionContext.Implicits.global
-import com.despegar.metrik.store.HistogramBucketSupport
-import com.despegar.metrik.store.StatisticSummarySupport
-import scala.concurrent.duration._
-import com.despegar.metrik.util.Logging
 
 case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true) extends HistogramBucketSupport with StatisticSummarySupport with Logging {
 
-  def process(metric: String) = {
+  def process(metric: String): Future[Any] = {
     log.debug(s"Processing window of $duration for metric $metric...")
     //retrieve the temporal histogram buckets from previous window
     val previousWindowBuckets = histogramBucketStore.sliceUntilNow(metric, previousWindowDuration)
@@ -57,10 +55,11 @@ case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shou
     val statisticsSummaries = resultingBuckets.map(buckets ⇒ buckets map (_.summary))
 
     //store the statistic summaries
-    statisticsSummaries map (summaries ⇒ ifNotEmpty(summaries)(statisticSummaryStore.store(metric, duration, summaries)))
-
-    //remove previous histogram buckets
-    previousWindowBuckets map (windows ⇒ histogramBucketStore.remove(metric, previousWindowDuration, windows))
+    statisticsSummaries map (summaries ⇒ ifNotEmpty(summaries)(statisticSummaryStore.store(metric, duration, summaries))) andThen {
+      case _ ⇒
+        //remove previous histogram buckets
+        previousWindowBuckets map (windows ⇒ histogramBucketStore.remove(metric, previousWindowDuration, windows))
+    }
   }
 
   /**

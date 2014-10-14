@@ -26,7 +26,7 @@ object Metrik extends Build {
       .settings(
         libraryDependencies ++=
           compile(sprayCan, sprayRouting, sprayTestKit, sprayJson, akkaActor, akkaTestKit, akkaRemote, akkaCluster, akkaContrib, multiNodeTestKit, scalaTest, akkaQuartz,
-            hdrHistogram, specs2, mockito, astyanaxCore, astyanaxThrift, astyanaxCassandra, kryo, scalaLogging, slf4j, logbackClassic, commonsLang) ++
+            hdrHistogram, specs2, mockito, astyanaxCore, astyanaxThrift, astyanaxCassandra, kryo, scalaLogging, slf4j, logbackClassic, commonsLang, akkaSlf4j) ++
           test(sprayTestKit, akkaTestKit, multiNodeTestKit, scalaTest, specs2, mockito) ++
           it(scalaTest)
       )

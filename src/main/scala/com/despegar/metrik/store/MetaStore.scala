@@ -1,14 +1,13 @@
 package com.despegar.metrik.store
 
-import com.despegar.metrik.model.Metric
+import java.util.concurrent.Executors
+
+import com.despegar.metrik.util.Logging
 import com.netflix.astyanax.model.ColumnFamily
 import com.netflix.astyanax.serializers.StringSerializer
-import java.util.concurrent.Executors
-import scala.concurrent.ExecutionContext
-import scala.concurrent.Future
-import com.despegar.metrik.util.Logging
+
 import scala.collection.JavaConverters._
-import scala.util.Try
+import scala.concurrent.{ ExecutionContext, Future }
 
 trait MetaStore {
   def store(metric: String): Future[Unit]
