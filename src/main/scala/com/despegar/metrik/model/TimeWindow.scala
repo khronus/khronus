@@ -18,6 +18,7 @@ package com.despegar.metrik.model
 
 import com.despegar.metrik.store.{ CassandraStatisticSummaryStore, StatisticSummaryStore, CassandraHistogramBucketStore, HistogramBucketStore }
 import org.HdrHistogram.Histogram
+import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 import com.despegar.metrik.model.HistogramBucket._
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -37,10 +38,11 @@ case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shou
     val groupedHistogramBuckets = previousWindowBuckets map (buckets ⇒ buckets.groupBy(_.timestamp / duration.toMillis))
 
     //filter out buckets already processed. we don't want to override our precious buckets with late data
-    val filteredGroupedHistogramBuckets = groupedHistogramBuckets map (_.filterNot(alreadyProcessed(metric)))
+    val lastBucketNumber = statisticSummaryStore.getLast(metric, duration) map (summary => summary.timestamp / duration.toMillis)
+    val filteredGroupedHistogramBuckets = lastBucketNumber map (bucketNumber => groupedHistogramBuckets map (histogramsBuckets => histogramsBuckets.filterNot(_._1 <= bucketNumber)))
 
     //sum histograms on each bucket
-    val resultingBuckets = filteredGroupedHistogramBuckets map (buckets ⇒ buckets.collect { case (bucketNumber, histogramBuckets) ⇒ HistogramBucket(bucketNumber, duration, histogramBuckets) }.toSeq)
+    val resultingBuckets = filteredGroupedHistogramBuckets map (buckets => buckets map ( x ⇒ x.collect { case (bucketNumber, histogramBuckets) ⇒ HistogramBucket(bucketNumber, duration, histogramBuckets) }.toSeq))
 
     //store temporal histogram buckets for next window if needed
     if (shouldStoreTemporalHistograms) {
@@ -57,8 +59,11 @@ case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shou
     previousWindowBuckets map (windows ⇒ histogramBucketStore.remove(metric, previousWindowDuration, windows))
   }
 
-  private def alreadyProcessed(metric: String): PartialFunction[(Long, Seq[HistogramBucket]), Boolean] = {
-    case (bucketNumber, _) ⇒ false //how? a query over the statistics summaries to get the last one? -> yes
+  private def alreadyProcessed(metric: String, duration: Duration): PartialFunction[(Long, Seq[HistogramBucket]), Future[Boolean]] = {
+    case (bucketNumber, _) ⇒ {
+      val asyncSummary = statisticSummaryStore.getLast(metric, duration)
+      asyncSummary map (summary => summary.timestamp / duration.toMillis >= bucketNumber)
+    } //how? a query over the statistics summaries to get the last one? -> yes
   }
 
 }
