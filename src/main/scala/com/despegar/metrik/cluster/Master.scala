@@ -41,6 +41,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
   def uninitialized: Receive = {
     case Initialize ⇒
+      log.info(s"Initializating master ${self.path}")
       val router = createRouter()
 
       scheduleHeartbeat(router)
@@ -48,8 +49,11 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
       become(initialized(router))
 
-    case AddCronScheduleFailure(reason) ⇒ throw reason
-    case everythingElse                 ⇒ //ignore
+    case AddCronScheduleFailure(reason) ⇒
+      log.error(reason, "Could not schedule tick")
+      throw reason
+
+    case everythingElse ⇒ //ignore
   }
 
   def initialized(router: ActorRef): Receive = {
@@ -60,12 +64,14 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
     }
 
     case PendingMetrics(metrics) ⇒ {
+      log.info(s"Pending metrics received: Metrics pending $pendingMetrics workers idle: $idleWorkers")
       pendingMetrics ++= metrics filterNot (metric ⇒ pendingMetrics contains metric)
 
       while (pendingMetrics.nonEmpty && idleWorkers.nonEmpty) {
         val worker = idleWorkers.head
         val pending = pendingMetrics.head
 
+        log.debug(s"Dispatching metric $pending to ${worker.path}")
         worker ! Work(pending)
 
         idleWorkers = idleWorkers.tail
@@ -80,9 +86,11 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
     case WorkDone(worker) ⇒
       if (pendingMetrics.nonEmpty) {
+        log.debug(s"Dispatching metric ${pendingMetrics.head} to ${worker.path}")
         worker ! Work(pendingMetrics.head)
         pendingMetrics = pendingMetrics.tail
       } else {
+        log.debug(s"Pending metrics is empty. Adding worker ${worker.path} to worker idle list")
         idleWorkers += worker
       }
 
@@ -92,10 +100,12 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
   }
 
   def scheduleHeartbeat(router: ActorRef) {
+    log.info("Scheduling Heartbeat in order to discover workers periodically")
     system.scheduler.schedule(settings.DiscoveryStartDelay, settings.DiscoveryInterval, router, Broadcast(Heartbeat))
   }
 
   def scheduleTick() {
+    log.info(s"Scheduling tick at ${settings.TickCronExpression}")
     val tickScheduler = actorOf(Props[QuartzActor])
     tickScheduler ! AddCronSchedule(self, settings.TickCronExpression, Tick, true)
   }

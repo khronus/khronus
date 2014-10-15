@@ -30,4 +30,5 @@ class TimeWindowChain extends Logging {
     log.debug(s"Processing windows for $metric...")
     Future.sequence(windows.map(_.process(metric)))
   }
+    
 }

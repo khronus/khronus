@@ -12,7 +12,7 @@
   </appender> 
    
   <logger name="com.despegar.metrik" level="debug"/>
-  <logger name="com.despegar.metrik.cluster" level="info"/>
+  <logger name="com.despegar.metrik.cluster" level="debug"/>
 
   <root level="info">
     <appender-ref ref="ASYNC" />
