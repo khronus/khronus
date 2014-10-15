@@ -36,9 +36,7 @@ class TimeWindowTest extends FunSuite with MockitoSugar {
 
       override val statisticSummaryStore = mock[StatisticSummaryStore]
     }
-
     //Mockito.reset(window.histogramBucketStore, window.statisticSummaryStore)
-
     window
   }
 
@@ -125,6 +123,31 @@ class TimeWindowTest extends FunSuite with MockitoSugar {
 
     //verify removal of previous buckets
     Mockito.verify(window.histogramBucketStore).remove("metrickA", 1 millis, Seq(bucket1))
+  }
+
+  test("Empty temporal data should do nothing") {
+    val windowDuration: FiniteDuration = 30 seconds
+
+    val window = getMockedWindow(windowDuration, 1 millis)
+
+    val metricKey: String = "metrickA"
+
+    //mock temporal data to be empty
+    Mockito.when(window.histogramBucketStore.sliceUntilNow(metricKey, 1 millis)).thenReturn(Future(null))
+
+    Mockito.when(window.statisticSummaryStore.getLast(metricKey, windowDuration)).thenReturn(Future(Option(null)))
+
+    //call method to test
+    window.process(metricKey)
+
+    //verify that not store any temporal histogram
+    Mockito.verify(window.histogramBucketStore, Mockito.never()).store(metricKey, windowDuration, Seq())
+
+    //verify that not store any summary
+    Mockito.verify(window.statisticSummaryStore, Mockito.never()).store(metricKey, windowDuration, Seq())
+
+    //verify that not remove anything
+    Mockito.verify(window.histogramBucketStore, Mockito.never()).remove("metrickA", 1 millis, Seq())
   }
 }
 
