@@ -46,7 +46,7 @@ trait HistogramBucketSupport {
 
 object CassandraHistogramBucketStore extends HistogramBucketStore with Logging {
   //create column family definition for every bucket duration
-  val windowDurations: Seq[Duration] = Seq(1 millis, 30 seconds, 1 minute, 5 minute, 10 minute, 30 minute, 1 hour) //FIXME put configured windows
+  val windowDurations: Seq[Duration] = Seq(30 seconds, 1 minute, 5 minute, 10 minute, 30 minute, 1 hour) //FIXME put configured windows
   val columnFamilies = windowDurations.map(duration ⇒ (duration, ColumnFamily.newColumnFamily(getColumnFamilyName(duration), StringSerializer.get(), LongSerializer.get()))).toMap
 
   val LIMIT = 1000
@@ -61,9 +61,16 @@ object CassandraHistogramBucketStore extends HistogramBucketStore with Logging {
     } map { _.map { toHistogramBucketOf(windowDuration) _ }.toSeq }
   }
 
+  /**
+   * Get the actual bucket timestamp (upper limit).
+   */
+  def getCurrentBucketTimestamp(duration: Duration) = {
+    ((now - (10 seconds).toMillis) / duration.toMillis) * duration.toMillis
+  }
+
   private def executeSlice(metric: String, windowDuration: Duration) = {
     Cassandra.keyspace.prepareQuery(columnFamilies(windowDuration)).getKey(getKey(metric, windowDuration))
-      .withColumnRange(infinite, now, false, LIMIT).execute().getResult().asScala
+      .withColumnRange(infinite, getCurrentBucketTimestamp(windowDuration), false, LIMIT).execute().getResult().asScala
   }
 
   private def toHistogramBucketOf(windowDuration: Duration)(column: Column[java.lang.Long]) = {

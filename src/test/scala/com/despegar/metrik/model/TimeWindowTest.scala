@@ -16,7 +16,7 @@
 
 package com.despegar.metrik.model
 
-import com.despegar.metrik.store.{ StatisticSummaryStore, HistogramBucketStore }
+import com.despegar.metrik.store._
 import org.HdrHistogram.Histogram
 import org.mockito.{ Matchers, ArgumentMatcher, ArgumentCaptor, Mockito }
 import org.scalatest.{ FunSuite }
@@ -25,16 +25,16 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.collection.JavaConverters._
-import com.despegar.metrik.store.HistogramBucketSupport
-import com.despegar.metrik.store.StatisticSummarySupport
 
 class TimeWindowTest extends FunSuite with MockitoSugar {
 
   private def getMockedWindow(windowDuration: FiniteDuration, previousWindowDuration: FiniteDuration) = {
-    val window = new TimeWindow(windowDuration, previousWindowDuration) with HistogramBucketSupport with StatisticSummarySupport {
+    val window = new TimeWindow(windowDuration, previousWindowDuration) with HistogramBucketSupport with StatisticSummarySupport with MetaSupport {
       override val histogramBucketStore = mock[HistogramBucketStore]
 
       override val statisticSummaryStore = mock[StatisticSummaryStore]
+
+      override val metaStore = mock[MetaStore]
     }
     //Mockito.reset(window.histogramBucketStore, window.statisticSummaryStore)
     window
@@ -71,7 +71,7 @@ class TimeWindowTest extends FunSuite with MockitoSugar {
     Mockito.when(window.histogramBucketStore.sliceUntilNow(metricKey, 1 millis)).thenReturn(Future(histograms))
 
     //mock summaries
-    Mockito.when(window.statisticSummaryStore.getLast(metricKey, windowDuration)).thenReturn(Future(Option(null)))
+    Mockito.when(window.metaStore.getLastProcessedTimestamp(metricKey)).thenReturn(Future(-Long.MaxValue))
 
     //call method to test
     window.process(metricKey)
@@ -110,7 +110,7 @@ class TimeWindowTest extends FunSuite with MockitoSugar {
 
     //mock summary that match histogram from bucket1
     val summary = StatisticSummary(15000 * 1, 50, 80, 90, 95, 99, 100, 1, 100, 100, 50.5)
-    Mockito.when(window.statisticSummaryStore.getLast(metricKey, windowDuration)).thenReturn(Future(Option(summary)))
+    Mockito.when(window.metaStore.getLastProcessedTimestamp(metricKey)).thenReturn(Future(15000L))
 
     //call method to test
     window.process(metricKey)
@@ -133,9 +133,9 @@ class TimeWindowTest extends FunSuite with MockitoSugar {
     val metricKey: String = "metrickA"
 
     //mock temporal data to be empty
-    Mockito.when(window.histogramBucketStore.sliceUntilNow(metricKey, 1 millis)).thenReturn(Future(null))
+    Mockito.when(window.histogramBucketStore.sliceUntilNow(metricKey, 1 millis)).thenReturn(Future(Nil))
 
-    Mockito.when(window.statisticSummaryStore.getLast(metricKey, windowDuration)).thenReturn(Future(Option(null)))
+    Mockito.when(window.metaStore.getLastProcessedTimestamp(metricKey)).thenReturn(Future(-Long.MaxValue))
 
     //call method to test
     window.process(metricKey)

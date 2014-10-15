@@ -10,6 +10,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ ExecutionContext, Future }
 
 trait MetaStore {
+  def getLastProcessedTimestamp(metric: String): Future[Long]
   def store(metric: String): Future[Unit]
   def retrieveMetrics: Future[Seq[String]]
 }
@@ -48,6 +49,18 @@ object CassandraMetaStore extends MetaStore with Logging {
     future.onFailure {
       case e: Exception ⇒ log.error(s"Failed to retrieve metrics from meta", e)
     }
+    future
+  }
+
+  def getLastProcessedTimestamp(metric: String): Future[Long] = {
+    val future = Future {
+      Cassandra.keyspace.prepareQuery(columnFamily).getKey("metrics").getColumn(metric).execute().getResult.getLongValue
+    }
+
+    future.onFailure {
+      case e: Exception ⇒ log.error(s"Failed to retrieve last processed timestamp of $metric from meta", e)
+    }
+
     future
   }
 

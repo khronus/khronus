@@ -16,16 +16,16 @@
 
 package com.despegar.metrik.model
 
-import com.despegar.metrik.store.{ CassandraStatisticSummaryStore, StatisticSummaryStore, CassandraHistogramBucketStore, HistogramBucketStore }
+import com.despegar.metrik.store._
 import org.HdrHistogram.Histogram
 import com.despegar.metrik.model.HistogramBucket._
-import com.despegar.metrik.store.{ HistogramBucketSupport, StatisticSummarySupport }
 import com.despegar.metrik.util.Logging
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 
-case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true) extends HistogramBucketSupport with StatisticSummarySupport with Logging {
+case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true)
+  extends HistogramBucketSupport with StatisticSummarySupport with MetaSupport with Logging {
 
   def process(metric: String): Future[Any] = {
     log.debug(s"Processing window of $duration for metric $metric...")
@@ -33,11 +33,11 @@ case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shou
     val previousWindowBuckets = histogramBucketStore.sliceUntilNow(metric, previousWindowDuration)
 
     //group histograms in buckets of my window duration
-    val groupedHistogramBuckets = previousWindowBuckets map (buckets ⇒ buckets.groupBy(_.timestamp / duration.toMillis))
+    def groupedHistogramBuckets = previousWindowBuckets map (buckets ⇒ buckets.groupBy(_.timestamp / duration.toMillis))
 
     //filter out buckets already processed. we don't want to override our precious buckets with late data
     val filteredGroupedHistogramBuckets = for {
-      lastBucketNumber ← getLastBucketNumer(metric)
+      lastBucketNumber ← getLastProcessedBucketNumber(metric)
       filteredHistograms ← groupedHistogramBuckets map (histogramsBuckets ⇒ histogramsBuckets.filterNot(_._1 <= lastBucketNumber))
     } yield {
       filteredHistograms
@@ -58,7 +58,7 @@ case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shou
     statisticsSummaries map (summaries ⇒ ifNotEmpty(summaries)(statisticSummaryStore.store(metric, duration, summaries))) andThen {
       case _ ⇒
         //remove previous histogram buckets
-        previousWindowBuckets map (windows ⇒ histogramBucketStore.remove(metric, previousWindowDuration, windows))
+        previousWindowBuckets map (windows ⇒ ifNotEmpty(windows)(histogramBucketStore.remove(metric, previousWindowDuration, windows)))
     }
   }
 
@@ -76,10 +76,8 @@ case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shou
    * @param metric
    * @return a Long representing the bucket number. If nothing if found -1 is returned
    */
-  private def getLastBucketNumer(metric: String): Future[Long] = {
-    statisticSummaryStore.getLast(metric, duration) map (summary ⇒ {
-      summary.map(s ⇒ s.timestamp / duration.toMillis).getOrElse(-1L)
-    })
+  private def getLastProcessedBucketNumber(metric: String): Future[Long] = {
+    metaStore.getLastProcessedTimestamp(metric) map { timestamp => timestamp / duration.toMillis}
   }
 
 }
