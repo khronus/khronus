@@ -39,8 +39,4 @@ class Settings(config: com.typesafe.config.Config, extendedSystem: ExtendedActor
 object Settings extends ExtensionId[Settings] with ExtensionIdProvider {
   override def lookup = Settings
   override def createExtension(system: ExtendedActorSystem) = new Settings(system.settings.config, system)
-
-  object Metrik {
-    val ActorSystem = "metrik-system"
-  }
 }
