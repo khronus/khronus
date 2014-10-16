@@ -18,21 +18,21 @@ package com.despegar.metrik.store
 
 import java.nio.ByteBuffer
 import java.util.concurrent.Executors
+
 import com.despegar.metrik.model.HistogramBucket
-import scala.collection.JavaConverters._
+import com.despegar.metrik.util.Logging
+import com.netflix.astyanax.ColumnListMutation
+import com.netflix.astyanax.model.{Column, ColumnFamily}
+import com.netflix.astyanax.serializers.{LongSerializer, StringSerializer}
 import org.HdrHistogram.Histogram
-import com.netflix.astyanax.model.ColumnFamily
-import com.netflix.astyanax.serializers.StringSerializer
-import com.netflix.astyanax.serializers.LongSerializer
+
+import scala.collection.JavaConverters._
 import scala.concurrent._
 import scala.concurrent.duration._
-import com.netflix.astyanax.ColumnListMutation
-import com.despegar.metrik.util.Logging
-import com.netflix.astyanax.model.Column
 
 trait HistogramBucketStore {
 
-  def sliceUntilNow(metric: String, windowDuration: Duration): Future[Seq[HistogramBucket]]
+  def sliceUntil(metric: String, until: Long, sourceWindow: Duration): Future[Seq[HistogramBucket]]
 
   def store(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket]): Future[Unit]
 
@@ -46,7 +46,7 @@ trait HistogramBucketSupport {
 
 object CassandraHistogramBucketStore extends HistogramBucketStore with Logging {
   //create column family definition for every bucket duration
-  val windowDurations: Seq[Duration] = Seq(30 seconds, 1 minute, 5 minute, 10 minute, 30 minute, 1 hour) //FIXME put configured windows
+  val windowDurations: Seq[Duration] = Seq(1 millis, 30 seconds, 1 minute, 5 minute, 10 minute, 30 minute, 1 hour) //FIXME put configured windows
   val columnFamilies = windowDurations.map(duration ⇒ (duration, ColumnFamily.newColumnFamily(getColumnFamilyName(duration), StringSerializer.get(), LongSerializer.get()))).toMap
 
   val LIMIT = 1000
@@ -55,22 +55,16 @@ object CassandraHistogramBucketStore extends HistogramBucketStore with Logging {
 
   def initialize = columnFamilies.foreach(cf ⇒ Cassandra.createColumnFamily(cf._2))
 
-  def sliceUntilNow(metric: String, windowDuration: Duration): Future[Seq[HistogramBucket]] = {
+  def sliceUntil(metric: String, until: Long, sourceWindow: Duration): Future[Seq[HistogramBucket]] = {
     Future {
-      executeSlice(metric, windowDuration)
-    } map { _.map { toHistogramBucketOf(windowDuration) _ }.toSeq }
+      executeSlice(metric, until, sourceWindow)
+    } map { _.map { toHistogramBucketOf(sourceWindow) _ }.toSeq }
   }
 
-  /**
-   * Get the actual bucket timestamp (upper limit).
-   */
-  def getCurrentBucketTimestamp(duration: Duration) = {
-    ((now - (10 seconds).toMillis) / duration.toMillis) * duration.toMillis
-  }
 
-  private def executeSlice(metric: String, windowDuration: Duration) = {
+  private def executeSlice(metric: String, until: Long, windowDuration: Duration) = {
     Cassandra.keyspace.prepareQuery(columnFamilies(windowDuration)).getKey(getKey(metric, windowDuration))
-      .withColumnRange(infinite, getCurrentBucketTimestamp(windowDuration), false, LIMIT).execute().getResult().asScala
+      .withColumnRange(infinite, until, false, LIMIT).execute().getResult().asScala
   }
 
   private def toHistogramBucketOf(windowDuration: Duration)(column: Column[java.lang.Long]) = {
@@ -122,7 +116,7 @@ object CassandraHistogramBucketStore extends HistogramBucketStore with Logging {
 
   private def deserializeHistogram(bytes: ByteBuffer): Histogram = Histogram.decodeFromCompressedByteBuffer(bytes, 0)
 
-  private def now = System.currentTimeMillis()
+
 
   private def infinite = 1L
 

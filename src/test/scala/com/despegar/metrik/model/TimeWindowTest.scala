@@ -68,7 +68,7 @@ class TimeWindowTest extends FunSuite with MockitoSugar {
 
     //mock retrieve slice
     val histograms: Seq[HistogramBucket] = Seq(bucket1, bucket2, bucket3)
-    Mockito.when(window.histogramBucketStore.sliceUntilNow(metricKey, 1 millis)).thenReturn(Future(histograms))
+    Mockito.when(window.histogramBucketStore.sliceUntil(metricKey, 1 millis)).thenReturn(Future(histograms))
 
     //mock summaries
     Mockito.when(window.metaStore.getLastProcessedTimestamp(metricKey)).thenReturn(Future(-Long.MaxValue))

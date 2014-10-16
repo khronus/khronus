@@ -19,7 +19,7 @@ package com.despegar.metrik.model
 import com.despegar.metrik.store._
 import org.HdrHistogram.Histogram
 import com.despegar.metrik.model.HistogramBucket._
-import com.despegar.metrik.util.Logging
+import com.despegar.metrik.util.{BucketUtils, Logging}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
@@ -27,10 +27,11 @@ import scala.concurrent.duration.Duration
 case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true)
   extends HistogramBucketSupport with StatisticSummarySupport with MetaSupport with Logging {
 
-  def process(metric: String): Future[Any] = {
-    log.debug(s"Processing window of $duration for metric $metric...")
-    //retrieve the temporal histogram buckets from previous window
-    val previousWindowBuckets = histogramBucketStore.sliceUntilNow(metric, previousWindowDuration)
+  def process(metric: String, executionTimestamp: Long): Future[Any] = {
+    log.debug(s"Processing window of $duration for metric $metric and executionTimestamp $executionTimestamp")
+    //retrieve the temporal histogram buckets from previous window until the last complete current window
+    //Ex. 100.000 (executionTimestamp) / 30.000 (duration) = 90.000 (currentBucketTimestamp)
+    val previousWindowBuckets = histogramBucketStore.sliceUntil(metric, BucketUtils.getCurrentBucketTimestamp(duration, executionTimestamp), previousWindowDuration)
 
     //group histograms in buckets of my window duration
     def groupedHistogramBuckets = previousWindowBuckets map (buckets ⇒ buckets.groupBy(_.timestamp / duration.toMillis))
