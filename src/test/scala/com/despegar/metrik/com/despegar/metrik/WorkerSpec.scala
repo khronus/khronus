@@ -17,16 +17,22 @@
 
 package com.despegar.metrik.com.despegar.metrik
 
-import akka.actor.ActorSystem
-import akka.testkit.{ TestKitBase, TestActorRef, ImplicitSender, TestKit }
+import akka.actor.{ Props, ActorSystem }
+import akka.testkit.{ ImplicitSender, TestActorRef, TestKit, TestKitBase }
 import com.despegar.metrik.cluster._
+import com.despegar.metrik.model.TimeWindowChain
 import com.typesafe.config.ConfigFactory
-import org.scalatest.{ WordSpecLike, BeforeAndAfterAll, Matchers }
+import org.mockito.Matchers.any
+import org.mockito.Mockito.when
+import org.scalatest.mock.MockitoSugar
+import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpecLike }
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 class WorkerSpec extends TestKitBase with ImplicitSender
     with Matchers
     with WordSpecLike
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with MockitoSugar {
 
   implicit lazy val system: ActorSystem = ActorSystem("Worker-Spec", ConfigFactory.parseString(
     """
@@ -39,7 +45,12 @@ class WorkerSpec extends TestKitBase with ImplicitSender
 
   override protected def afterAll() = TestKit.shutdownActorSystem(system)
 
-  val worker = TestActorRef[Worker]
+  trait TimeWindowChainProviderMock extends TimeWindowChainProvider {
+    override val timeWindowChain = mock[TimeWindowChain]
+    when(timeWindowChain.process(any())).thenReturn(Future(Seq(Thread.sleep(1000))))
+  }
+
+  val worker = TestActorRef(Props(new Worker with TimeWindowChainProviderMock))
 
   "The Worker actor" should {
     "ignore the Work message if it's received before register in the cluster" in {

@@ -25,9 +25,11 @@ package object cluster {
   case class WorkDone(worker: ActorRef)
   case object Heartbeat
 
-  final class RouterSupervisorStrategy extends SupervisorStrategyConfigurator {
-    override def create(): SupervisorStrategy = OneForOneStrategy() {
-      case _: Exception ⇒ Restart
+  object RouterSupervisorStrategy {
+    final val restartOnError: SupervisorStrategy = {
+      OneForOneStrategy() {
+        case _: Exception ⇒ Restart
+      }
     }
   }
 }

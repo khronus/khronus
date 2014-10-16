@@ -35,7 +35,6 @@ class Worker extends Actor with ActorLogging with TimeWindowChainProvider {
 
   def ready: Receive = {
     case Work(metric)   ⇒ process(metric, sender)
-
     case everythingElse ⇒ //ignore
   }
 

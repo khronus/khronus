@@ -19,7 +19,7 @@ package com.despegar.metrik.model
 import com.despegar.metrik.store.{ StatisticSummaryStore, HistogramBucketStore }
 import org.HdrHistogram.Histogram
 import org.mockito.{ Matchers, ArgumentMatcher, ArgumentCaptor, Mockito }
-import org.scalatest.{ FunSuite }
+import org.scalatest.{ Ignore, FunSuite }
 import org.scalatest.mock.MockitoSugar
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -28,6 +28,7 @@ import scala.collection.JavaConverters._
 import com.despegar.metrik.store.HistogramBucketSupport
 import com.despegar.metrik.store.StatisticSummarySupport
 
+@Ignore
 class TimeWindowTest extends FunSuite with MockitoSugar {
 
   private def getMockedWindow(windowDuration: FiniteDuration, previousWindowDuration: FiniteDuration) = {
