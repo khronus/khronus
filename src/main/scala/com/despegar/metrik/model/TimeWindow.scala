@@ -19,13 +19,13 @@ package com.despegar.metrik.model
 import com.despegar.metrik.store._
 import org.HdrHistogram.Histogram
 import com.despegar.metrik.model.HistogramBucket._
-import com.despegar.metrik.util.{BucketUtils, Logging}
+import com.despegar.metrik.util.{ BucketUtils, Logging }
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 
 case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true)
-  extends HistogramBucketSupport with StatisticSummarySupport with MetaSupport with Logging {
+    extends HistogramBucketSupport with StatisticSummarySupport with MetaSupport with Logging {
 
   def process(metric: String, executionTimestamp: Long): Future[Any] = {
     log.debug(s"Processing window of $duration for metric $metric and executionTimestamp $executionTimestamp")
@@ -78,7 +78,7 @@ case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shou
    * @return a Long representing the bucket number. If nothing if found -1 is returned
    */
   private def getLastProcessedBucketNumber(metric: String): Future[Long] = {
-    metaStore.getLastProcessedTimestamp(metric) map { timestamp => timestamp / duration.toMillis}
+    metaStore.getLastProcessedTimestamp(metric) map { timestamp ⇒ timestamp / duration.toMillis }
   }
 
 }

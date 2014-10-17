@@ -22,8 +22,8 @@ import java.util.concurrent.Executors
 import com.despegar.metrik.model.HistogramBucket
 import com.despegar.metrik.util.Logging
 import com.netflix.astyanax.ColumnListMutation
-import com.netflix.astyanax.model.{Column, ColumnFamily}
-import com.netflix.astyanax.serializers.{LongSerializer, StringSerializer}
+import com.netflix.astyanax.model.{ Column, ColumnFamily }
+import com.netflix.astyanax.serializers.{ LongSerializer, StringSerializer }
 import org.HdrHistogram.Histogram
 
 import scala.collection.JavaConverters._
@@ -60,7 +60,6 @@ object CassandraHistogramBucketStore extends HistogramBucketStore with Logging {
       executeSlice(metric, until, sourceWindow)
     } map { _.map { toHistogramBucketOf(sourceWindow) _ }.toSeq }
   }
-
 
   private def executeSlice(metric: String, until: Long, windowDuration: Duration) = {
     Cassandra.keyspace.prepareQuery(columnFamilies(windowDuration)).getKey(getKey(metric, windowDuration))
@@ -115,8 +114,6 @@ object CassandraHistogramBucketStore extends HistogramBucketStore with Logging {
   }
 
   private def deserializeHistogram(bytes: ByteBuffer): Histogram = Histogram.decodeFromCompressedByteBuffer(bytes, 0)
-
-
 
   private def infinite = 1L
 

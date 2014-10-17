@@ -19,8 +19,8 @@ import org.HdrHistogram.Histogram
 
 import scala.concurrent.duration.Duration
 
-case class HistogramBucket(bucketNumer: Long, duration: Duration, histogram: Histogram) {
-  def timestamp = bucketNumer * duration.toMillis
+case class HistogramBucket(bucketNumber: Long, duration: Duration, histogram: Histogram) {
+  def timestamp = bucketNumber * duration.toMillis
   def summary: StatisticSummary = {
     val p50 = histogram.getValueAtPercentile(50)
     val p80 = histogram.getValueAtPercentile(80)
