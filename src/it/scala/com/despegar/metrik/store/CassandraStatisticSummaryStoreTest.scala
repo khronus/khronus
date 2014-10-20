@@ -1,17 +1,13 @@
 package com.despegar.metrik.store
 
 import com.despegar.metrik.model.StatisticSummary
-import com.despegar.metrik.util.{BaseIntegrationTest, Config}
+import com.despegar.metrik.util.BaseIntegrationTest
 import com.netflix.astyanax.connectionpool.OperationResult
 import com.netflix.astyanax.model.ColumnFamily
 import org.scalatest.{Matchers,  FunSuite}
-import scala.collection.JavaConverters._
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
-import scala.util.Try
-import scala.concurrent.ExecutionContext.Implicits.global
 
-class CassandraStatisticSummaryStoreTest extends FunSuite with BaseIntegrationTest with Config with Matchers{
+class CassandraStatisticSummaryStoreTest extends FunSuite with BaseIntegrationTest with Matchers{
 
   test("An StatisticSummary should be capable of serialize and deserialize from Cassandra") {
     val summary = StatisticSummary(1,50,50,50,90,99,100,50,100,20,50)

@@ -22,6 +22,10 @@ trait BaseIntegrationTest extends FunSuite with BeforeAndAfterAll with BeforeAnd
     truncateColumnFamilies
   }
 
+  override protected def afterAll() = {
+    Metrik.system.shutdown()
+  }
+
   def await[T](f: => Future[T]):T = Await.result(f, 10 seconds)
   
   def truncateColumnFamilies = Try {

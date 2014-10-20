@@ -1,14 +1,11 @@
 package com.despegar.metrik.store
 
-import com.despegar.metrik.util.BaseIntegrationTest
 import org.scalatest.Matchers
-import com.despegar.metrik.util.Config
 import com.despegar.metrik.util.BaseIntegrationTest
 import org.scalatest.FunSuite
 import scala.util.Try
-import com.despegar.metrik.model.Metric
 
-class CassandraMetaStoreTest extends FunSuite with BaseIntegrationTest with Config with Matchers {
+class CassandraMetaStoreTest extends FunSuite with BaseIntegrationTest with Matchers {
 
   test("should store and retrieve metadata for metrics") {
     await { CassandraMetaStore.store("metric1") }

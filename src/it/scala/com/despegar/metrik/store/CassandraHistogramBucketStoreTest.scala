@@ -1,19 +1,16 @@
 package com.despegar.metrik.store
 
 import com.despegar.metrik.model.HistogramBucket
-import com.despegar.metrik.util.{BaseIntegrationTest, Config}
+import com.despegar.metrik.util.BaseIntegrationTest
 import com.netflix.astyanax.connectionpool.OperationResult
 import org.HdrHistogram.Histogram
-import org.scalatest.{ FunSuite }
-import scala.collection.JavaConverters._
-import scala.concurrent.{Await, Future}
+import org.scalatest.FunSuite
 import scala.concurrent.duration._
 import org.scalatest.Matchers
-import scala.util.{Try, Random}
+import scala.util.Random
 import com.netflix.astyanax.model.ColumnFamily
-import scala.concurrent.ExecutionContext.Implicits.global
 
-class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTest with Config with Matchers {
+class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTest with Matchers {
 
   test("should store and retrieve buckets properly") {
     val histogram = HistogramBucket.newHistogram

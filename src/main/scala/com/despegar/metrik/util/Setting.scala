@@ -34,9 +34,21 @@ class Settings(config: com.typesafe.config.Config, extendedSystem: ExtendedActor
     val Interface = config.getString("metrik.endpoint")
     val Port: Int = config.getInt("metrik.port")
   }
+
+  object Cassandra {
+    private val cassandraCfg = config.getConfig("metrik.cassandra")
+    val Cluster = cassandraCfg.getString("cluster")
+    val Keyspace = cassandraCfg.getString("keyspace")
+    val Port = cassandraCfg.getInt("port")
+    val Seeds = cassandraCfg.getString("seeds")
+  }
+
 }
 
 object Settings extends ExtensionId[Settings] with ExtensionIdProvider {
+
+  def apply() = super.apply(Metrik.system)
+
   override def lookup = Settings
   override def createExtension(system: ExtendedActorSystem) = new Settings(system.settings.config, system)
 }

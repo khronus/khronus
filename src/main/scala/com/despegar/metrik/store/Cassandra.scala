@@ -16,7 +16,7 @@
 
 package com.despegar.metrik.store
 
-import com.despegar.metrik.util.{ Config, Logging }
+import com.despegar.metrik.util.{ Settings, Logging }
 import com.netflix.astyanax.AstyanaxContext
 import com.netflix.astyanax.connectionpool.NodeDiscoveryType
 import com.netflix.astyanax.connectionpool.impl.{ ConnectionPoolConfigurationImpl, CountingConnectionPoolMonitor }
@@ -27,20 +27,22 @@ import com.netflix.astyanax.thrift.ThriftFamilyFactory
 import scala.collection.JavaConverters._
 import scala.util.Try
 
-object Cassandra extends Config with Logging {
+object Cassandra extends Logging {
 
-  val cassandraConfig = config.getConfig("metrik.cassandra")
-
-  private val context = new AstyanaxContext.Builder().forCluster(cassandraConfig.getString("cluster"))
-    .forKeyspace(cassandraConfig.getString("keyspace"))
-    .withAstyanaxConfiguration(new AstyanaxConfigurationImpl()
-      .setDiscoveryType(NodeDiscoveryType.RING_DESCRIBE))
-    .withConnectionPoolConfiguration(new ConnectionPoolConfigurationImpl("CassandraConnectionPool")
-      .setPort(cassandraConfig.getInt("port"))
-      .setMaxConnsPerHost(1)
-      .setSeeds(cassandraConfig.getString("seeds")))
-    .withConnectionPoolMonitor(new CountingConnectionPoolMonitor())
-    .buildKeyspace(ThriftFamilyFactory.getInstance())
+  private val context = {
+    val cassandra = Settings().Cassandra
+    import cassandra._
+    new AstyanaxContext.Builder().forCluster(Cluster)
+      .forKeyspace(Keyspace)
+      .withAstyanaxConfiguration(new AstyanaxConfigurationImpl()
+        .setDiscoveryType(NodeDiscoveryType.RING_DESCRIBE))
+      .withConnectionPoolConfiguration(new ConnectionPoolConfigurationImpl("CassandraConnectionPool")
+        .setPort(Port)
+        .setMaxConnsPerHost(1)
+        .setSeeds(Seeds))
+      .withConnectionPoolMonitor(new CountingConnectionPoolMonitor())
+      .buildKeyspace(ThriftFamilyFactory.getInstance())
+  }
 
   context.start()
 
