@@ -21,13 +21,14 @@ import org.HdrHistogram.Histogram
 import com.despegar.metrik.model.HistogramBucket._
 import com.despegar.metrik.util.{ BucketUtils, Logging }
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ Promise, Future }
 import scala.concurrent.duration.Duration
+import scala.util.{ Failure, Success }
 
 case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true)
     extends HistogramBucketSupport with StatisticSummarySupport with MetaSupport with Logging {
 
-  def process(metric: String, executionTimestamp: Long): Future[Any] = {
+  def process(metric: String, executionTimestamp: Long): Future[Unit] = {
     log.debug(s"Processing window of $duration for metric $metric and executionTimestamp $executionTimestamp")
     //retrieve the temporal histogram buckets from previous window until the last complete current window
     //Ex. 100.000 (executionTimestamp) / 30.000 (duration) = 90.000 (currentBucketTimestamp)
@@ -55,20 +56,27 @@ case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shou
     //calculate the statistic summaries (percentiles, min, max, etc...)
     val statisticsSummaries = resultingBuckets.map(buckets ⇒ buckets map (_.summary))
 
-    //store the statistic summaries
-    statisticsSummaries map (summaries ⇒ ifNotEmpty(summaries)(statisticSummaryStore.store(metric, duration, summaries))) andThen {
-      case _ ⇒
-        //remove previous histogram buckets
-        previousWindowBuckets map (windows ⇒ ifNotEmpty(windows)(histogramBucketStore.remove(metric, previousWindowDuration, windows)))
+    val storeSummaries = statisticsSummaries flatMap (summaries ⇒ ifNotEmpty(summaries)(statisticSummaryStore.store(metric, duration, summaries)))
+
+    val removeTemporalHistgrams = Promise[Unit]()
+    storeSummaries.onComplete {
+      case Success(_) ⇒ removeTemporalHistgrams.completeWith(previousWindowBuckets flatMap (windows ⇒ ifNotEmpty(windows)(histogramBucketStore.remove(metric, previousWindowDuration, windows))))
+
+      case Failure(e) ⇒ log.error("error", e); removeTemporalHistgrams.failure(e)
     }
+
+    removeTemporalHistgrams.future
   }
 
   /**
    * Call the function f only if the collection is not empty
    */
-  def ifNotEmpty(col: Seq[AnyRef])(f: ⇒ Future[Unit]) = {
+  def ifNotEmpty(col: Seq[AnyRef])(f: ⇒ Future[Unit]): Future[Unit] = {
     if (col.size > 0) {
+      println(s"invocando a f con col.size ${col.size}")
       f
+    } else {
+      Future { println("lklkl") }
     }
   }
 
