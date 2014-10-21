@@ -16,13 +16,14 @@
 
 package com.despegar.metrik.model
 
-import com.despegar.metrik.store._
-import org.HdrHistogram.Histogram
 import com.despegar.metrik.model.HistogramBucket._
+import com.despegar.metrik.store._
 import com.despegar.metrik.util.{ BucketUtils, Logging }
+
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.{ Promise, Future }
 import scala.concurrent.duration.Duration
+import scala.concurrent.{ Future, Promise }
+import scala.util.control.NonFatal
 import scala.util.{ Failure, Success }
 
 case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true)
@@ -32,40 +33,86 @@ case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shou
     log.debug(s"Processing window of $duration for metric $metric and executionTimestamp $executionTimestamp")
     //retrieve the temporal histogram buckets from previous window until the last complete current window
     //Ex. 100.000 (executionTimestamp) / 30.000 (duration) = 90.000 (currentBucketTimestamp)
-    val previousWindowBuckets = histogramBucketStore.sliceUntil(metric, BucketUtils.getCurrentBucketTimestamp(duration, executionTimestamp), previousWindowDuration)
+    val previousWindowBuckets: Future[Seq[HistogramBucket]] = histogramBucketStore.sliceUntil(metric, BucketUtils.getCurrentBucketTimestamp(duration, executionTimestamp), previousWindowDuration)
 
     //group histograms in buckets of my window duration
-    def groupedHistogramBuckets = previousWindowBuckets map (buckets ⇒ buckets.groupBy(_.timestamp / duration.toMillis))
+    def groupHistogramBuckets: Future[Map[Long, Seq[HistogramBucket]]] = previousWindowBuckets.map {
+      buckets ⇒
+        buckets.groupBy(_.timestamp / duration.toMillis)
+    }
 
-    //filter out buckets already processed. we don't want to override our precious buckets with late data
-    val filteredGroupedHistogramBuckets = for {
-      lastBucketNumber ← getLastProcessedBucketNumber(metric)
-      filteredHistograms ← groupedHistogramBuckets map (histogramsBuckets ⇒ histogramsBuckets.filterNot(_._1 <= lastBucketNumber))
-    } yield {
-      filteredHistograms
+    def filter(buckets: Map[Long, Seq[HistogramBucket]], filterBy: Long): Future[Map[Long, Seq[HistogramBucket]]] = Future {
+      buckets.filterNot(_._1 <= filterBy)
     }
 
     //sum histograms on each bucket
-    val resultingBuckets = filteredGroupedHistogramBuckets map (buckets ⇒ buckets.collect { case (bucketNumber, histogramBuckets) ⇒ HistogramBucket(bucketNumber, duration, histogramBuckets) }.toSeq)
+    def sumAndCollectBuckets(buckets: Map[Long, Seq[HistogramBucket]]): Future[Seq[HistogramBucket]] = Future {
+      buckets.collect {
+        case (bucketNumber, histogramBuckets) ⇒ HistogramBucket(bucketNumber, duration, histogramBuckets)
+      }.toSeq
+    }
+
+    def calculateStatisticsSummaries(buckets: Seq[HistogramBucket]): Future[Seq[StatisticSummary]] = Future {
+      buckets.map {
+        bucket ⇒
+          bucket.summary
+      }
+    }
+
+    def storeStatisticsSummaries(summaries: Seq[StatisticSummary]) = Future {
+      ifNotEmpty(summaries) {
+        statisticSummaryStore.store(metric, duration, summaries)
+      }
+    }
+
+    def removeHistogram(buckets: Future[Seq[HistogramBucket]]): Future[Unit] = Future {
+      buckets.flatMap {
+        windows ⇒
+          ifNotEmpty(windows) {
+            histogramBucketStore.remove(metric, previousWindowDuration, windows)
+          }
+      }
+    }
+
+    val removeTemporalHistograms = Promise[Unit]()
+
+    //filter out buckets already processed. we don't want to override our precious buckets with late data
+    val resultingBuckets: Future[Seq[HistogramBucket]] = for {
+      lastBucketNumber ← getLastProcessedBucketNumber(metric)
+      groupedHistograms ← groupHistogramBuckets
+      filteredHistograms ← filter(groupedHistograms, lastBucketNumber)
+      collectedHistograms ← sumAndCollectBuckets(filteredHistograms)
+    } yield {
+      collectedHistograms
+    }
 
     //store temporal histogram buckets for next window if needed
     if (shouldStoreTemporalHistograms) {
-      resultingBuckets map (buckets ⇒ ifNotEmpty(buckets)(histogramBucketStore.store(metric, duration, buckets)))
+      resultingBuckets map {
+        buckets ⇒
+          ifNotEmpty(buckets) {
+            histogramBucketStore.store(metric, duration, buckets)
+          }
+      }
     }
 
     //calculate the statistic summaries (percentiles, min, max, etc...)
-    val statisticsSummaries = resultingBuckets.map(buckets ⇒ buckets map (_.summary))
-
-    val storeSummaries = statisticsSummaries flatMap (summaries ⇒ ifNotEmpty(summaries)(statisticSummaryStore.store(metric, duration, summaries)))
-
-    val removeTemporalHistgrams = Promise[Unit]()
-    storeSummaries.onComplete {
-      case Success(_) ⇒ removeTemporalHistgrams.completeWith(previousWindowBuckets flatMap (windows ⇒ ifNotEmpty(windows)(histogramBucketStore.remove(metric, previousWindowDuration, windows))))
-
-      case Failure(e) ⇒ log.error("error", e); removeTemporalHistgrams.failure(e)
+    val summaries: Future[Unit] = for {
+      buckets ← resultingBuckets
+      statisticsSummaries ← calculateStatisticsSummaries(buckets)
+      storedSummaries ← storeStatisticsSummaries(statisticsSummaries)
+    } yield {
+      storedSummaries
     }
 
-    removeTemporalHistgrams.future
+    summaries onComplete {
+      case Success(_) ⇒ removeTemporalHistograms.completeWith(removeHistogram(previousWindowBuckets))
+      case Failure(NonFatal(e)) ⇒
+        log.error("error", e)
+        removeTemporalHistograms.failure(e)
+    }
+
+    removeTemporalHistograms.future
   }
 
   /**
@@ -73,10 +120,9 @@ case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shou
    */
   def ifNotEmpty(col: Seq[AnyRef])(f: ⇒ Future[Unit]): Future[Unit] = {
     if (col.size > 0) {
-      println(s"invocando a f con col.size ${col.size}")
       f
     } else {
-      Future { println("lklkl") }
+      Future {}
     }
   }
 
@@ -88,5 +134,4 @@ case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shou
   private def getLastProcessedBucketNumber(metric: String): Future[Long] = {
     metaStore.getLastProcessedTimestamp(metric) map { timestamp ⇒ timestamp / duration.toMillis }
   }
-
 }
