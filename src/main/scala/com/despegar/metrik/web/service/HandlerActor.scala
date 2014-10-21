@@ -24,10 +24,11 @@ import spray.routing._
 import spray.util.LoggingContext
 import spray.http.StatusCodes._
 import com.despegar.metrik.util.Logging
+import com.despegar.metrik.web.service.influx.InfluxService
 
 // we don't implement our route structure directly in the service actor because
 // we want to be able to test it independently, without having to spin up an actor
-class HandlerActor extends Actor with MetricsService with VersionService {
+class HandlerActor extends Actor with MetricsService with VersionService with InfluxService {
 
   implicit def myExceptionHandler =
     ExceptionHandler.apply {
@@ -44,6 +45,6 @@ class HandlerActor extends Actor with MetricsService with VersionService {
   // connects the services environment to the enclosing actor or test
   def actorRefFactory = context
 
-  def receive = runRoute(metricsRoute ~ versionRoute)
+  def receive = runRoute(metricsRoute ~ versionRoute ~ listSeriesRoute)
 }
 
