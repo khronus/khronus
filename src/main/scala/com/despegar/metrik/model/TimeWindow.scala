@@ -59,22 +59,7 @@ case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shou
       }
     }
 
-    def storeStatisticsSummaries(summaries: Seq[StatisticSummary]) = Future {
-      ifNotEmpty(summaries) {
-        statisticSummaryStore.store(metric, duration, summaries)
-      }
-    }
-
-    def removeHistogram(buckets: Future[Seq[HistogramBucket]]): Future[Unit] = Future {
-      buckets.flatMap {
-        windows ⇒
-          ifNotEmpty(windows) {
-            histogramBucketStore.remove(metric, previousWindowDuration, windows)
-          }
-      }
-    }
-
-    val removeTemporalHistograms = Promise[Unit]()
+    def storeStatisticsSummaries(summaries: Seq[StatisticSummary]) = statisticSummaryStore.store(metric, duration, summaries)
 
     //filter out buckets already processed. we don't want to override our precious buckets with late data
     val resultingBuckets: Future[Seq[HistogramBucket]] = for {
@@ -90,14 +75,12 @@ case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shou
     if (shouldStoreTemporalHistograms) {
       resultingBuckets map {
         buckets ⇒
-          ifNotEmpty(buckets) {
-            histogramBucketStore.store(metric, duration, buckets)
-          }
+          histogramBucketStore.store(metric, duration, buckets)
       }
     }
 
     //calculate the statistic summaries (percentiles, min, max, etc...)
-    val summaries: Future[Unit] = for {
+    val storedSummaries: Future[Unit] = for {
       buckets ← resultingBuckets
       statisticsSummaries ← calculateStatisticsSummaries(buckets)
       storedSummaries ← storeStatisticsSummaries(statisticsSummaries)
@@ -105,25 +88,20 @@ case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shou
       storedSummaries
     }
 
-    summaries onComplete {
+    storedSummaries onFailure { case e: Exception ⇒ e.printStackTrace() }
+
+    storedSummaries flatMap (stored ⇒ previousWindowBuckets flatMap { windows ⇒
+      histogramBucketStore.remove(metric, previousWindowDuration, windows)
+    })
+
+    /*summaries onComplete {
       case Success(_) ⇒ removeTemporalHistograms.completeWith(removeHistogram(previousWindowBuckets))
       case Failure(NonFatal(e)) ⇒
         log.error("error", e)
         removeTemporalHistograms.failure(e)
     }
 
-    removeTemporalHistograms.future
-  }
-
-  /**
-   * Call the function f only if the collection is not empty
-   */
-  def ifNotEmpty(col: Seq[AnyRef])(f: ⇒ Future[Unit]): Future[Unit] = {
-    if (col.size > 0) {
-      f
-    } else {
-      Future {}
-    }
+    removeTemporalHistograms.future*/
   }
 
   /**
