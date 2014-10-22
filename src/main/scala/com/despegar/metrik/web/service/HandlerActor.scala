@@ -17,18 +17,23 @@
 package com.despegar.metrik.web.service
 
 import akka.actor.Actor
-import spray.routing.HttpService
-import spray.http.MediaTypes._
-import spray.httpx.SprayJsonSupport._
 import spray.routing._
-import spray.util.LoggingContext
 import spray.http.StatusCodes._
-import com.despegar.metrik.util.Logging
 import com.despegar.metrik.web.service.influx.InfluxService
+import com.despegar.metrik.util.Logging
 
 // we don't implement our route structure directly in the service actor because
 // we want to be able to test it independently, without having to spin up an actor
-class HandlerActor extends Actor with MetricsService with VersionService with InfluxService {
+class HandlerActor extends Actor with MetrikExceptionHandler with MetricsService with VersionService with InfluxService {
+
+  // the HttpService trait defines only one abstract member, which
+  // connects the services environment to the enclosing actor or test
+  def actorRefFactory = context
+
+  def receive = runRoute(metricsRoute ~ versionRoute ~ influxRoute)
+}
+
+trait MetrikExceptionHandler extends Logging {
 
   implicit def myExceptionHandler =
     ExceptionHandler.apply {
@@ -41,10 +46,4 @@ class HandlerActor extends Actor with MetricsService with VersionService with In
       }
     }
 
-  // the HttpService trait defines only one abstract member, which
-  // connects the services environment to the enclosing actor or test
-  def actorRefFactory = context
-
-  def receive = runRoute(metricsRoute ~ versionRoute ~ listSeriesRoute)
 }
-

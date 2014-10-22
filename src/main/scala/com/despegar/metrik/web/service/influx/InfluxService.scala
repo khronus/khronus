@@ -15,7 +15,7 @@ class InfluxActor extends Actor with InfluxService {
 
   def actorRefFactory = context
 
-  def receive = runRoute(listSeriesRoute)
+  def receive = runRoute(influxRoute)
 
 }
 
@@ -24,7 +24,7 @@ case class QueryString(queryString: String)
 trait InfluxService extends HttpService with MetaSupport with Logging {
   val ListSeries = "list series"
 
-  val listSeriesRoute = path("metrik" / "influx") {
+  val influxRoute = path("metrik" / "influx") {
     parameters('q) { queryString ⇒
       get {
         log.info(s"GET /metrik/influx - Query: [$queryString]")
