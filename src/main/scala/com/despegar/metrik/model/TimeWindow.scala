@@ -30,78 +30,32 @@ case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shou
     extends HistogramBucketSupport with StatisticSummarySupport with MetaSupport with Logging {
 
   def process(metric: String, executionTimestamp: Long): Future[Unit] = {
-    log.debug(s"Processing window of $duration for metric $metric and executionTimestamp $executionTimestamp")
-    //retrieve the temporal histogram buckets from previous window until the last complete current window
-    //Ex. 100.000 (executionTimestamp) / 30.000 (duration) = 90.000 (currentBucketTimestamp)
-    val previousWindowBuckets: Future[Seq[HistogramBucket]] = histogramBucketStore.sliceUntil(metric, BucketUtils.getCurrentBucketTimestamp(duration, executionTimestamp), previousWindowDuration)
+    log.debug(s"Processing window of $duration for metric $metric...")
+    //retrieve the temporal histogram buckets from previous window
+    val previousWindowBuckets = histogramBucketStore.sliceUntil(metric, BucketUtils.getCurrentBucketTimestamp(duration, executionTimestamp), previousWindowDuration)
 
     //group histograms in buckets of my window duration
-    def groupHistogramBuckets: Future[Map[Long, Seq[HistogramBucket]]] = previousWindowBuckets.map {
-      buckets ⇒
-        buckets.groupBy(_.timestamp / duration.toMillis)
-    }
-
-    def filter(buckets: Map[Long, Seq[HistogramBucket]], filterBy: Long): Future[Map[Long, Seq[HistogramBucket]]] = Future {
-      buckets.filterNot(_._1 <= filterBy)
-    }
-
-    //sum histograms on each bucket
-    def sumAndCollectBuckets(buckets: Map[Long, Seq[HistogramBucket]]): Future[Seq[HistogramBucket]] = Future {
-      buckets.collect {
-        case (bucketNumber, histogramBuckets) ⇒ HistogramBucket(bucketNumber, duration, histogramBuckets)
-      }.toSeq
-    }
-
-    def calculateStatisticsSummaries(buckets: Seq[HistogramBucket]): Future[Seq[StatisticSummary]] = Future {
-      buckets.map {
-        bucket ⇒
-          bucket.summary
-      }
-    }
-
-    def storeStatisticsSummaries(summaries: Seq[StatisticSummary]) = statisticSummaryStore.store(metric, duration, summaries)
+    val groupedHistogramBuckets = previousWindowBuckets map (buckets ⇒ buckets.groupBy(_.timestamp / duration.toMillis))
 
     //filter out buckets already processed. we don't want to override our precious buckets with late data
-    val resultingBuckets: Future[Seq[HistogramBucket]] = for {
-      lastBucketNumber ← getLastProcessedBucketNumber(metric)
-      groupedHistograms ← groupHistogramBuckets
-      filteredHistograms ← filter(groupedHistograms, lastBucketNumber)
-      collectedHistograms ← sumAndCollectBuckets(filteredHistograms)
-    } yield {
-      collectedHistograms
-    }
+    val filteredGroupedHistogramBuckets = getLastProcessedBucketNumber(metric) flatMap (lbucket ⇒ groupedHistogramBuckets map (_.filterNot(_._1 <= lbucket)))
+
+    //sum histograms on each bucket
+    val resultingBuckets = filteredGroupedHistogramBuckets map (buckets ⇒ buckets.collect { case (bucketNumber, histogramBuckets) ⇒ HistogramBucket(bucketNumber, duration, histogramBuckets) }.toSeq)
 
     //store temporal histogram buckets for next window if needed
-    if (shouldStoreTemporalHistograms) {
-      resultingBuckets map {
-        buckets ⇒
-          histogramBucketStore.store(metric, duration, buckets)
-      }
-    }
+    val storeTemporalFuture = if (shouldStoreTemporalHistograms) {
+      resultingBuckets flatMap (buckets ⇒ histogramBucketStore.store(metric, duration, buckets))
+    } else Future.successful[Unit](Unit)
 
     //calculate the statistic summaries (percentiles, min, max, etc...)
-    val storedSummaries: Future[Unit] = for {
-      buckets ← resultingBuckets
-      statisticsSummaries ← calculateStatisticsSummaries(buckets)
-      storedSummaries ← storeStatisticsSummaries(statisticsSummaries)
-    } yield {
-      storedSummaries
-    }
+    val statisticsSummaries = storeTemporalFuture flatMap { _ ⇒ resultingBuckets.map(buckets ⇒ buckets map (_.summary)) }
 
-    storedSummaries onFailure { case e: Exception ⇒ e.printStackTrace() }
+    //store the statistic summaries
+    val storeFuture = statisticsSummaries flatMap (summaries ⇒ statisticSummaryStore.store(metric, duration, summaries))
 
-    storedSummaries flatMap (stored ⇒ previousWindowBuckets flatMap { windows ⇒
-      histogramBucketStore.remove(metric, previousWindowDuration, windows)
-    })
-
-    /*summaries onComplete {
-      case Success(_) ⇒ removeTemporalHistograms.completeWith(removeHistogram(previousWindowBuckets))
-      case Failure(NonFatal(e)) ⇒
-        log.error("error", e)
-        removeTemporalHistograms.failure(e)
-    }
-
-    removeTemporalHistograms.future*/
+    //remove previous histogram buckets
+    storeFuture flatMap { _ ⇒ previousWindowBuckets flatMap (windows ⇒ histogramBucketStore.remove(metric, previousWindowDuration, windows)) }
   }
 
   /**
