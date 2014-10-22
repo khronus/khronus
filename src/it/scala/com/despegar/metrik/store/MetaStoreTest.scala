@@ -8,7 +8,7 @@ import scala.util.Try
 class CassandraMetaStoreTest extends FunSuite with BaseIntegrationTest with Matchers {
 
   test("should store and retrieve metadata for metrics") {
-    await { CassandraMetaStore.store("metric1") }
+    await { CassandraMetaStore.insert("metric1") }
     val metrics = await { CassandraMetaStore.retrieveMetrics }
     metrics shouldEqual Seq("metric1")
   }

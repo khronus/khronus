@@ -35,6 +35,10 @@ class Settings(config: com.typesafe.config.Config, extendedSystem: ExtendedActor
     val Port: Int = config.getInt("metrik.port")
   }
 
+  object Window {
+    val ExecutionDelay: Long = config.getDuration("metrik.windows.execution-delay", TimeUnit.MILLISECONDS)
+  }
+
   object Cassandra {
     private val cassandraCfg = config.getConfig("metrik.cassandra")
     val Cluster = cassandraCfg.getString("cluster")

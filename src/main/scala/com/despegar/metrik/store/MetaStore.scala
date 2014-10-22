@@ -10,7 +10,9 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ ExecutionContext, Future }
 
 trait MetaStore {
-  def store(metric: String): Future[Unit]
+  def update(metric: String, lastProcessedTimestamp: Long): Future[Unit]
+  def getLastProcessedTimestamp(metric: String): Future[Long]
+  def insert(metric: String): Future[Unit]
   def retrieveMetrics: Future[Seq[String]]
 }
 
@@ -26,12 +28,20 @@ object CassandraMetaStore extends MetaStore with Logging {
 
   def initialize = Cassandra.createColumnFamily(columnFamily)
 
-  def store(metric: String) = {
+  def insert(metric: String): Future[Unit] = {
+    put(metric, -Long.MaxValue)
+  }
+
+  def update(metric: String, lastProcessedTimestamp: Long): Future[Unit] = {
+    put(metric, lastProcessedTimestamp)
+  }
+
+  private def put(metric: String, timestamp: Long): Future[Unit] = {
     val future = Future {
       val mutationBatch = Cassandra.keyspace.prepareMutationBatch()
-      mutationBatch.withRow(columnFamily, "metrics").putEmptyColumn(metric)
+      mutationBatch.withRow(columnFamily, "metrics").putColumn(metric, timestamp)
       mutationBatch.execute()
-      log.info(s"Stored meta for $metric successfully")
+      log.info(s"Stored meta for $metric successfully. Timestamp: $timestamp")
     }
     future onFailure {
       case e: Exception ⇒ log.error(s"Failed to store meta for $metric", e)
@@ -48,6 +58,18 @@ object CassandraMetaStore extends MetaStore with Logging {
     future.onFailure {
       case e: Exception ⇒ log.error(s"Failed to retrieve metrics from meta", e)
     }
+    future
+  }
+
+  def getLastProcessedTimestamp(metric: String): Future[Long] = {
+    val future = Future {
+      Cassandra.keyspace.prepareQuery(columnFamily).getKey("metrics").getColumn(metric).execute().getResult.getLongValue
+    }
+
+    future.onFailure {
+      case e: Exception ⇒ log.error(s"Failed to retrieve last processed timestamp of $metric from meta", e)
+    }
+
     future
   }
 

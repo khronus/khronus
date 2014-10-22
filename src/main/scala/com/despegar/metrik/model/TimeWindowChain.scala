@@ -16,18 +16,24 @@
 
 package com.despegar.metrik.model
 
+import java.util.concurrent.TimeUnit
+import com.despegar.metrik.store.MetaSupport
+import com.despegar.metrik.util.{ Logging }
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import scala.concurrent.duration._
-import com.despegar.metrik.util.Logging
+import scala.concurrent.duration._ //remove this
+import com.despegar.metrik.util.Settings
 
-import scala.concurrent.ExecutionContext.Implicits.global //remove this
-
-class TimeWindowChain extends Logging {
+class TimeWindowChain extends Logging with MetaSupport {
 
   val windows = Seq(TimeWindow(30 seconds, 1 millis), TimeWindow(1 minute, 30 seconds), TimeWindow(5 minute, 1 minute, false))
 
   def process(metric: String): Future[Seq[Any]] = {
+    val executionTimestamp = System.currentTimeMillis() - Settings().Window.ExecutionDelay
     log.debug(s"Processing windows for $metric...")
-    Future.sequence(windows.map(_.process(metric)))
+    Future.sequence(windows.map(_.process(metric, executionTimestamp))).andThen {
+      case _ ⇒ metaStore.update(metric, executionTimestamp)
+    }
   }
+
 }
