@@ -1,35 +1,39 @@
+/*
+ * =========================================================================================
+ * Copyright © 2014 the metrik project <https://github.com/hotels-tech/metrik>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
+ * except in compliance with the License. You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the
+ * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+ * either express or implied. See the License for the specific language governing permissions
+ * and limitations under the License.
+ * =========================================================================================
+ */
+
 package com.despegar.metrik.web.service.influx
 
-import spray.http.{ HttpMethods, HttpMethod, HttpResponse, AllOrigins }
 import spray.http.HttpHeaders._
 import spray.http.HttpMethods._
+import spray.http._
 import spray.routing._
 
-
-trait CORSSupport {
+trait CORSSupport extends Directives {
   this: HttpService ⇒
 
-  private val allowOriginHeader = `Access-Control-Allow-Origin`(AllOrigins)
-  private val optionsCorsHeaders = List(
+  private val CORSHeaders = List(
+    `Access-Control-Allow-Methods`(GET, POST, PUT, DELETE, OPTIONS),
     `Access-Control-Allow-Headers`("Origin, X-Requested-With, Content-Type, Accept, Accept-Encoding, Accept-Language, Host, Referer, User-Agent"),
-    `Access-Control-Max-Age`(1728000))
+    `Access-Control-Allow-Credentials`(true))
 
-  def cors[T]: Directive0 = mapRequestContext {
-    ctx ⇒
-      ctx.withRouteResponseHandling({
-        //It is an option request for a resource that responds to some other method
-        case Rejected(x) if (ctx.request.method.equals(HttpMethods.OPTIONS) && !x.filter(_.isInstanceOf[MethodRejection]).isEmpty) ⇒ {
-          val allowedMethods: List[HttpMethod] = x.filter(_.isInstanceOf[MethodRejection]).map(rejection ⇒ {
-            rejection.asInstanceOf[MethodRejection].supported
-          })
-          ctx.complete(HttpResponse().withHeaders(
-            `Access-Control-Allow-Methods`(OPTIONS, allowedMethods: _*) :: allowOriginHeader ::
-              optionsCorsHeaders))
-        }
-      }).withHttpResponseHeadersMapped {
-        headers ⇒
-          allowOriginHeader :: headers
+  def respondWithCORS(routes: ⇒ Route) = {
+    val originHeader = `Access-Control-Allow-Origin`(AllOrigins)
 
-      }
+    respondWithHeaders(originHeader :: CORSHeaders) {
+      routes ~ options { complete(StatusCodes.OK) }
+    }
   }
 }
