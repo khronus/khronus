@@ -25,7 +25,7 @@ import scala.concurrent.duration._ //remove this
 
 class TimeWindowChain extends Logging with MetaSupport {
 
-  val windows = Seq(TimeWindow(30 seconds, 1 millis), TimeWindow(1 minute, 30 seconds), TimeWindow(5 minute, 1 minute, false))
+  val windows = Seq(TimeWindow(30 seconds, 1 millis), TimeWindow(1 minute, 30 seconds), TimeWindow(5 minute, 1 minute), TimeWindow(10 minute, 5 minute, false))
 
   def process(metric: String): Future[Seq[Any]] = {
     val executionTimestamp = System.currentTimeMillis() - Settings().Window.ExecutionDelay

@@ -17,10 +17,12 @@ package com.despegar.metrik.util
 
 import com.typesafe.scalalogging.Logger
 import org.slf4j.LoggerFactory
+import scala.concurrent.duration.Duration
 
 trait Logging {
 
   def loggerName = this.getClass().getName()
   val log = Logger(LoggerFactory.getLogger(loggerName))
 
+  def prefix(metric: String, duration: Duration) = s"[$metric-$duration]"
 }
