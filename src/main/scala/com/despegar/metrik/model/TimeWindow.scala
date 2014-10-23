@@ -30,7 +30,7 @@ case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shou
     extends HistogramBucketSupport with StatisticSummarySupport with MetaSupport with Logging {
 
   def process(metric: String, executionTimestamp: Long): Future[Unit] = {
-    log.debug(s"Processing window of $duration for metric $metric...")
+    log.debug(s"Process window of $duration for metric $metric")
     //retrieve the temporal histogram buckets from previous window
     val previousWindowBuckets = histogramBucketStore.sliceUntil(metric, BucketUtils.getCurrentBucketTimestamp(duration, executionTimestamp), previousWindowDuration)
 
@@ -47,8 +47,7 @@ case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shou
     val storeTemporalFuture = if (shouldStoreTemporalHistograms) {
       resultingBuckets flatMap (buckets ⇒ histogramBucketStore.store(metric, duration, buckets))
     } else {
-      log.debug("Last window. No need to store buckets")
-      Future.successful[Unit](Unit)
+      Future.successful[Unit](log.debug("Last window. No need to store buckets"))
     }
 
     //calculate the statistic summaries (percentiles, min, max, etc...)
@@ -63,13 +62,13 @@ case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shou
 
   private def groupInBucketsOfMyWindow(previousWindowBuckets: Future[Seq[HistogramBucket]], metric: String) = {
     val future = previousWindowBuckets map (buckets ⇒ buckets.groupBy(_.timestamp / duration.toMillis))
-    future.onSuccess { case buckets ⇒ log.debug(s"${buckets.size} grouped buckets: ${buckets}") }
+    future.onSuccess { case buckets ⇒ log.debug(s"${buckets.size} grouped buckets: ${buckets} of $duration for metric $metric") }
     future
   }
 
   private def filterAlreadyProcessedBuckets(groupedHistogramBuckets: Future[Map[Long, Seq[HistogramBucket]]], metric: String) = {
-    val future = lastProcessedBucket(metric) flatMap { lastBucket ⇒ println(s"filter by lastBucket: $lastBucket, duration: $duration"); groupedHistogramBuckets map (_.filterNot(_._1 < (lastBucket - 1))) }
-    future.onSuccess { case buckets ⇒ log.debug(s"${buckets.size} buckets after filtering: ${buckets}") }
+    val future = lastProcessedBucket(metric) flatMap { lastBucket ⇒ groupedHistogramBuckets map (_.filterNot(_._1 < (lastBucket - 1))) }
+    future.onSuccess { case buckets ⇒ log.debug(s"${buckets.size} buckets after filtering: ${buckets} of $duration for metric $metric") }
     future
   }
 
@@ -79,6 +78,8 @@ case class TimeWindow(duration: Duration, previousWindowDuration: Duration, shou
    * @return a Long representing the bucket number. If nothing if found -1 is returned
    */
   private def lastProcessedBucket(metric: String): Future[Long] = {
-    metaStore.getLastProcessedTimestamp(metric) map { timestamp ⇒ timestamp / duration.toMillis }
+    val future = metaStore.getLastProcessedTimestamp(metric) map { timestamp ⇒ timestamp / duration.toMillis }
+    future.onSuccess { case bucket ⇒ log.debug(s"Last processed bucket: $bucket of $duration for metric $metric") }
+    future
   }
 }

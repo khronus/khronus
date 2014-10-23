@@ -21,7 +21,10 @@ import com.despegar.metrik.store.MetaSupport
 import com.despegar.metrik.util.{ BucketUtils, Logging, Settings }
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import scala.concurrent.duration._ //remove this
+import scala.concurrent.duration._
+import scala.util.Success
+
+//remove this
 
 class TimeWindowChain extends Logging with MetaSupport {
 
@@ -30,8 +33,21 @@ class TimeWindowChain extends Logging with MetaSupport {
   def process(metric: String): Future[Seq[Any]] = {
     val executionTimestamp = System.currentTimeMillis() - Settings().Window.ExecutionDelay
     log.debug(s"Processing windows for $metric...")
-    Future.sequence(windows.map(_.process(metric, executionTimestamp))).andThen {
-      case _ ⇒ metaStore.update(metric, BucketUtils.getCurrentBucketTimestamp(windows(0).duration, executionTimestamp))
+
+    val sequence = Future.sequence(Seq(processInChain(metric, executionTimestamp, 0)))
+    sequence onComplete {
+      case Success(_) ⇒ metaStore.update(metric, BucketUtils.getCurrentBucketTimestamp(windows(0).duration, executionTimestamp))
+    }
+    sequence
+  }
+
+  def processInChain(metric: String, executionTimestamp: Long, index: Int): Future[Unit] = {
+    if (index >= (windows.size - 1)) {
+      windows(index).process(metric, executionTimestamp)
+    } else {
+      windows(index).process(metric, executionTimestamp).flatMap { _ ⇒
+        processInChain(metric, executionTimestamp, index + 1)
+      }
     }
   }
 

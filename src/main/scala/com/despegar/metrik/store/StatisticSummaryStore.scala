@@ -4,7 +4,7 @@ import java.nio.ByteBuffer
 import java.util.concurrent.Executors
 
 import com.despegar.metrik.model.StatisticSummary
-import com.despegar.metrik.util.KryoSerializer
+import com.despegar.metrik.util.{ Logging, KryoSerializer }
 import com.netflix.astyanax.model.ColumnFamily
 import com.netflix.astyanax.serializers.{ LongSerializer, StringSerializer }
 
@@ -27,7 +27,7 @@ trait StatisticSummarySupport {
   def statisticSummaryStore: StatisticSummaryStore = CassandraStatisticSummaryStore
 }
 
-object CassandraStatisticSummaryStore extends StatisticSummaryStore {
+object CassandraStatisticSummaryStore extends StatisticSummaryStore with Logging {
   //create column family definition for every bucket duration
   val windowDurations: Seq[Duration] = Seq(30 seconds, 1 minute, 5 minute, 10 minute, 30 minute, 1 hour)
   //FIXME put configured windows
@@ -48,13 +48,15 @@ object CassandraStatisticSummaryStore extends StatisticSummaryStore {
     serializer.serialize(summary)
   }
 
-  def store(metric: String, windowDuration: Duration, statisticSummaries: Seq[StatisticSummary]) = {
+  def store(metric: String, windowDuration: Duration, statisticSummaries: Seq[StatisticSummary]): Future[Unit] = {
     Future {
       val mutation = Cassandra.keyspace.prepareMutationBatch()
       val colums = mutation.withRow(columnFamilies(windowDuration), getKey(metric, windowDuration))
       statisticSummaries.foreach(summary ⇒ colums.putColumn(summary.timestamp, serializeSummary(summary)))
 
       mutation.execute
+
+      log.debug(s"Store statistics summaries of $windowDuration for metric $metric")
     }
   }
 

@@ -62,10 +62,9 @@ object CassandraHistogramBucketStore extends HistogramBucketStore with Logging {
   }
 
   private def executeSlice(metric: String, until: Long, windowDuration: Duration) = {
-    log.debug(s"Slicing window of $windowDuration for metric $metric")
     val result = Cassandra.keyspace.prepareQuery(columnFamilies(windowDuration)).getKey(getKey(metric, windowDuration))
       .withColumnRange(infinite, until, false, LIMIT).execute().getResult().asScala
-    log.debug(s"Found ${result.size} buckets")
+    log.debug(s"Slicing window. Found ${result.size} buckets of $windowDuration for metric $metric")
     result
   }
 
@@ -75,7 +74,7 @@ object CassandraHistogramBucketStore extends HistogramBucketStore with Logging {
     HistogramBucket(timestamp / windowDuration.toMillis, windowDuration, histogram)
   }
 
-  def store(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket]) = {
+  def store(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket]): Future[Unit] = {
     if (!histogramBuckets.isEmpty) {
       log.debug(s"Storing ${histogramBuckets.length} histogram buckets for metric $metric in window $windowDuration: $histogramBuckets")
       mutate(metric, windowDuration, histogramBuckets) { (mutation, bucket) ⇒
@@ -86,9 +85,9 @@ object CassandraHistogramBucketStore extends HistogramBucketStore with Logging {
     }
   }
 
-  def remove(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket]) = {
+  def remove(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket]): Future[Unit] = {
     if (!histogramBuckets.isEmpty) {
-      log.debug(s"Removing ${histogramBuckets.length} histogram buckets for metric $metric in window $windowDuration")
+      log.debug(s"Removing ${histogramBuckets.length} histogram buckets for metric $metric in window $windowDuration:  $histogramBuckets")
       mutate(metric, windowDuration, histogramBuckets) { (mutation, bucket) ⇒
         mutation.deleteColumn(bucket.timestamp)
       }
