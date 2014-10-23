@@ -65,7 +65,7 @@ object CassandraHistogramBucketStore extends HistogramBucketStore with Logging {
     log.debug(s"Slicing window of $windowDuration for metric $metric")
     val result = Cassandra.keyspace.prepareQuery(columnFamilies(windowDuration)).getKey(getKey(metric, windowDuration))
       .withColumnRange(infinite, until, false, LIMIT).execute().getResult().asScala
-    log.debug(s"Found ${result.size} buckets")
+    log.debug(s"Slicing window. Found ${result.size} buckets of $windowDuration for metric $metric")
     result
   }
 
