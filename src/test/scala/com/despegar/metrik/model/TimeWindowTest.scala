@@ -87,7 +87,7 @@ class TimeWindowTest extends FunSuite with MockitoSugar {
     val executionTime = somePreviousBucket.timestamp
 
     when(window.histogramBucketStore.sliceUntil(Matchers.eq(metricKey), Matchers.any[Long], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousUndeletedBuckets))
-    when(window.metaStore.getLastProcessedTimestamp(metricKey)).thenReturn(Future(15000L))
+    when(window.metaStore.getLastProcessedTimestamp(metricKey)).thenReturn(Future(60000L))
     when(window.histogramBucketStore.store(metricKey, windowDuration, Seq())).thenReturn(Future {})
     when(window.statisticSummaryStore.store(metricKey, windowDuration, Seq())).thenReturn(Future {})
     when(window.histogramBucketStore.remove(metricKey, previousWindowDuration, previousUndeletedBuckets)).thenReturn(Future {})
