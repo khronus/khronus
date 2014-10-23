@@ -62,8 +62,11 @@ object CassandraHistogramBucketStore extends HistogramBucketStore with Logging {
   }
 
   private def executeSlice(metric: String, until: Long, windowDuration: Duration) = {
-    Cassandra.keyspace.prepareQuery(columnFamilies(windowDuration)).getKey(getKey(metric, windowDuration))
+    log.debug(s"Slicing window of $windowDuration for metric $metric")
+    val result = Cassandra.keyspace.prepareQuery(columnFamilies(windowDuration)).getKey(getKey(metric, windowDuration))
       .withColumnRange(infinite, until, false, LIMIT).execute().getResult().asScala
+    log.debug(s"Found ${result.size} buckets")
+    result
   }
 
   private def toHistogramBucketOf(windowDuration: Duration)(column: Column[java.lang.Long]) = {
@@ -73,16 +76,24 @@ object CassandraHistogramBucketStore extends HistogramBucketStore with Logging {
   }
 
   def store(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket]) = {
-    log.debug(s"Storing ${histogramBuckets.length} histogram buckets for metric $metric in window $windowDuration")
-    mutate(metric, windowDuration, histogramBuckets) { (mutation, bucket) ⇒
-      mutation.putColumn(bucket.timestamp, serializeHistogram(bucket.histogram))
+    if (!histogramBuckets.isEmpty) {
+      log.debug(s"Storing ${histogramBuckets.length} histogram buckets for metric $metric in window $windowDuration: $histogramBuckets")
+      mutate(metric, windowDuration, histogramBuckets) { (mutation, bucket) ⇒
+        mutation.putColumn(bucket.timestamp, serializeHistogram(bucket.histogram))
+      }
+    } else {
+      Future.successful(Unit)
     }
   }
 
   def remove(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket]) = {
-    log.debug(s"Removing ${histogramBuckets.length} histogram buckets for metric $metric in window $windowDuration")
-    mutate(metric, windowDuration, histogramBuckets) { (mutation, bucket) ⇒
-      mutation.deleteColumn(bucket.timestamp)
+    if (!histogramBuckets.isEmpty) {
+      log.debug(s"Removing ${histogramBuckets.length} histogram buckets for metric $metric in window $windowDuration")
+      mutate(metric, windowDuration, histogramBuckets) { (mutation, bucket) ⇒
+        mutation.deleteColumn(bucket.timestamp)
+      }
+    } else {
+      Future.successful(Unit)
     }
   }
 
@@ -92,7 +103,7 @@ object CassandraHistogramBucketStore extends HistogramBucketStore with Logging {
       val mutation = mutationBatch.withRow(columnFamilies(windowDuration), getKey(metric, windowDuration))
       histogramBuckets.foreach(f(mutation, _))
       mutationBatch.execute
-      log.debug("Mutation successful")
+      log.trace("Mutation successful")
     }
     future onFailure {
       case e: Exception ⇒ log.error("Mutation failed", e)
