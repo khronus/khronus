@@ -1,16 +1,15 @@
 package com.despegar.metrik.store
 
-import java.nio.ByteBuffer
 import java.util.concurrent.Executors
 
 import com.despegar.metrik.model.StatisticSummary
-import com.despegar.metrik.util.KryoSerializer
+import com.despegar.metrik.util.{ Logging, KryoSerializer }
 import com.netflix.astyanax.model.ColumnFamily
 import com.netflix.astyanax.serializers.{ LongSerializer, StringSerializer }
 
+import scala.concurrent.duration._
 import scala.collection.JavaConverters._
 import scala.concurrent.{ ExecutionContext, Future }
-import scala.concurrent.duration._
 
 trait StatisticSummaryStore {
   /**
@@ -55,9 +54,10 @@ object CassandraStatisticSummaryStore extends StatisticSummaryStore with Logging
         val colums = mutation.withRow(columnFamilies(windowDuration), getKey(metric, windowDuration))
         statisticSummaries.foreach(summary ⇒ colums.putColumn(summary.timestamp, serializeSummary(summary)))
 
-      mutation.execute
+        mutation.execute
 
-      log.debug(s"Store statistics summaries of $windowDuration for metric $metric")
+        log.debug(s"Store statistics summaries of $windowDuration for metric $metric")
+      }
     }
   }
 

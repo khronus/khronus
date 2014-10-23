@@ -35,8 +35,8 @@ class TimeWindowChain extends Logging with MetaSupport {
     log.debug(s"Processing windows for $metric...")
 
     val sequence = Future.sequence(Seq(processInChain(metric, executionTimestamp, 0)))
-    sequence onComplete {
-      case Success(_) ⇒ metaStore.update(metric, BucketUtils.getCurrentBucketTimestamp(windows(0).duration, executionTimestamp))
+    sequence onSuccess {
+      case _ ⇒ metaStore.update(metric, BucketUtils.getCurrentBucketTimestamp(windows(0).duration, executionTimestamp))
     }
     sequence
   }
