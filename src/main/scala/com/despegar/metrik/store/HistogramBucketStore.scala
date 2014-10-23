@@ -72,17 +72,29 @@ object CassandraHistogramBucketStore extends HistogramBucketStore with Logging {
     HistogramBucket(timestamp / windowDuration.toMillis, windowDuration, histogram)
   }
 
-  def store(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket]) = {
-    log.debug(s"Storing ${histogramBuckets.length} histogram buckets for metric $metric in window $windowDuration")
-    mutate(metric, windowDuration, histogramBuckets) { (mutation, bucket) ⇒
-      mutation.putColumn(bucket.timestamp, serializeHistogram(bucket.histogram))
+  def store(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket]): Future[Unit] = {
+    doUnit(histogramBuckets) {
+      log.debug(s"Storing ${histogramBuckets.length} histogram buckets for metric $metric in window $windowDuration")
+      mutate(metric, windowDuration, histogramBuckets) { (mutation, bucket) ⇒
+        mutation.putColumn(bucket.timestamp, serializeHistogram(bucket.histogram))
+      }
     }
   }
 
   def remove(metric: String, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket]) = {
-    log.debug(s"Removing ${histogramBuckets.length} histogram buckets for metric $metric in window $windowDuration")
-    mutate(metric, windowDuration, histogramBuckets) { (mutation, bucket) ⇒
-      mutation.deleteColumn(bucket.timestamp)
+    doUnit(histogramBuckets) {
+      log.debug(s"Removing ${histogramBuckets.length} histogram buckets for metric $metric in window $windowDuration")
+      mutate(metric, windowDuration, histogramBuckets) { (mutation, bucket) ⇒
+        mutation.deleteColumn(bucket.timestamp)
+      }
+    }
+  }
+
+  def doUnit(col: Seq[Any])(f: ⇒ Future[Unit]): Future[Unit] = {
+    if (col.size > 0) {
+      f
+    } else {
+      Future {}
     }
   }
 

@@ -48,13 +48,15 @@ object CassandraStatisticSummaryStore extends StatisticSummaryStore {
     serializer.serialize(summary)
   }
 
-  def store(metric: String, windowDuration: Duration, statisticSummaries: Seq[StatisticSummary]) = {
-    Future {
-      val mutation = Cassandra.keyspace.prepareMutationBatch()
-      val colums = mutation.withRow(columnFamilies(windowDuration), getKey(metric, windowDuration))
-      statisticSummaries.foreach(summary ⇒ colums.putColumn(summary.timestamp, serializeSummary(summary)))
+  def store(metric: String, windowDuration: Duration, statisticSummaries: Seq[StatisticSummary]): Future[Unit] = {
+    doUnit(statisticSummaries) {
+      Future {
+        val mutation = Cassandra.keyspace.prepareMutationBatch()
+        val colums = mutation.withRow(columnFamilies(windowDuration), getKey(metric, windowDuration))
+        statisticSummaries.foreach(summary ⇒ colums.putColumn(summary.timestamp, serializeSummary(summary)))
 
-      mutation.execute
+        mutation.execute
+      }
     }
   }
 
@@ -70,6 +72,14 @@ object CassandraStatisticSummaryStore extends StatisticSummaryStore {
         val summary: StatisticSummary = serializer.deserialize(column.getByteArrayValue)
         summary
       }.toSeq
+    }
+  }
+
+  def doUnit(col: Seq[Any])(f: ⇒ Future[Unit]): Future[Unit] = {
+    if (col.size > 0) {
+      f
+    } else {
+      Future {}
     }
   }
 
