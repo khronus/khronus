@@ -10,7 +10,7 @@ trait Node extends PrettyPrinters {
 }
 
 case class MetricCriteria(projections: Seq[Projection],
-    relations: Option[Table],
+    table: Table,
     filter: Option[Expression],
     groupBy: Option[GroupBy],
     limit: Option[Int], ctx: Context = null) extends Node {
@@ -18,7 +18,7 @@ case class MetricCriteria(projections: Seq[Projection],
   def sql =
     Seq(Some("select"),
       Some(projections.map(_.sql).mkString(", ")),
-      relations.map(x ⇒ "from " + x.sql),
+      Some("from " + table.sql),
       filter.map(x ⇒ "where " + x.sql),
       groupBy.map(_.sql),
       limit.map(x ⇒ "limit " + x.toString)).flatten.mkString(" ")
@@ -249,6 +249,7 @@ case class IntervalLiteral(e: String, unit: ExtractType, ctx: Context = null) ex
 case class Table(name: String, alias: Option[String], ctx: Context = null) extends Node {
   def copyWithContext(c: Context) = copy(ctx = c)
   def sql = Seq(Some(name), alias).flatten.mkString(" ")
+
 }
 
 case class GroupBy(keys: Seq[Expression], ctx: Context = null) extends Node {

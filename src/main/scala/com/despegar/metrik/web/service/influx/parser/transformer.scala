@@ -21,10 +21,10 @@ trait Transformers {
     def recur[N0 <: Node](n0: N0) =
       topDownTransformation0(Some(newNode), n0)(f).asInstanceOf[N0]
     newNode match {
-      case node @ MetricCriteria(p, r, f, g, _, _) ⇒
+      case node @ MetricCriteria(p, table, filters, g, _, _) ⇒
         node.copy(projections = p.map(recur),
-          relations = r.map(recur),
-          filter = f.map(recur),
+          table = recur(table),
+          filter = filters.map(recur),
           groupBy = g.map(recur))
       case node @ ExpressionProjection(e, _, _)     ⇒ node.copy(expr = recur(e))
       case node @ Or(l, r, _)           ⇒ node.copy(lhs = recur(l), rhs = recur(r))

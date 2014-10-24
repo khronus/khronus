@@ -23,6 +23,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     val metricCriteria = metricCriteriaResult.get
 
     println(metricCriteria)
+    println(metricCriteria.sql)
 //      metricCriteria.projections should be(Some(MetricCriteria))
 
 

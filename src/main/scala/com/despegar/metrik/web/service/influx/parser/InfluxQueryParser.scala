@@ -60,7 +60,7 @@ class InfluxQueryParser extends StandardTokenParsers {
 
   def select: Parser[MetricCriteria] =
     "select" ~> projections ~
-      opt(relation) ~ opt(filter) ~
+      tableParser ~ opt(filter) ~
       opt(groupBy) ~ opt(limit) <~ opt(";") ^^ {
         case p ~ r ~ f ~ g ~ l ⇒ MetricCriteria(p, r, f, g, l)
       }
@@ -144,13 +144,8 @@ class InfluxQueryParser extends StandardTokenParsers {
         case d ~ u ⇒ IntervalLiteral(d, u)
       }
 
-  //def relations: Parser[Seq[SqlRelation]] = "from" ~> rep1sep(relation, ",")
-
-  def relation: Parser[Table] =
-    "from" ~> simple_relation
-
-  def simple_relation: Parser[Table] =
-    ident ~ opt("as") ~ opt(ident) ^^ {
+  def tableParser: Parser[Table] =
+    "from" ~> ident ~ opt("as") ~ opt(ident) ^^ {
       case ident ~ _ ~ alias ⇒ Table(ident, alias)
     }
 

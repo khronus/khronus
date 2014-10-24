@@ -27,7 +27,10 @@ trait Traversals {
     def recur(n0: Node) = topDownTraversal0(Some(n), n0)(preVisit, visit, postVisit)
     n match {
       case MetricCriteria(p, r, f, g, _, _) ⇒
-        p.map(recur); r.map(recur); f.map(recur); g.map(recur)
+        p.map(recur);
+        //r.map(recur);
+        recur(r);
+        f.map(recur); g.map(recur)
       case ExpressionProjection(e, _, _)            ⇒ recur(e)
       case Or(l, r, _)                  ⇒
         recur(l); recur(r)
