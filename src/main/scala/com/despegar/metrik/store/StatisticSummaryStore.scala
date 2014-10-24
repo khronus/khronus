@@ -2,7 +2,7 @@ package com.despegar.metrik.store
 
 import java.util.concurrent.Executors
 
-import com.despegar.metrik.model.StatisticSummary
+import com.despegar.metrik.model.{ Summary, StatisticSummary }
 import com.despegar.metrik.util.{ Logging, KryoSerializer }
 import com.netflix.astyanax.model.ColumnFamily
 import com.netflix.astyanax.serializers.{ LongSerializer, StringSerializer }
@@ -11,22 +11,11 @@ import scala.concurrent.duration._
 import scala.collection.JavaConverters._
 import scala.concurrent.{ ExecutionContext, Future }
 
-trait StatisticSummaryStore {
-  /**
-   * Get the last summary stored
-   * @param metric key of the metric
-   * @param windowDuration duration of the window to search on
-   * @return
-   */
-  def store(metric: String, windowDuration: Duration, statisticSummaries: Seq[StatisticSummary]): Future[Unit]
-  def sliceUntilNow(metric: String, windowDuration: Duration): Future[Seq[StatisticSummary]]
+trait StatisticSummarySupport extends SummaryStoreSupport {
+  override def summaryStore = CassandraStatisticSummaryStore
 }
 
-trait StatisticSummarySupport {
-  def statisticSummaryStore: StatisticSummaryStore = CassandraStatisticSummaryStore
-}
-
-object CassandraStatisticSummaryStore extends StatisticSummaryStore with Logging {
+object CassandraStatisticSummaryStore extends SummaryStore with Logging {
   //create column family definition for every bucket duration
   val windowDurations: Seq[Duration] = Seq(30 seconds, 1 minute, 5 minute, 10 minute, 30 minute, 1 hour)
   //FIXME put configured windows
@@ -47,12 +36,12 @@ object CassandraStatisticSummaryStore extends StatisticSummaryStore with Logging
     serializer.serialize(summary)
   }
 
-  def store(metric: String, windowDuration: Duration, statisticSummaries: Seq[StatisticSummary]): Future[Unit] = {
+  def store(metric: String, windowDuration: Duration, statisticSummaries: Seq[Summary]): Future[Unit] = {
     doUnit(statisticSummaries) {
       Future {
         val mutation = Cassandra.keyspace.prepareMutationBatch()
         val colums = mutation.withRow(columnFamilies(windowDuration), getKey(metric, windowDuration))
-        statisticSummaries.foreach(summary ⇒ colums.putColumn(summary.timestamp, serializeSummary(summary)))
+        statisticSummaries.asInstanceOf[Seq[StatisticSummary]].foreach(summary ⇒ colums.putColumn(summary.timestamp, serializeSummary(summary)))
 
         mutation.execute
 

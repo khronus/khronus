@@ -30,7 +30,7 @@ import scala.collection.JavaConverters._
 import java.util.concurrent.TimeUnit
 import java.io.IOException
 
-class TimeWindowTest extends FunSuite with MockitoSugar {
+class HistogramTimeWindowTest extends FunSuite with MockitoSugar {
 
   val metricKey = "metrickA"
   val windowDuration: FiniteDuration = 30 seconds
@@ -40,9 +40,9 @@ class TimeWindowTest extends FunSuite with MockitoSugar {
 
     val window = mockedWindow(windowDuration, previousWindowDuration)
 
-    val previousBucket1 = HistogramBucket(1, previousWindowDuration, histogram1)
-    val previousBucket2 = HistogramBucket(2, previousWindowDuration, histogram2)
-    val previousBucket3 = HistogramBucket(30001, previousWindowDuration, histogram3)
+    val previousBucket1 = new HistogramBucket(1, previousWindowDuration, histogram1)
+    val previousBucket2 = new HistogramBucket(2, previousWindowDuration, histogram2)
+    val previousBucket3 = new HistogramBucket(30001, previousWindowDuration, histogram3)
     val previousBuckets = Seq(previousBucket1, previousBucket2, previousBucket3)
 
     val executionTime = previousBucket3.timestamp //The last one
@@ -50,31 +50,31 @@ class TimeWindowTest extends FunSuite with MockitoSugar {
     val histogramA: Histogram = Seq(previousBucket1, previousBucket2)
     val histogramB: Histogram = Seq(previousBucket3)
 
-    val bucketA = HistogramBucket(0, windowDuration, histogramA)
-    val bucketB = HistogramBucket(1, windowDuration, histogramB)
+    val bucketA = new HistogramBucket(0, windowDuration, histogramA)
+    val bucketB = new HistogramBucket(1, windowDuration, histogramB)
     val myBuckets = Seq(bucketB, bucketA)
 
     val summaryBucketA = StatisticSummary(0, 50, 80, 90, 95, 99, 100, 1, 100, 100, 50.5)
     val summaryBucketB = StatisticSummary(30000, 100, 100, 100, 100, 100, 100, 100, 100, 2, 100)
     val mySummaries = Seq(summaryBucketB, summaryBucketA)
 
-    when(window.histogramBucketStore.sliceUntil(Matchers.eq(metricKey), any[Long], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousBuckets))
-    when(window.histogramBucketStore.store(metricKey, windowDuration, myBuckets)).thenReturn(Future {})
+    when(window.bucketStore.sliceUntil(Matchers.eq(metricKey), any[Long], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousBuckets))
+    when(window.bucketStore.store(metricKey, windowDuration, myBuckets)).thenReturn(Future {})
     when(window.metaStore.getLastProcessedTimestamp(metricKey)).thenReturn(Future(-Long.MaxValue))
-    when(window.statisticSummaryStore.store(metricKey, windowDuration, mySummaries)).thenReturn(Future {})
-    when(window.histogramBucketStore.remove(metricKey, previousWindowDuration, previousBuckets)).thenReturn(Future {})
+    when(window.summaryStore.store(metricKey, windowDuration, mySummaries)).thenReturn(Future {})
+    when(window.bucketStore.remove(metricKey, previousWindowDuration, previousBuckets)).thenReturn(Future {})
 
     //call method to test
     Await.result(window.process(metricKey, executionTime), 5 seconds)
 
     //verify temporal buckets store for subsequent window
-    verify(window.histogramBucketStore).store(metricKey, windowDuration, myBuckets)
+    verify(window.bucketStore).store(metricKey, windowDuration, myBuckets)
 
     //verify summary statistics store
-    verify(window.statisticSummaryStore).store(metricKey, windowDuration, mySummaries)
+    verify(window.summaryStore).store(metricKey, windowDuration, mySummaries)
 
     //verify previous buckets removal
-    verify(window.histogramBucketStore).remove(metricKey, previousWindowDuration, previousBuckets)
+    verify(window.bucketStore).remove(metricKey, previousWindowDuration, previousBuckets)
   }
 
   test("with already processed buckets should remove them without storing any bucket or summary") {
@@ -82,27 +82,27 @@ class TimeWindowTest extends FunSuite with MockitoSugar {
     val window = mockedWindow(windowDuration, previousWindowDuration)
 
     //mock temporal data that for any reason was not deleted! (already processed)
-    val somePreviousBucket = HistogramBucket(15000, previousWindowDuration, histogram1)
+    val somePreviousBucket = new HistogramBucket(15000, previousWindowDuration, histogram1)
     val previousUndeletedBuckets = Seq(somePreviousBucket)
     val executionTime = somePreviousBucket.timestamp
 
-    when(window.histogramBucketStore.sliceUntil(Matchers.eq(metricKey), Matchers.any[Long], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousUndeletedBuckets))
+    when(window.bucketStore.sliceUntil(Matchers.eq(metricKey), Matchers.any[Long], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousUndeletedBuckets))
     when(window.metaStore.getLastProcessedTimestamp(metricKey)).thenReturn(Future(60000L))
-    when(window.histogramBucketStore.store(metricKey, windowDuration, Seq())).thenReturn(Future {})
-    when(window.statisticSummaryStore.store(metricKey, windowDuration, Seq())).thenReturn(Future {})
-    when(window.histogramBucketStore.remove(metricKey, previousWindowDuration, previousUndeletedBuckets)).thenReturn(Future {})
+    when(window.bucketStore.store(metricKey, windowDuration, Seq())).thenReturn(Future {})
+    when(window.summaryStore.store(metricKey, windowDuration, Seq())).thenReturn(Future {})
+    when(window.bucketStore.remove(metricKey, previousWindowDuration, previousUndeletedBuckets)).thenReturn(Future {})
 
     //call method to test
     Await.result(window.process(metricKey, executionTime), 5 seconds)
 
     //verify that not store any temporal histogram
-    verify(window.histogramBucketStore).store(metricKey, windowDuration, Seq())
+    verify(window.bucketStore).store(metricKey, windowDuration, Seq())
 
     //verify that not store any summary
-    verify(window.statisticSummaryStore).store(metricKey, windowDuration, Seq())
+    verify(window.summaryStore).store(metricKey, windowDuration, Seq())
 
     //verify removal of previous undeleted buckets
-    verify(window.histogramBucketStore).remove(metricKey, previousWindowDuration, previousUndeletedBuckets)
+    verify(window.bucketStore).remove(metricKey, previousWindowDuration, previousUndeletedBuckets)
   }
 
   test("without previous buckets should do nothing") {
@@ -110,23 +110,23 @@ class TimeWindowTest extends FunSuite with MockitoSugar {
     val window = mockedWindow(windowDuration, previousWindowDuration)
 
     //mock temporal data to be empty
-    when(window.histogramBucketStore.sliceUntil(Matchers.eq(metricKey), Matchers.any[Long], Matchers.eq(previousWindowDuration))).thenReturn(Future(Seq()))
-    when(window.histogramBucketStore.store(metricKey, windowDuration, Seq())).thenReturn(Future {})
-    when(window.statisticSummaryStore.store(metricKey, windowDuration, Seq())).thenReturn(Future {})
-    when(window.histogramBucketStore.remove(metricKey, previousWindowDuration, Seq())).thenReturn(Future {})
+    when(window.bucketStore.sliceUntil(Matchers.eq(metricKey), Matchers.any[Long], Matchers.eq(previousWindowDuration))).thenReturn(Future(Seq()))
+    when(window.bucketStore.store(metricKey, windowDuration, Seq())).thenReturn(Future {})
+    when(window.summaryStore.store(metricKey, windowDuration, Seq())).thenReturn(Future {})
+    when(window.bucketStore.remove(metricKey, previousWindowDuration, Seq())).thenReturn(Future {})
     when(window.metaStore.getLastProcessedTimestamp(metricKey)).thenReturn(Future(-Long.MaxValue))
 
     //call method to test
     Await.result(window.process(metricKey, System.currentTimeMillis()), 5 seconds)
 
     //verify that not store any temporal bucket
-    verify(window.histogramBucketStore).store(metricKey, windowDuration, Seq())
+    verify(window.bucketStore).store(metricKey, windowDuration, Seq())
 
     //verify that not store any summary
-    verify(window.statisticSummaryStore).store(metricKey, windowDuration, Seq())
+    verify(window.summaryStore).store(metricKey, windowDuration, Seq())
 
     //verify that not remove anything
-    verify(window.histogramBucketStore).remove(metricKey, previousWindowDuration, Seq())
+    verify(window.bucketStore).remove(metricKey, previousWindowDuration, Seq())
   }
 
   test("should do nothing upon failure of previous buckets slice retrieval") {
@@ -134,7 +134,7 @@ class TimeWindowTest extends FunSuite with MockitoSugar {
     val window = mockedWindow(windowDuration, previousWindowDuration)
 
     //mock temporal data to be empty
-    when(window.histogramBucketStore.sliceUntil(Matchers.eq(metricKey), Matchers.any[Long], Matchers.eq(previousWindowDuration))).thenReturn(Future.failed(new IOException()))
+    when(window.bucketStore.sliceUntil(Matchers.eq(metricKey), Matchers.any[Long], Matchers.eq(previousWindowDuration))).thenReturn(Future.failed(new IOException()))
     when(window.metaStore.getLastProcessedTimestamp(metricKey)).thenReturn(Future(-Long.MaxValue))
 
     //call method to test
@@ -143,22 +143,22 @@ class TimeWindowTest extends FunSuite with MockitoSugar {
     }
 
     //verify that not store any temporal bucket
-    verify(window.histogramBucketStore, never()).store(any[String], any[FiniteDuration], any[Seq[HistogramBucket]])
+    verify(window.bucketStore, never()).store(any[String], any[FiniteDuration], any[Seq[HistogramBucket]])
 
     //verify that not store any summary
-    verify(window.statisticSummaryStore, never()).store(any[String], any[FiniteDuration], any[Seq[StatisticSummary]])
+    verify(window.summaryStore, never()).store(any[String], any[FiniteDuration], any[Seq[StatisticSummary]])
 
     //verify that not remove anything
-    verify(window.histogramBucketStore, never()).remove(any[String], any[FiniteDuration], any[Seq[HistogramBucket]])
+    verify(window.bucketStore, never()).remove(any[String], any[FiniteDuration], any[Seq[HistogramBucket]])
   }
 
   test("with previous buckets should not remove them upon failure of temporal buckets store") {
 
     val window = mockedWindow(windowDuration, previousWindowDuration)
 
-    val previousBucket1 = HistogramBucket(1, previousWindowDuration, histogram1)
-    val previousBucket2 = HistogramBucket(2, previousWindowDuration, histogram2)
-    val previousBucket3 = HistogramBucket(30001, previousWindowDuration, histogram3)
+    val previousBucket1 = new HistogramBucket(1, previousWindowDuration, histogram1)
+    val previousBucket2 = new HistogramBucket(2, previousWindowDuration, histogram2)
+    val previousBucket3 = new HistogramBucket(30001, previousWindowDuration, histogram3)
     val previousBuckets = Seq(previousBucket1, previousBucket2, previousBucket3)
 
     val executionTime = previousBucket3.timestamp //The last one
@@ -166,13 +166,13 @@ class TimeWindowTest extends FunSuite with MockitoSugar {
     val histogramA: Histogram = Seq(previousBucket1, previousBucket2)
     val histogramB: Histogram = Seq(previousBucket3)
 
-    val bucketA = HistogramBucket(0, windowDuration, histogramA)
-    val bucketB = HistogramBucket(1, windowDuration, histogramB)
+    val bucketA = new HistogramBucket(0, windowDuration, histogramA)
+    val bucketB = new HistogramBucket(1, windowDuration, histogramB)
     val myBuckets = Seq(bucketB, bucketA)
 
     when(window.metaStore.getLastProcessedTimestamp(metricKey)).thenReturn(Future(-Long.MaxValue))
-    when(window.histogramBucketStore.sliceUntil(Matchers.eq(metricKey), any[Long], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousBuckets))
-    when(window.histogramBucketStore.store(metricKey, windowDuration, myBuckets)).thenReturn(Future.failed(new IOException()))
+    when(window.bucketStore.sliceUntil(Matchers.eq(metricKey), any[Long], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousBuckets))
+    when(window.bucketStore.store(metricKey, windowDuration, myBuckets)).thenReturn(Future.failed(new IOException()))
 
     //call method to test
     intercept[IOException] {
@@ -180,19 +180,19 @@ class TimeWindowTest extends FunSuite with MockitoSugar {
     }
 
     //verify temporal buckets store for subsequent window
-    verify(window.histogramBucketStore).store(metricKey, windowDuration, myBuckets)
+    verify(window.bucketStore).store(metricKey, windowDuration, myBuckets)
 
     //verify previous buckets were not removed
-    verify(window.histogramBucketStore, never()).remove(metricKey, previousWindowDuration, previousBuckets)
+    verify(window.bucketStore, never()).remove(metricKey, previousWindowDuration, previousBuckets)
   }
 
   test("with previous buckets should not remove them upon failure of summaries store") {
 
     val window = mockedWindow(windowDuration, previousWindowDuration)
 
-    val previousBucket1 = HistogramBucket(1, previousWindowDuration, histogram1)
-    val previousBucket2 = HistogramBucket(2, previousWindowDuration, histogram2)
-    val previousBucket3 = HistogramBucket(30001, previousWindowDuration, histogram3)
+    val previousBucket1 = new HistogramBucket(1, previousWindowDuration, histogram1)
+    val previousBucket2 = new HistogramBucket(2, previousWindowDuration, histogram2)
+    val previousBucket3 = new HistogramBucket(30001, previousWindowDuration, histogram3)
     val previousBuckets = Seq(previousBucket1, previousBucket2, previousBucket3)
 
     val executionTime = previousBucket3.timestamp //The last one
@@ -200,8 +200,8 @@ class TimeWindowTest extends FunSuite with MockitoSugar {
     val histogramA: Histogram = Seq(previousBucket1, previousBucket2)
     val histogramB: Histogram = Seq(previousBucket3)
 
-    val bucketA = HistogramBucket(0, windowDuration, histogramA)
-    val bucketB = HistogramBucket(1, windowDuration, histogramB)
+    val bucketA = new HistogramBucket(0, windowDuration, histogramA)
+    val bucketB = new HistogramBucket(1, windowDuration, histogramB)
     val myBuckets = Seq(bucketB, bucketA)
 
     val summaryBucketA = StatisticSummary(0, 50, 80, 90, 95, 99, 100, 1, 100, 100, 50.5)
@@ -209,9 +209,9 @@ class TimeWindowTest extends FunSuite with MockitoSugar {
     val mySummaries = Seq(summaryBucketB, summaryBucketA)
 
     when(window.metaStore.getLastProcessedTimestamp(metricKey)).thenReturn(Future(-Long.MaxValue))
-    when(window.histogramBucketStore.sliceUntil(Matchers.eq(metricKey), any[Long], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousBuckets))
-    when(window.histogramBucketStore.store(metricKey, windowDuration, myBuckets)).thenReturn(Future {})
-    when(window.statisticSummaryStore.store(metricKey, windowDuration, mySummaries)).thenReturn(Future.failed(new IOException()))
+    when(window.bucketStore.sliceUntil(Matchers.eq(metricKey), any[Long], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousBuckets))
+    when(window.bucketStore.store(metricKey, windowDuration, myBuckets)).thenReturn(Future {})
+    when(window.summaryStore.store(metricKey, windowDuration, mySummaries)).thenReturn(Future.failed(new IOException()))
 
     //call method to test
     intercept[IOException] {
@@ -219,10 +219,10 @@ class TimeWindowTest extends FunSuite with MockitoSugar {
     }
 
     //verify temporal buckets store for subsequent window
-    verify(window.statisticSummaryStore).store(metricKey, windowDuration, mySummaries)
+    verify(window.summaryStore).store(metricKey, windowDuration, mySummaries)
 
     //verify previous buckets were not removed
-    verify(window.histogramBucketStore, never()).remove(metricKey, previousWindowDuration, previousBuckets)
+    verify(window.bucketStore, never()).remove(metricKey, previousWindowDuration, previousBuckets)
   }
 
   private def histogram1 = {
@@ -249,10 +249,10 @@ class TimeWindowTest extends FunSuite with MockitoSugar {
   }
 
   private def mockedWindow(windowDuration: FiniteDuration, previousWindowDuration: FiniteDuration) = {
-    val window = new TimeWindow(windowDuration, previousWindowDuration) with HistogramBucketSupport with StatisticSummarySupport with MetaSupport {
-      override val histogramBucketStore = mock[HistogramBucketStore]
+    val window = new HistogramTimeWindow(windowDuration, previousWindowDuration) with HistogramBucketSupport with StatisticSummarySupport with MetaSupport {
+      override val bucketStore = mock[BucketStore]
 
-      override val statisticSummaryStore = mock[StatisticSummaryStore]
+      override val summaryStore = mock[SummaryStore]
 
       override val metaStore = mock[MetaStore]
     }

@@ -13,7 +13,7 @@ import scala.concurrent.duration._
 import com.despegar.metrik.store.HistogramBucketSupport
 import spray.http.StatusCodes._
 import com.despegar.metrik.model.MetricBatch
-import com.despegar.metrik.model.Metric
+import com.despegar.metrik.model.MetricMeasurement
 import com.despegar.metrik.util.Logging
 import com.despegar.metrik.store.MetaSupport
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -36,12 +36,12 @@ trait MetricsService extends HttpService with HistogramBucketSupport with MetaSu
       }
     }
 
-  private def store(metrics: List[Metric]) = {
+  private def store(metrics: List[MetricMeasurement]) = {
     log.info(s"Received ${metrics.length} metrics to be stored")
     metrics foreach storeMetric
   }
 
-  private def storeMetric(metric: Metric) = {
+  private def storeMetric(metric: MetricMeasurement) = {
     track(metric)
     log.debug(s"Storing metric $metric")
     metric.mtype match {
@@ -54,7 +54,7 @@ trait MetricsService extends HttpService with HistogramBucketSupport with MetaSu
     }
   }
 
-  private def track(metric: Metric) = {
+  private def track(metric: MetricMeasurement) = {
     isNew(metric) map { isNew ⇒
       if (isNew) {
         log.info(s"Got a new metric: $metric. Will store metadata for it")
@@ -65,15 +65,15 @@ trait MetricsService extends HttpService with HistogramBucketSupport with MetaSu
     }
   }
 
-  private def storeMetadata(metric: Metric) = metaStore.insert(metric.name)
+  private def storeMetadata(metric: MetricMeasurement) = metaStore.insert(metric.name)
 
-  private def storeHistogramMetric(metric: Metric) = {
-    histogramBucketStore.store(metric.name, 1 millis, metric.asHistogramBuckets.filter(!alreadyProcessed(_)))
+  private def storeHistogramMetric(metric: MetricMeasurement) = {
+    bucketStore.store(metric.name, 1 millis, metric.asHistogramBuckets.filter(!alreadyProcessed(_)))
   }
 
   private def alreadyProcessed(histogramBucket: HistogramBucket) = false //how?
 
   //ok, this has to be improved. maybe scheduling a reload at some interval and only going to meta if not found
-  private def isNew(metric: Metric) = metaStore.retrieveMetrics map { !_.contains(metric.name) }
+  private def isNew(metric: MetricMeasurement) = metaStore.retrieveMetrics map { !_.contains(metric.name) }
 
 }

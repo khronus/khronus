@@ -41,7 +41,7 @@ class Worker extends Actor with ActorLogging with TimeWindowChainProvider {
   def process(metric: String, requestor: ActorRef) {
     log.info("Starting to process Metric: [{}]", metric)
 
-    timeWindowChain.process(metric) onComplete {
+    timeWindowChain.process(metric, "timer") onComplete { //FIXME
       case Success(_) ⇒
         log.info(s"Worker ${self.path} has processed metric $metric successfully")
         requestor ! WorkDone(self)
