@@ -24,11 +24,10 @@ import com.despegar.metrik.cluster.Master.{ PendingMetrics, Tick }
 import com.despegar.metrik.cluster.{ Work, WorkDone, _ }
 import com.typesafe.config.ConfigFactory
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpecLike }
-
 import scala.concurrent.Await
 import scala.concurrent.duration._
-
 import scala.concurrent.ExecutionContext.Implicits.global
+import com.despegar.metrik.model.Metric
 
 class MasterSpec extends TestKitBase with ImplicitSender
     with Matchers
@@ -137,7 +136,7 @@ class MasterSpec extends TestKitBase with ImplicitSender
 
     "workDone received without pending metrics mark worker as idle" in new MasterWithoutSchedulersProbeWorkerFixture {
       underlyingMaster.idleWorkers = Set[ActorRef]()
-      underlyingMaster.pendingMetrics = Seq[String]()
+      underlyingMaster.pendingMetrics = Seq[Metric]()
 
       master ! WorkDone(worker1)
 
@@ -146,9 +145,9 @@ class MasterSpec extends TestKitBase with ImplicitSender
     }
 
     "workDone received with pending metrics dispatch Work" in new MasterWithoutSchedulersProbeWorkerFixture {
-      val firstMetric = "metric1"
+      val firstMetric = Metric("metric1", "histogram")
       underlyingMaster.idleWorkers = Set()
-      underlyingMaster.pendingMetrics = Seq(firstMetric, "metric2")
+      underlyingMaster.pendingMetrics = Seq(firstMetric, Metric("metric2", "histogram"))
 
       master ! WorkDone(worker1)
 
@@ -161,7 +160,7 @@ class MasterSpec extends TestKitBase with ImplicitSender
     "when receive a PendingMetrics message without idle workers nor pending metrics add all metrics as pending" in new MasterWithoutSchedulersProbeWorkerFixture {
       underlyingMaster.pendingMetrics = Seq()
 
-      val expectedMetrics = Seq("a", "b", "c", "d", "e")
+      val expectedMetrics = Seq(Metric("a", "histogram"), Metric("b", "histogram"), Metric("c", "histogram"), Metric("d", "histogram"), Metric("e", "histogram"))
 
       master ! PendingMetrics(expectedMetrics)
 
@@ -170,41 +169,41 @@ class MasterSpec extends TestKitBase with ImplicitSender
     }
 
     "when receive a PendingMetrics message with some pending metrics queue the rest of the metrics" in new MasterWithoutSchedulersProbeWorkerFixture {
-      underlyingMaster.pendingMetrics = Seq("d", "e")
+      underlyingMaster.pendingMetrics = Seq(Metric("d", "histogram"), Metric("e", "histogram"))
 
-      val expectedMetrics = Seq("a", "b", "c", "d", "e")
+      val expectedMetrics = Seq(Metric("a", "histogram"), Metric("b", "histogram"), Metric("c", "histogram"), Metric("d", "histogram"), Metric("e", "histogram"))
 
       master ! PendingMetrics(expectedMetrics)
 
       assert(pendingMetrics.size == expectedMetrics.size)
-      assert(pendingMetrics == Seq("d", "e", "a", "b", "c"))
+      assert(pendingMetrics == Seq(Metric("d", "histogram"), Metric("e", "histogram"), Metric("a", "histogram"), Metric("b", "histogram"), Metric("c", "histogram")))
     }
 
     "when receive a PendingMetrics message with pending metrics and idle workers assign work" in new MasterWithoutSchedulersProbeWorkerFixture {
-      val allMetrics = Seq("a", "b", "c", "d", "e")
+      val allMetrics = Seq(Metric("a", "histogram"), Metric("b", "histogram"), Metric("c", "histogram"), Metric("d", "histogram"), Metric("e", "histogram"))
 
       underlyingMaster.idleWorkers = Set(worker1, worker2)
-      underlyingMaster.pendingMetrics = Seq("a", "b", "c", "d", "e")
+      underlyingMaster.pendingMetrics = Seq(Metric("a", "histogram"), Metric("b", "histogram"), Metric("c", "histogram"), Metric("d", "histogram"), Metric("e", "histogram"))
 
       master ! PendingMetrics(allMetrics)
-      workerProbe1.expectMsg(Work("a"))
-      workerProbe2.expectMsg(Work("b"))
+      workerProbe1.expectMsg(Work(Metric("a", "histogram")))
+      workerProbe2.expectMsg(Work(Metric("b", "histogram")))
       assert(idleWorkers.isEmpty)
-      assert(pendingMetrics == Seq("c", "d", "e"))
-
-      underlyingMaster.idleWorkers = Set(worker1, worker2)
-      master ! PendingMetrics(allMetrics)
-      workerProbe1.expectMsg(Work("c"))
-      workerProbe2.expectMsg(Work("d"))
-      assert(idleWorkers.isEmpty)
-      assert(pendingMetrics == Seq("e", "a", "b"))
+      assert(pendingMetrics == Seq(Metric("c", "histogram"), Metric("d", "histogram"), Metric("e", "histogram")))
 
       underlyingMaster.idleWorkers = Set(worker1, worker2)
       master ! PendingMetrics(allMetrics)
-      workerProbe1.expectMsg(Work("e"))
-      workerProbe2.expectMsg(Work("a"))
+      workerProbe1.expectMsg(Work(Metric("c", "histogram")))
+      workerProbe2.expectMsg(Work(Metric("d", "histogram")))
       assert(idleWorkers.isEmpty)
-      assert(pendingMetrics == Seq("b", "c", "d"))
+      assert(pendingMetrics == Seq(Metric("e", "histogram"), Metric("a", "histogram"), Metric("b", "histogram")))
+
+      underlyingMaster.idleWorkers = Set(worker1, worker2)
+      master ! PendingMetrics(allMetrics)
+      workerProbe1.expectMsg(Work(Metric("e", "histogram")))
+      workerProbe2.expectMsg(Work(Metric("a", "histogram")))
+      assert(idleWorkers.isEmpty)
+      assert(pendingMetrics == Seq(Metric("b", "histogram"), Metric("c", "histogram"), Metric("d", "histogram")))
     }
 
   }
@@ -302,7 +301,7 @@ class MasterSpec extends TestKitBase with ImplicitSender
   trait DummyMetricFinder extends MetricFinder {
     import scala.concurrent.Future
 
-    override def lookupMetrics: Future[Seq[String]] = Future(Seq("a", "b", "c", "d", "e"))
+    override def lookupMetrics: Future[Seq[Metric]] = Future(Seq(Metric("a", "histogram"), Metric("b", "histogram"), Metric("c", "histogram"), Metric("d", "histogram"), Metric("e", "histogram")))
   }
 
   trait NoScheduledMaster extends Master {

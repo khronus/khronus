@@ -18,17 +18,17 @@ package com.despegar.metrik.store
 
 import java.nio.ByteBuffer
 import java.util.concurrent.Executors
-
 import com.despegar.metrik.model.{ Bucket, HistogramBucket }
 import com.despegar.metrik.util.Logging
 import com.netflix.astyanax.ColumnListMutation
 import com.netflix.astyanax.model.{ Column, ColumnFamily }
 import com.netflix.astyanax.serializers.{ LongSerializer, StringSerializer }
 import org.HdrHistogram.Histogram
-
 import scala.collection.JavaConverters._
 import scala.concurrent._
 import scala.concurrent.duration._
+import com.despegar.metrik.model.Metric
+import scala.util.Failure
 
 trait HistogramBucketSupport extends BucketStoreSupport {
   override def bucketStore: BucketStore = CassandraHistogramBucketStore
@@ -45,13 +45,13 @@ object CassandraHistogramBucketStore extends BucketStore with Logging {
 
   def initialize = columnFamilies.foreach(cf ⇒ Cassandra.createColumnFamily(cf._2))
 
-  def sliceUntil(metric: String, until: Long, sourceWindow: Duration): Future[Seq[HistogramBucket]] = {
+  def sliceUntil(metric: Metric, until: Long, sourceWindow: Duration): Future[Seq[HistogramBucket]] = {
     Future {
       executeSlice(metric, until, sourceWindow)
     } map { _.map { toHistogramBucketOf(sourceWindow) _ }.toSeq }
   }
 
-  private def executeSlice(metric: String, until: Long, windowDuration: Duration) = {
+  private def executeSlice(metric: Metric, until: Long, windowDuration: Duration) = {
     log.debug(s"Slicing window of $windowDuration for metric $metric")
     val result = Cassandra.keyspace.prepareQuery(columnFamilies(windowDuration)).getKey(getKey(metric, windowDuration))
       .withColumnRange(infinite, until, false, LIMIT).execute().getResult().asScala
@@ -65,7 +65,7 @@ object CassandraHistogramBucketStore extends BucketStore with Logging {
     new HistogramBucket(timestamp / windowDuration.toMillis, windowDuration, histogram)
   }
 
-  def store(metric: String, windowDuration: Duration, histogramBuckets: Seq[Bucket]): Future[Unit] = {
+  def store(metric: Metric, windowDuration: Duration, histogramBuckets: Seq[Bucket]): Future[Unit] = {
     doUnit(histogramBuckets) {
       log.debug(s"Storing ${histogramBuckets.length} histogram buckets for metric $metric in window $windowDuration: $histogramBuckets")
       mutate(metric, windowDuration, histogramBuckets) { (mutation, bucket) ⇒
@@ -74,7 +74,7 @@ object CassandraHistogramBucketStore extends BucketStore with Logging {
     }
   }
 
-  def remove(metric: String, windowDuration: Duration, histogramBuckets: Seq[Bucket]) = {
+  def remove(metric: Metric, windowDuration: Duration, histogramBuckets: Seq[Bucket]) = {
     doUnit(histogramBuckets) {
       log.debug(s"Removing ${histogramBuckets.length} histogram buckets for metric $metric in window $windowDuration")
       mutate(metric, windowDuration, histogramBuckets) { (mutation, bucket) ⇒
@@ -91,23 +91,21 @@ object CassandraHistogramBucketStore extends BucketStore with Logging {
     }
   }
 
-  private def mutate(metric: String, windowDuration: Duration, histogramBuckets: Seq[Bucket])(f: (ColumnListMutation[java.lang.Long], Bucket) ⇒ Unit) = {
-    val future = Future {
+  private def mutate(metric: Metric, windowDuration: Duration, histogramBuckets: Seq[Bucket])(f: (ColumnListMutation[java.lang.Long], Bucket) ⇒ Unit) = {
+    Future {
       val mutationBatch = Cassandra.keyspace.prepareMutationBatch()
       val mutation = mutationBatch.withRow(columnFamilies(windowDuration), getKey(metric, windowDuration))
       histogramBuckets.foreach(f(mutation, _))
       mutationBatch.execute
       log.trace("Mutation successful")
+    } andThen {
+      case Failure(reason) ⇒ log.error("Mutation failed", reason)
     }
-    future onFailure {
-      case e: Exception ⇒ log.error("Mutation failed", e)
-    }
-    future
   }
 
   private def getColumnFamilyName(duration: Duration) = s"bucket${duration.length}${duration.unit}"
 
-  private def getKey(metric: String, windowDuration: Duration): String = metric
+  private def getKey(metric: Metric, windowDuration: Duration): String = metric.name
 
   private def serializeHistogram(histogram: Histogram): ByteBuffer = {
     val buffer = ByteBuffer.allocate(histogram.getEstimatedFootprintInBytes)

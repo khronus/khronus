@@ -1,3 +1,3 @@
 package com.despegar.metrik.model
 
-case class CounterSummary(counts: Long) extends Summary
+case class CounterSummary(timestamp: Long, count: Long) extends Summary

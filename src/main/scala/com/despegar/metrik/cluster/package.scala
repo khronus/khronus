@@ -18,10 +18,11 @@ package com.despegar.metrik
 
 import akka.actor.SupervisorStrategy.Restart
 import akka.actor._
+import model.Metric
 
 package object cluster {
   case class Register(worker: ActorRef)
-  case class Work(metrics: String)
+  case class Work(metric: Metric)
   case class WorkDone(worker: ActorRef)
   case object Heartbeat
 

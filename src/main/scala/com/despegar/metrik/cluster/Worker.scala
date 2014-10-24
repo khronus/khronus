@@ -18,8 +18,8 @@ package com.despegar.metrik.cluster
 
 import akka.actor.{ ActorRef, Props, Actor, ActorLogging }
 import com.despegar.metrik.model.TimeWindowChain
-
 import scala.util.{ Failure, Success }
+import com.despegar.metrik.model.Metric
 
 class Worker extends Actor with ActorLogging with TimeWindowChainProvider {
   import context._
@@ -38,10 +38,10 @@ class Worker extends Actor with ActorLogging with TimeWindowChainProvider {
     case everythingElse ⇒ //ignore
   }
 
-  def process(metric: String, requestor: ActorRef) {
-    log.info("Starting to process Metric: [{}]", metric)
+  def process(metric: Metric, requestor: ActorRef) {
+    log.info(s"Starting to process: $metric")
 
-    timeWindowChain.process(metric, "timer") onComplete { //FIXME
+    timeWindowChain.process(metric) onComplete {
       case Success(_) ⇒
         log.info(s"Worker ${self.path} has processed metric $metric successfully")
         requestor ! WorkDone(self)

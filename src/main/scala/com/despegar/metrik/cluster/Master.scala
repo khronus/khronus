@@ -21,9 +21,9 @@ import akka.routing.{ Broadcast, FromConfig }
 import com.despegar.metrik.store.MetaSupport
 import com.despegar.metrik.util.Settings
 import us.theatr.akka.quartz.{ AddCronScheduleFailure, _ }
-
 import scala.concurrent.Future
 import scala.util.{ Failure, Success }
+import com.despegar.metrik.model.Metric
 
 class Master extends Actor with ActorLogging with RouterProvider with MetricFinder {
 
@@ -31,7 +31,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
   import context._
 
   var idleWorkers = Set[ActorRef]()
-  var pendingMetrics = Seq[String]()
+  var pendingMetrics = Seq[Metric]()
 
   val settings = Settings(system).Master
 
@@ -113,7 +113,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
 object Master {
   case object Tick
-  case class PendingMetrics(metrics: Seq[String])
+  case class PendingMetrics(metrics: Seq[Metric])
   case class Initialize(cronExpression: String, router: ActorRef)
   case class MasterConfig(cronExpression: String)
 
@@ -130,5 +130,5 @@ trait RouterProvider {
 }
 
 trait MetricFinder extends MetaSupport {
-  def lookupMetrics: Future[Seq[String]] = metaStore.retrieveMetrics
+  def lookupMetrics: Future[Seq[Metric]] = metaStore.retrieveMetrics
 }

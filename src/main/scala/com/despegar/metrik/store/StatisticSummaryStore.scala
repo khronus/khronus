@@ -1,15 +1,14 @@
 package com.despegar.metrik.store
 
 import java.util.concurrent.Executors
-
 import com.despegar.metrik.model.{ Summary, StatisticSummary }
 import com.despegar.metrik.util.{ Logging, KryoSerializer }
 import com.netflix.astyanax.model.ColumnFamily
 import com.netflix.astyanax.serializers.{ LongSerializer, StringSerializer }
-
 import scala.concurrent.duration._
 import scala.collection.JavaConverters._
 import scala.concurrent.{ ExecutionContext, Future }
+import com.despegar.metrik.model.Metric
 
 trait StatisticSummarySupport extends SummaryStoreSupport {
   override def summaryStore: SummaryStore = CassandraStatisticSummaryStore
@@ -30,13 +29,13 @@ object CassandraStatisticSummaryStore extends SummaryStore with Logging {
 
   private def getColumnFamilyName(duration: Duration) = s"summary${duration.length}${duration.unit}"
 
-  private def getKey(metric: String, windowDuration: Duration): String = s"$metric.${windowDuration.length}${windowDuration.unit}"
+  private def getKey(metric: Metric, windowDuration: Duration): String = s"${metric.name}.${windowDuration.length}${windowDuration.unit}"
 
   def serializeSummary(summary: StatisticSummary): Array[Byte] = {
     serializer.serialize(summary)
   }
 
-  def store(metric: String, windowDuration: Duration, statisticSummaries: Seq[Summary]): Future[Unit] = {
+  def store(metric: Metric, windowDuration: Duration, statisticSummaries: Seq[Summary]): Future[Unit] = {
     doUnit(statisticSummaries) {
       Future {
         val mutation = Cassandra.keyspace.prepareMutationBatch()
@@ -50,7 +49,7 @@ object CassandraStatisticSummaryStore extends SummaryStore with Logging {
     }
   }
 
-  def sliceUntilNow(metric: String, windowDuration: Duration): Future[Seq[StatisticSummary]] = {
+  def sliceUntilNow(metric: Metric, windowDuration: Duration): Future[Seq[StatisticSummary]] = {
     val asyncResult = Future {
       Cassandra.keyspace.prepareQuery(columnFamilies(windowDuration)).getKey(getKey(metric, windowDuration))
         .withColumnRange(infinite, now, false, LIMIT).execute().getResult().asScala

@@ -17,6 +17,7 @@ import com.despegar.metrik.model.MetricMeasurement
 import com.despegar.metrik.util.Logging
 import com.despegar.metrik.store.MetaSupport
 import scala.concurrent.ExecutionContext.Implicits.global
+import com.despegar.metrik.model.Metric
 
 trait MetricsService extends HttpService with HistogramBucketSupport with MetaSupport with Logging {
 
@@ -41,11 +42,13 @@ trait MetricsService extends HttpService with HistogramBucketSupport with MetaSu
     metrics foreach storeMetric
   }
 
-  private def storeMetric(metric: MetricMeasurement) = {
+  private def storeMetric(metricMeasurement: MetricMeasurement) = {
+    val metric = metricMeasurement.asMetric
     track(metric)
     log.debug(s"Storing metric $metric")
     metric.mtype match {
-      case ("timer" | "gauge") ⇒ storeHistogramMetric(metric)
+      case ("timer" | "gauge") ⇒ storeHistogramMetric(metric, metricMeasurement)
+      case "counter"           ⇒ storeCounterMetric(metric, metricMeasurement)
       case _ ⇒ {
         val msg = s"Discarding $metric. Unknown metric type: ${metric.mtype}"
         log.warn(msg)
@@ -54,7 +57,7 @@ trait MetricsService extends HttpService with HistogramBucketSupport with MetaSu
     }
   }
 
-  private def track(metric: MetricMeasurement) = {
+  private def track(metric: Metric) = {
     isNew(metric) map { isNew ⇒
       if (isNew) {
         log.info(s"Got a new metric: $metric. Will store metadata for it")
@@ -65,15 +68,19 @@ trait MetricsService extends HttpService with HistogramBucketSupport with MetaSu
     }
   }
 
-  private def storeMetadata(metric: MetricMeasurement) = metaStore.insert(metric.name)
+  private def storeMetadata(metric: Metric) = metaStore.insert(metric)
 
-  private def storeHistogramMetric(metric: MetricMeasurement) = {
-    bucketStore.store(metric.name, 1 millis, metric.asHistogramBuckets.filter(!alreadyProcessed(_)))
+  private def storeHistogramMetric(metric: Metric, metricMeasurement: MetricMeasurement) = {
+    bucketStore.store(metric, 1 millis, metricMeasurement.asHistogramBuckets.filter(!alreadyProcessed(_)))
+  }
+
+  private def storeCounterMetric(metric: Metric, metricMeasurement: MetricMeasurement) = {
+    bucketStore.store(metric, 1 millis, metricMeasurement.asHistogramBuckets.filter(!alreadyProcessed(_)))
   }
 
   private def alreadyProcessed(histogramBucket: HistogramBucket) = false //how?
 
   //ok, this has to be improved. maybe scheduling a reload at some interval and only going to meta if not found
-  private def isNew(metric: MetricMeasurement) = metaStore.retrieveMetrics map { !_.contains(metric.name) }
+  private def isNew(metric: Metric) = metaStore.retrieveMetrics map { !_.contains(metric) }
 
 }

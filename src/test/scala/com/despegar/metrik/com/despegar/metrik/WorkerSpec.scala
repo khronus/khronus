@@ -28,6 +28,7 @@ import org.scalatest.mock.MockitoSugar
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpecLike }
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import com.despegar.metrik.model.Metric
 
 class WorkerSpec extends TestKitBase with ImplicitSender
     with Matchers
@@ -47,14 +48,14 @@ class WorkerSpec extends TestKitBase with ImplicitSender
 
   trait TimeWindowChainProviderMock extends TimeWindowChainProvider {
     override val timeWindowChain = mock[TimeWindowChain]
-    when(timeWindowChain.process(any(), any())).thenReturn(Future(Seq(Thread.sleep(1000))))
+    when(timeWindowChain.process(any())).thenReturn(Future(Seq(Thread.sleep(1000))))
   }
 
   val worker = TestActorRef(Props(new Worker with TimeWindowChainProviderMock))
 
   "The Worker actor" should {
     "ignore the Work message if it's received before register in the cluster" in {
-      worker ! Work("some work")
+      worker ! Work(Metric("some work", "histogram"))
       expectNoMsg()
     }
 
@@ -64,7 +65,7 @@ class WorkerSpec extends TestKitBase with ImplicitSender
     }
 
     "respond with a WorkDone when receiving a Work message and finalize it successful" in {
-      worker ! Work("some work")
+      worker ! Work(Metric("some work", "histogram"))
       expectMsgClass(classOf[WorkDone])
     }
   }

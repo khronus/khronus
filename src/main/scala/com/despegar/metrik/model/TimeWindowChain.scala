@@ -32,11 +32,11 @@ class TimeWindowChain extends Logging with MetaSupport {
 
   val countersWindows = Seq(CounterTimeWindow(30 seconds, 1 millis, false))
 
-  def process(metric: String, mtype: String): Future[Seq[Any]] = {
+  def process(metric: Metric): Future[Seq[Any]] = {
     val executionTimestamp = System.currentTimeMillis() - Settings().Window.ExecutionDelay
-    log.debug(s"Processing windows for $metric...")
+    log.debug(s"Processing windows for $metric")
 
-    val windows: Seq[TimeWindow] = mtype match {
+    val windows: Seq[TimeWindow] = metric.mtype match {
       case "timer"   ⇒ histrogramsWindows
       case "counter" ⇒ countersWindows
     }
@@ -48,7 +48,7 @@ class TimeWindowChain extends Logging with MetaSupport {
     sequence
   }
 
-  def processInChain(windows: Seq[TimeWindow], metric: String, executionTimestamp: Long, index: Int): Future[Unit] = {
+  def processInChain(windows: Seq[TimeWindow], metric: Metric, executionTimestamp: Long, index: Int): Future[Unit] = {
     if (index >= (windows.size - 1)) {
       windows(index).process(metric, executionTimestamp)
     } else {
