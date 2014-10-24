@@ -8,7 +8,7 @@ import scala.util.parsing.input.CharArrayReader.EofCh
 
 class InfluxQueryParser extends StandardTokenParsers {
 
-  class SqlLexical extends StdLexical {
+  class InfluxLexical extends StdLexical {
     case class FloatLit(chars: String) extends Token {
       override def toString = chars
     }
@@ -25,72 +25,52 @@ class InfluxQueryParser extends StandardTokenParsers {
         | '\"' ~> failure("unclosed string literal")
         | delim
         | failure("illegal character"))
-    def regex(r: Regex): Parser[String] = new Parser[String] {
-      def apply(in: Input) = {
-        val source = in.source
-        val offset = in.offset
-        val start = offset // handleWhiteSpace(source, offset)
-        (r findPrefixMatchOf (source.subSequence(start, source.length))) match {
-          case Some(matched) ⇒
-            Success(source.subSequence(start, start + matched.end).toString,
-              in.drop(start + matched.end - offset))
-          case None ⇒
-            Success("", in)
-        }
-      }
-    }
+
   }
-  override val lexical = new SqlLexical
+  override val lexical = new InfluxLexical
 
   def floatLit: Parser[String] =
     elem("decimal", _.isInstanceOf[lexical.FloatLit]) ^^ (_.chars)
 
-  val functions = Seq("count", "sum", "avg", "min", "max")
+  val functions = Seq("count", "avg", "min", "max")
 
-  lexical.reserved += (
-    "select", "as", "or", "and", "group", "order", "by", "where", "limit",
-    "asc", "desc", "not", "for", "from", "between", "like",
-    "year", "month", "day", "null", "is", "date", "interval", "group", "order",
-    "date")
+  lexical.reserved += ("select", "as", "from", "where", "or", "and", "not", "group", "by", "limit", "for", "between", "like", "null", "is", "date")
 
   lexical.reserved ++= functions
 
-  lexical.delimiters += (
-    "*", "+", "-", "<", "=", "<>", "!=", "<=", ">=", ">", "/", "(", ")", ",", ".", ";")
+  lexical.delimiters += ("*", "+", "-", "<", "=", "<>", "!=", "<=", ">=", ">", "/", "(", ")", ",", ".", ";")
 
-  def select: Parser[InfluxCriteria] =
-    "select" ~> projections ~
-      tableParser ~ opt(filter) ~
-      opt(groupBy) ~ opt(limit) <~ opt(";") ^^ {
-        case p ~ r ~ f ~ g ~ l ⇒ InfluxCriteria(p, r, f, g, l)
+  def influxQueryParser: Parser[InfluxCriteria] =
+    "select" ~> projectionParser ~
+      tableParser ~ opt(filterParser) ~
+      opt(groupByParser) ~ opt(limitParser) <~ opt(";") ^^ {
+        case projection ~ table ~ filters ~ groupBy ~ limit ⇒ InfluxCriteria(projection, table, filters, groupBy, limit)
       }
 
-  def projections: Parser[Seq[Projection]] = repsep(projection, ",")
-
-  def projection: Parser[Projection] =
+  def projectionParser: Parser[Projection] =
     "*" ^^ (_ ⇒ StarProjection()) |
       expr ~ opt("as" ~> ident) ^^ {
         case expr ~ ident ⇒ ExpressionProjection(expr, ident)
       }
 
-  def expr: Parser[Expression] = or_expr
+  def expr: Parser[Expression] = orExpressionParser
 
-  def or_expr: Parser[Expression] =
-    and_expr * ("or" ^^^ { (a: Expression, b: Expression) ⇒ Or(a, b) })
+  def orExpressionParser: Parser[Expression] =
+    andExpressionParser * ("or" ^^^ { (a: Expression, b: Expression) ⇒ Or(a, b) })
 
-  def and_expr: Parser[Expression] =
+  def andExpressionParser: Parser[Expression] =
     cmp_expr * ("and" ^^^ { (a: Expression, b: Expression) ⇒ And(a, b) })
 
   // TODO: this function is nasty- clean it up!
   def cmp_expr: Parser[Expression] =
-    add_expr ~ rep(
-      ("=" | "<>" | "!=" | "<" | "<=" | ">" | ">=") ~ add_expr ^^ {
+    primaryExpressionParser ~ rep(
+      ("=" | "<>" | "!=" | "<" | "<=" | ">" | ">=") ~ primaryExpressionParser ^^ {
         case op ~ rhs ⇒ (op, rhs)
       } |
-        "between" ~ add_expr ~ "and" ~ add_expr ^^ {
+        "between" ~ primaryExpressionParser ~ "and" ~ primaryExpressionParser ^^ {
           case op ~ a ~ _ ~ b ⇒ (op, a, b)
         } |
-        opt("not") ~ "like" ~ add_expr ^^ { case n ~ op ~ a ⇒ (op, a, n.isDefined) }) ^^ {
+        opt("not") ~ "like" ~ primaryExpressionParser ^^ { case n ~ op ~ a ⇒ (op, a, n.isDefined) }) ^^ {
         case lhs ~ elems ⇒
           elems.foldLeft(lhs) {
             case (acc, (("=", rhs: Expression)))                   ⇒ Eq(acc, rhs)
@@ -106,62 +86,44 @@ class InfluxQueryParser extends StandardTokenParsers {
       } |
       "not" ~> cmp_expr ^^ (Not(_))
 
-  def add_expr: Parser[Expression] =
-    mult_expr * (
-      "+" ^^^ { (a: Expression, b: Expression) ⇒ Plus(a, b) } |
-      "-" ^^^ { (a: Expression, b: Expression) ⇒ Minus(a, b) })
 
-  def mult_expr: Parser[Expression] =
-    primary_expr * (
-      "*" ^^^ { (a: Expression, b: Expression) ⇒ Mult(a, b) } |
-      "/" ^^^ { (a: Expression, b: Expression) ⇒ Div(a, b) })
-
-  def primary_expr: Parser[Expression] =
-    literal |
-      known_function |
+  def primaryExpressionParser: Parser[Expression] =
+    literalParser |
+      knownFunctionParser |
       ident ~ opt("." ~> ident | "(" ~> repsep(expr, ",") <~ ")") ^^ {
-        case id ~ None            ⇒ FieldIdent(None, id)
-        case a ~ Some(b: String)  ⇒ FieldIdent(Some(a), b)
-        case a ~ Some(xs: Seq[_]) ⇒ FunctionCall(a, xs.asInstanceOf[Seq[Expression]])
-      } |
-      "+" ~> primary_expr ^^ (UnaryPlus(_)) |
-      "-" ~> primary_expr ^^ (UnaryMinus(_))
+        case id ~ None            ⇒ FieldIdentifier(None, id)
+        case a ~ Some(b: String)  ⇒ FieldIdentifier(Some(a), b)
+      }
 
-  def known_function: Parser[Expression] =
-    "count" ~> "(" ~> ("*" ^^ (_ ⇒ CountStar()) | expr ^^ { case e ⇒ CountExpr(e) }) <~ ")" |
+  def knownFunctionParser: Parser[Expression] =
+    "count" ~> "(" ~> expr <~ ")" ^^ (CountExpr(_)) |
       "min" ~> "(" ~> expr <~ ")" ^^ (Min(_)) |
       "max" ~> "(" ~> expr <~ ")" ^^ (Max(_)) |
-      "sum" ~> "(" ~> expr <~ ")" ^^ { case e ⇒ Sum(e) } |
-      "avg" ~> "(" ~> expr <~ ")" ^^ { case e ⇒ Avg(e) }
+      "avg" ~> "(" ~> expr <~ ")" ^^ (Avg(_))
 
-  def literal: Parser[Expression] =
+  def literalParser: Parser[Expression] =
     numericLit ^^ { case i ⇒ IntLiteral(i.toInt) } |
       floatLit ^^ { case f ⇒ FloatLiteral(f.toDouble) } |
       stringLit ^^ { case s ⇒ StringLiteral(s) } |
       "null" ^^ (_ ⇒ NullLiteral()) |
-      "date" ~> stringLit ^^ (DateLiteral(_)) |
-      "interval" ~> stringLit ~ ("year" ^^^ (YEAR) | "month" ^^^ (MONTH) | "day" ^^^ (DAY)) ^^ {
-        case d ~ u ⇒ IntervalLiteral(d, u)
-      }
+      "date" ~> stringLit ^^ (DateLiteral(_))
 
   def tableParser: Parser[Table] =
     "from" ~> ident ~ opt("as") ~ opt(ident) ^^ {
       case ident ~ _ ~ alias ⇒ Table(ident, alias)
     }
 
-  def filter: Parser[Expression] = "where" ~> expr
+  def filterParser: Parser[Expression] = "where" ~> expr
 
-  def groupBy: Parser[GroupBy] =
+  def groupByParser: Parser[GroupBy] =
     "group" ~> "by" ~> rep1sep(expr, ",") ^^ {
       case k ⇒ GroupBy(k)
     }
 
-  def limit: Parser[Int] = "limit" ~> numericLit ^^ (_.toInt)
-
-  private def stripQuotes(s: String) = s.substring(1, s.length - 1)
+  def limitParser: Parser[Int] = "limit" ~> numericLit ^^ (_.toInt)
 
   def parse(sql: String): Option[InfluxCriteria] = {
-    phrase(select)(new lexical.Scanner(sql)) match {
+    phrase(influxQueryParser)(new lexical.Scanner(sql)) match {
       case Success(r, q) ⇒ Option(r)
       case x             ⇒ println(x); None
     }
