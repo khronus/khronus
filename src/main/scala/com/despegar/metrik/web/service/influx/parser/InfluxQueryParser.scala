@@ -58,11 +58,11 @@ class InfluxQueryParser extends StandardTokenParsers {
   lexical.delimiters += (
     "*", "+", "-", "<", "=", "<>", "!=", "<=", ">=", ">", "/", "(", ")", ",", ".", ";")
 
-  def select: Parser[MetricCriteria] =
+  def select: Parser[InfluxCriteria] =
     "select" ~> projections ~
       tableParser ~ opt(filter) ~
       opt(groupBy) ~ opt(limit) <~ opt(";") ^^ {
-        case p ~ r ~ f ~ g ~ l ⇒ MetricCriteria(p, r, f, g, l)
+        case p ~ r ~ f ~ g ~ l ⇒ InfluxCriteria(p, r, f, g, l)
       }
 
   def projections: Parser[Seq[Projection]] = repsep(projection, ",")
@@ -160,7 +160,7 @@ class InfluxQueryParser extends StandardTokenParsers {
 
   private def stripQuotes(s: String) = s.substring(1, s.length - 1)
 
-  def parse(sql: String): Option[MetricCriteria] = {
+  def parse(sql: String): Option[InfluxCriteria] = {
     phrase(select)(new lexical.Scanner(sql)) match {
       case Success(r, q) ⇒ Option(r)
       case x             ⇒ println(x); None

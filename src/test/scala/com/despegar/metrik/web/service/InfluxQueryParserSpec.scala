@@ -2,7 +2,7 @@ package com.despegar.metrik.web.service
 
 import org.scalatest.{ShouldMatchers, FunSuite}
 import org.scalatest.mock.MockitoSugar
-import com.despegar.metrik.web.service.influx.parser.{MetricCriteria, InfluxQueryParser}
+import com.despegar.metrik.web.service.influx.parser.{InfluxCriteria, InfluxQueryParser}
 import org.specs2.Specification
 import org.scalatest.Matchers._
 
@@ -23,7 +23,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     val metricCriteria = metricCriteriaResult.get
 
     println(metricCriteria)
-    println(metricCriteria.sql)
+    println(metricCriteria.toSqlString)
 //      metricCriteria.projections should be(Some(MetricCriteria))
 
 
