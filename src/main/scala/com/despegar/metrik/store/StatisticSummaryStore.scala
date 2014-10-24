@@ -12,7 +12,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ ExecutionContext, Future }
 
 trait StatisticSummarySupport extends SummaryStoreSupport {
-  override def summaryStore = CassandraStatisticSummaryStore
+  override def summaryStore: SummaryStore = CassandraStatisticSummaryStore
 }
 
 object CassandraStatisticSummaryStore extends SummaryStore with Logging {

@@ -31,7 +31,7 @@ import scala.concurrent._
 import scala.concurrent.duration._
 
 trait HistogramBucketSupport extends BucketStoreSupport {
-  override def bucketStore = CassandraHistogramBucketStore
+  override def bucketStore: BucketStore = CassandraHistogramBucketStore
 }
 
 object CassandraHistogramBucketStore extends BucketStore with Logging {
