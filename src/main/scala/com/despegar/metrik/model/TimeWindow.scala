@@ -17,6 +17,7 @@
 package com.despegar.metrik.model
 
 import com.despegar.metrik.model.HistogramBucket._
+import com.despegar.metrik.model.CounterBucket._
 import com.despegar.metrik.store._
 import com.despegar.metrik.util.{ BucketUtils, Logging }
 
@@ -26,8 +27,7 @@ import scala.concurrent.{ Future, Promise }
 import scala.util.control.NonFatal
 import scala.util.{ Failure, Success }
 
-abstract class TimeWindow(val duration: Duration, val previousWindowDuration: Duration, val shouldStoreTemporalHistograms: Boolean = true)
-    extends BucketStoreSupport with SummaryStoreSupport with MetaSupport with Logging {
+abstract class TimeWindow[T <: Bucket] extends BucketStoreSupport[T] with SummaryStoreSupport with MetaSupport with Logging {
 
   def process(metric: Metric, executionTimestamp: Long): Future[Unit] = {
     log.debug(s"Process HistogramTimeWindow of $duration for metric $metric")
@@ -55,7 +55,7 @@ abstract class TimeWindow(val duration: Duration, val previousWindowDuration: Du
     storeFuture flatMap { _ ⇒ previousWindowBuckets flatMap (windows ⇒ bucketStore.remove(metric, previousWindowDuration, windows)) }
   }
 
-  private def storeTemporalBuckets(resultingBuckets: Future[Seq[Bucket]], metric: Metric) = {
+  private def storeTemporalBuckets(resultingBuckets: Future[Seq[T]], metric: Metric) = {
     if (shouldStoreTemporalHistograms) {
       resultingBuckets flatMap (buckets ⇒ bucketStore.store(metric, duration, buckets))
     } else {
@@ -63,22 +63,36 @@ abstract class TimeWindow(val duration: Duration, val previousWindowDuration: Du
     }
   }
 
-  protected def aggregateBuckets(buckets: Future[Map[Long, scala.Seq[Bucket]]]): Future[Seq[Bucket]]
+  //  protected def aggregateBuckets(buckets: Future[Map[Long, scala.Seq[Bucket]]]): Future[Seq[Bucket]]
+
+  protected def aggregateBuckets(buckets: Future[Map[Long, Seq[T]]]): Future[Seq[T]] = {
+    buckets map (buckets ⇒ buckets.collect { case (bucketNumber, buckets) ⇒ aggregate(bucketNumber, buckets) }.toSeq)
+  }
+
+  protected def aggregate(bucketNumber: Long, buckets: Seq[T]): T
+
+  def duration: Duration
+
+  protected def previousWindowDuration: Duration
+
+  protected def shouldStoreTemporalHistograms: Boolean
 
   private def retrievePreviousBuckets(metric: Metric, executionTimestamp: Long) = {
     bucketStore.sliceUntil(metric, BucketUtils.getCurrentBucketTimestamp(duration, executionTimestamp), previousWindowDuration)
   }
 
-  private def groupInBucketsOfMyWindow(previousWindowBuckets: Future[Seq[Bucket]], metric: Metric) = {
-    val future = previousWindowBuckets map (buckets ⇒ buckets.groupBy(_.timestamp / duration.toMillis))
-    future.onSuccess { case buckets ⇒ log.debug(s"${buckets.size} grouped buckets: ${buckets} of $duration for metric $metric") }
-    future
+  private def groupInBucketsOfMyWindow(previousWindowBuckets: Future[Seq[T]], metric: Metric) = {
+    previousWindowBuckets map (_.groupBy(_.timestamp / duration.toMillis)) andThen {
+      case Success(buckets) ⇒
+        log.debug(s"${buckets.size} grouped buckets: ${buckets} of $duration for metric $metric")
+    }
   }
 
-  private def filterAlreadyProcessedBuckets(groupedHistogramBuckets: Future[Map[Long, Seq[Bucket]]], metric: Metric) = {
-    val future = lastProcessedBucket(metric) flatMap { lastBucket ⇒ groupedHistogramBuckets map (_.filterNot(_._1 < (lastBucket - 1))) }
-    future.onSuccess { case buckets ⇒ log.debug(s"${buckets.size} buckets after filtering: ${buckets} of $duration for metric $metric") }
-    future
+  private def filterAlreadyProcessedBuckets(groupedHistogramBuckets: Future[Map[Long, Seq[T]]], metric: Metric) = {
+    lastProcessedBucket(metric) flatMap { lastBucket ⇒ groupedHistogramBuckets map (_.filterNot(_._1 < (lastBucket - 1))) } andThen {
+      case Success(buckets) ⇒
+        log.debug(s"${buckets.size} buckets after filtering: ${buckets} of $duration for metric $metric")
+    }
   }
 
   /**
@@ -87,27 +101,24 @@ abstract class TimeWindow(val duration: Duration, val previousWindowDuration: Du
    * @return a Long representing the bucket number. If nothing if found -1 is returned
    */
   private def lastProcessedBucket(metric: Metric): Future[Long] = {
-    val future = metaStore.getLastProcessedTimestamp(metric) map { timestamp ⇒ timestamp / duration.toMillis }
-    future.onSuccess { case bucket ⇒ log.debug(s"Last processed bucket: $bucket of $duration for metric $metric") }
-    future
+    metaStore.getLastProcessedTimestamp(metric) map { timestamp ⇒ timestamp / duration.toMillis } andThen {
+      case Success(bucket) ⇒
+        log.debug(s"Last processed bucket: $bucket of $duration for metric $metric")
+    }
   }
 
 }
 
-case class CounterTimeWindow(override val duration: Duration, override val previousWindowDuration: Duration, override val shouldStoreTemporalHistograms: Boolean = true)
-    extends TimeWindow(duration, previousWindowDuration, shouldStoreTemporalHistograms) with CounterBucketStoreSupport with CounterSummaryStoreSupport {
+case class CounterTimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true)
+    extends TimeWindow[CounterBucket] with CounterBucketStoreSupport with CounterSummaryStoreSupport {
 
-  def aggregateBuckets(buckets: Future[Map[Long, scala.Seq[Bucket]]]): Future[Seq[CounterBucket]] = {
-    null
-  }
-}
-
-case class HistogramTimeWindow(override val duration: Duration, override val previousWindowDuration: Duration, override val shouldStoreTemporalHistograms: Boolean = true)
-    extends TimeWindow(duration, previousWindowDuration, shouldStoreTemporalHistograms) with HistogramBucketSupport with StatisticSummarySupport {
-
-  def aggregateBuckets(buckets: Future[Map[Long, Seq[Bucket]]]) = {
-    buckets map (buckets ⇒ buckets.asInstanceOf[Map[Long, Seq[HistogramBucket]]].collect { case (bucketNumber, histogramBuckets) ⇒ new HistogramBucket(bucketNumber, duration, histogramBuckets) }.toSeq)
-  }
+  def aggregate(bucketNumber: Long, buckets: Seq[CounterBucket]): CounterBucket = new CounterBucket(bucketNumber, duration, buckets)
 
 }
 
+case class HistogramTimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true)
+    extends TimeWindow[HistogramBucket] with HistogramBucketSupport with StatisticSummarySupport {
+
+  def aggregate(bucketNumber: Long, buckets: Seq[HistogramBucket]): HistogramBucket = new HistogramBucket(bucketNumber, duration, buckets)
+
+}

@@ -30,11 +30,11 @@ import scala.concurrent.duration._
 import com.despegar.metrik.model.Metric
 import scala.util.Failure
 
-trait HistogramBucketSupport extends BucketStoreSupport {
-  override def bucketStore: BucketStore = CassandraHistogramBucketStore
+trait HistogramBucketSupport extends BucketStoreSupport[HistogramBucket] {
+  override def bucketStore: BucketStore[HistogramBucket] = CassandraHistogramBucketStore
 }
 
-object CassandraHistogramBucketStore extends BucketStore with Logging {
+object CassandraHistogramBucketStore extends BucketStore[HistogramBucket] with Logging {
   //create column family definition for every bucket duration
   val windowDurations: Seq[Duration] = Seq(1 millis, 30 seconds, 1 minute, 5 minute, 10 minute, 30 minute, 1 hour) //FIXME put configured windows
   val columnFamilies = windowDurations.map(duration ⇒ (duration, ColumnFamily.newColumnFamily(getColumnFamilyName(duration), StringSerializer.get(), LongSerializer.get()))).toMap
@@ -51,7 +51,7 @@ object CassandraHistogramBucketStore extends BucketStore with Logging {
     } map { _.map { toHistogramBucketOf(sourceWindow) _ }.toSeq }
   }
 
-  private def executeSlice(metric: Metric, until: Long, windowDuration: Duration) = {
+  private def executeSlice(metric: Metric, until: Long, windowDuration: Duration): Iterable[Column[java.lang.Long]] = {
     log.debug(s"Slicing window of $windowDuration for metric $metric")
     val result = Cassandra.keyspace.prepareQuery(columnFamilies(windowDuration)).getKey(getKey(metric, windowDuration))
       .withColumnRange(infinite, until, false, LIMIT).execute().getResult().asScala
@@ -65,7 +65,7 @@ object CassandraHistogramBucketStore extends BucketStore with Logging {
     new HistogramBucket(timestamp / windowDuration.toMillis, windowDuration, histogram)
   }
 
-  def store(metric: Metric, windowDuration: Duration, histogramBuckets: Seq[Bucket]): Future[Unit] = {
+  def store(metric: Metric, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket]): Future[Unit] = {
     doUnit(histogramBuckets) {
       log.debug(s"Storing ${histogramBuckets.length} histogram buckets for metric $metric in window $windowDuration: $histogramBuckets")
       mutate(metric, windowDuration, histogramBuckets) { (mutation, bucket) ⇒
@@ -74,7 +74,7 @@ object CassandraHistogramBucketStore extends BucketStore with Logging {
     }
   }
 
-  def remove(metric: Metric, windowDuration: Duration, histogramBuckets: Seq[Bucket]) = {
+  def remove(metric: Metric, windowDuration: Duration, histogramBuckets: Seq[HistogramBucket]) = {
     doUnit(histogramBuckets) {
       log.debug(s"Removing ${histogramBuckets.length} histogram buckets for metric $metric in window $windowDuration")
       mutate(metric, windowDuration, histogramBuckets) { (mutation, bucket) ⇒

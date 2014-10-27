@@ -250,7 +250,7 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar {
 
   private def mockedWindow(windowDuration: FiniteDuration, previousWindowDuration: FiniteDuration) = {
     val window = new HistogramTimeWindow(windowDuration, previousWindowDuration) with HistogramBucketSupport with StatisticSummarySupport with MetaSupport {
-      override val bucketStore = mock[BucketStore]
+      override val bucketStore = mock[BucketStore[HistogramBucket]]
 
       override val summaryStore = mock[SummaryStore]
 

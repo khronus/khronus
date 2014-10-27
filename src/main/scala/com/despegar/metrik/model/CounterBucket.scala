@@ -8,3 +8,9 @@ class CounterBucket(override val bucketNumber: Long, override val duration: Dura
     null
   }
 }
+
+object CounterBucket {
+  implicit def sumCounters(buckets: Seq[CounterBucket]): Long = {
+    buckets.foldLeft(0L)((accum, bucket) ⇒ accum + bucket.counts)
+  }
+}

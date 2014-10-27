@@ -23,6 +23,7 @@ trait MetaSupport {
 object CassandraMetaStore extends MetaStore with Logging {
 
   val columnFamily = ColumnFamily.newColumnFamily("meta", StringSerializer.get(), StringSerializer.get())
+  val metricsKey = "metrics"
 
   implicit val asyncExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(5))
 
@@ -39,7 +40,7 @@ object CassandraMetaStore extends MetaStore with Logging {
   private def put(metric: Metric, timestamp: Long): Future[Unit] = {
     Future {
       val mutationBatch = Cassandra.keyspace.prepareMutationBatch()
-      mutationBatch.withRow(columnFamily, "metrics").putColumn(metric.name, timestamp)
+      mutationBatch.withRow(columnFamily, metricsKey).putColumn(asString(metric), timestamp)
       mutationBatch.execute()
       log.info(s"Stored meta for $metric successfully. Timestamp: $timestamp")
     } andThen {
@@ -49,7 +50,7 @@ object CassandraMetaStore extends MetaStore with Logging {
 
   def retrieveMetrics = {
     Future {
-      val metrics = Cassandra.keyspace.prepareQuery(columnFamily).getKey("metrics").execute().getResult().asScala.map(c ⇒ Metric(c.getName, "")).toSeq
+      val metrics = Cassandra.keyspace.prepareQuery(columnFamily).getKey(metricsKey).execute().getResult().asScala.map(c ⇒ fromString(c.getName)).toSeq
       log.info(s"Found ${metrics.length} metrics in meta")
       metrics
     } andThen {
@@ -59,10 +60,17 @@ object CassandraMetaStore extends MetaStore with Logging {
 
   def getLastProcessedTimestamp(metric: Metric): Future[Long] = {
     Future {
-      Cassandra.keyspace.prepareQuery(columnFamily).getKey("metrics").getColumn(metric.name).execute().getResult.getLongValue
+      Cassandra.keyspace.prepareQuery(columnFamily).getKey(metricsKey).getColumn(asString(metric)).execute().getResult.getLongValue
     } andThen {
       case Failure(reason) ⇒ log.error(s"Failed to retrieve last processed timestamp of $metric from meta", reason)
     }
+  }
+
+  private def asString(metric: Metric) = s"${metric.name}|${metric.mtype}"
+
+  private def fromString(str: String): Metric = {
+    val tokens = str.split("|");
+    Metric(tokens(0), tokens(1))
   }
 
 }
