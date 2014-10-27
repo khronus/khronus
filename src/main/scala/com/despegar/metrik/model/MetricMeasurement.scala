@@ -32,9 +32,9 @@ case class MetricMeasurement(name: String, mtype: String, measurements: List[Mea
 
   def asMetric = Metric(name, mtype)
 
-  def asHistogramBuckets = measurements.map(measurement ⇒ new HistogramBucket(measurement.ts, 1 millis, histogramOf(measurement.values)))
+  def asHistogramBuckets = measurements.map(measurement ⇒ new HistogramBucket(measurement.ts, 1 millis, histogramOf(measurement.values))).toSeq
 
-  def asCounterBuckets = ???
+  def asCounterBuckets = measurements.map(measurement ⇒ new CounterBucket(measurement.ts, 1 millis, measurement.values.sum)).toSeq
 
   private def histogramOf(values: Seq[Long]): Histogram = {
     val histogram = HistogramBucket.newHistogram
@@ -52,14 +52,4 @@ object MetricBatchProtocol extends DefaultJsonProtocol with SprayJsonSupport wit
   implicit val MeasurementFormat = jsonFormat2(Measurement)
   implicit val MetricFormat = jsonFormat3(MetricMeasurement)
   implicit val MetricBatchFormat = jsonFormat1(MetricBatch)
-  //  implicit object MetricMeasurementJsonFormat extends RootJsonFormat[MetricMeasurement] {
-  //    def write(m: MetricMeasurement) = 
-  //      JsObject(("name",JsString(m.name)), ("mtype",JsString(m.mtype)),("measurements", listFormat[Measurement].write(m.measurements)))
-  //
-  //    def read(value: JsValue) = value match {
-  //      case JsObject(Map("name" -> JsString(name), "mtype" -> JsString(mtype), "measurements" -> JsArray(JsObject)) =>
-  //        new MetricMeasurement(name, mtype, green.toInt)
-  //      case _ => deserializationError("MetricMeasurement expected")
-  //    }
-  //  }
 }

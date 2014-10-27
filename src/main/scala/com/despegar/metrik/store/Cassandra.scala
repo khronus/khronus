@@ -53,6 +53,8 @@ object Cassandra extends Logging {
     CassandraMetaStore.initialize
     CassandraHistogramBucketStore.initialize
     CassandraStatisticSummaryStore.initialize
+    CassandraCounterBucketStore.initialize
+    CassandraCounterSummaryStore.initialize
   }
 
   private def initializeKeyspace = {

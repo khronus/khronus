@@ -204,7 +204,7 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar {
     val window = new CounterTimeWindow(windowDuration, previousWindowDuration) with CounterBucketStoreSupport with CounterSummaryStoreSupport with MetaSupport {
       override val bucketStore = mock[BucketStore[CounterBucket]]
 
-      override val summaryStore = mock[CounterSummaryStore]
+      override val summaryStore = mock[SummaryStore[CounterSummary]]
 
       override val metaStore = mock[MetaStore]
     }

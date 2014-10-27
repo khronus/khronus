@@ -18,8 +18,10 @@ import com.despegar.metrik.util.Logging
 import com.despegar.metrik.store.MetaSupport
 import scala.concurrent.ExecutionContext.Implicits.global
 import com.despegar.metrik.model.Metric
+import com.despegar.metrik.store.BucketSupport
+import com.despegar.metrik.model.Bucket
 
-trait MetricsService extends HttpService with HistogramBucketSupport with MetaSupport with Logging {
+trait MetricsService extends HttpService with BucketSupport with MetaSupport with Logging {
 
   override def loggerName = classOf[MetricsService].getName()
 
@@ -71,14 +73,14 @@ trait MetricsService extends HttpService with HistogramBucketSupport with MetaSu
   private def storeMetadata(metric: Metric) = metaStore.insert(metric)
 
   private def storeHistogramMetric(metric: Metric, metricMeasurement: MetricMeasurement) = {
-    bucketStore.store(metric, 1 millis, metricMeasurement.asHistogramBuckets.filter(!alreadyProcessed(_)))
+    histogramBucketStore.store(metric, 1 millis, metricMeasurement.asHistogramBuckets.filter(!alreadyProcessed(_)))
   }
 
   private def storeCounterMetric(metric: Metric, metricMeasurement: MetricMeasurement) = {
-    bucketStore.store(metric, 1 millis, metricMeasurement.asHistogramBuckets.filter(!alreadyProcessed(_)))
+    counterBucketStore.store(metric, 1 millis, metricMeasurement.asCounterBuckets.filter(!alreadyProcessed(_)))
   }
 
-  private def alreadyProcessed(histogramBucket: HistogramBucket) = false //how?
+  private def alreadyProcessed[T <: Bucket](bucket: T) = false //how?
 
   //ok, this has to be improved. maybe scheduling a reload at some interval and only going to meta if not found
   private def isNew(metric: Metric) = metaStore.retrieveMetrics map { !_.contains(metric) }

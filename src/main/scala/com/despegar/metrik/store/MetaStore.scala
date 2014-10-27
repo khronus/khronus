@@ -69,7 +69,7 @@ object CassandraMetaStore extends MetaStore with Logging {
   private def asString(metric: Metric) = s"${metric.name}|${metric.mtype}"
 
   private def fromString(str: String): Metric = {
-    val tokens = str.split("|");
+    val tokens = str.split("\\|");
     Metric(tokens(0), tokens(1))
   }
 

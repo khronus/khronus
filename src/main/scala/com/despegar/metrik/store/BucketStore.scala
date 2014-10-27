@@ -3,15 +3,15 @@ package com.despegar.metrik.store
 import java.nio.ByteBuffer
 import java.util.concurrent.Executors
 
-import com.despegar.metrik.model.{Bucket, Metric}
+import com.despegar.metrik.model.{ Bucket, Metric }
 import com.despegar.metrik.util.Logging
 import com.netflix.astyanax.ColumnListMutation
-import com.netflix.astyanax.model.{Column, ColumnFamily}
-import com.netflix.astyanax.serializers.{LongSerializer, StringSerializer}
+import com.netflix.astyanax.model.{ Column, ColumnFamily }
+import com.netflix.astyanax.serializers.{ LongSerializer, StringSerializer }
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Failure
 
 trait BucketStoreSupport[T <: Bucket] {
@@ -40,7 +40,6 @@ trait BucketStore[T <: Bucket] extends Logging {
       executeSlice(metric, until, sourceWindow)
     } map { _.map { toBucket(sourceWindow) _ }.toSeq }
   }
-
 
   def store(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit] = {
     doUnit(buckets) {
@@ -90,8 +89,5 @@ trait BucketStore[T <: Bucket] extends Logging {
       case Failure(reason) ⇒ log.error("Mutation failed", reason)
     }
   }
-
-
-
 
 }
