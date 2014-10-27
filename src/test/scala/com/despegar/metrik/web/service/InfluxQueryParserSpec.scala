@@ -57,7 +57,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     val influxCriteria = influxCriteriaResult.get
 
     val resultedField = influxCriteria.projection.asInstanceOf[Field]
-    resultedField.name should be(InternalNames.Max)
+    resultedField.name should be(Functions.Max)
     resultedField.alias should be(Some("maxValue"))
 
     influxCriteria.table.name should be("metricA")
@@ -75,8 +75,26 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     val influxCriteria = influxCriteriaResult.get
 
     val resultedField = influxCriteria.projection.asInstanceOf[Field]
-    resultedField.name should be(InternalNames.Avg)
+    resultedField.name should be(Functions.Avg)
     resultedField.alias should be(Some("avgValue"))
+
+    influxCriteria.table.name should be("metricA")
+    influxCriteria.table.alias should be(None)
+
+    influxCriteria.filter should be(None)
+    influxCriteria.groupBy should be(None)
+    influxCriteria.limit should be(None)
+  }
+
+  test("Influx query with count should be parsed ok") {
+    val query = "select count(value) as counter from metricA"
+    val influxCriteriaResult = parser.parse(query)
+
+    val influxCriteria = influxCriteriaResult.get
+
+    val resultedField = influxCriteria.projection.asInstanceOf[Field]
+    resultedField.name should be("count")
+    resultedField.alias should be(Some("counter"))
 
     influxCriteria.table.name should be("metricA")
     influxCriteria.table.alias should be(None)
@@ -100,8 +118,8 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.table.alias should be(None)
 
     val filterExpression = influxCriteria.filter.get
-    (filterExpression.asInstanceOf[Eq]).lhs equals Identifier("host")
-    (filterExpression.asInstanceOf[Eq]).rhs equals StringLiteral("aHost")
+    (filterExpression.asInstanceOf[Eq]).leftExpression equals Identifier("host")
+    (filterExpression.asInstanceOf[Eq]).rightExpression equals StringLiteral("aHost")
 
     influxCriteria.groupBy should be(None)
     influxCriteria.limit should be(None)
@@ -146,13 +164,33 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
   }
 
   test("Full Influx query should be parsed ok") {
-    val query = "select count(value) as counter from metricA where time > 1000 and time < 5000 and host = 'aHost' group by minValue limit 550;"
+    val query = "select count(value) as counter from metricA where time > 1000 and host = 'aHost' group by minValue limit 550;"
     val influxCriteriaResult = parser.parse(query)
 
     val influxCriteria = influxCriteriaResult.get
 
-    println(influxCriteria)
-    println(influxCriteria.toSqlString)
+    val resultedField = influxCriteria.projection.asInstanceOf[Field]
+    resultedField.name should be("count")
+    resultedField.alias should be(Some("counter"))
+
+    influxCriteria.table.name should be("metricA")
+    influxCriteria.table.alias should be(None)
+
+    val filterExpression = influxCriteria.filter.get
+    val andExpression = filterExpression.asInstanceOf[And]
+
+    val timeFilter = andExpression.leftExpression.asInstanceOf[Gt]
+    timeFilter.leftExpression equals Identifier("time")
+    timeFilter.rightExpression equals IntLiteral(1000)
+
+    val hostFilter = andExpression.rightExpression.asInstanceOf[Eq]
+    hostFilter.leftExpression equals Identifier("host")
+    hostFilter.rightExpression equals StringLiteral("aHost")
+
+    influxCriteria.groupBy.get.keys.size should be(1)
+    influxCriteria.groupBy.get.keys(0) should be(Identifier("minValue"))
+
+    influxCriteria.limit should be(Some(550))
   }
 
   test("Query without projection should fail") {
@@ -176,5 +214,14 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteriaResult should be(None)
 
   }
+
+  test("Query with unclosed string literal should fail") {
+    val query = "select max(value) from metricA where host = 'host"
+    val influxCriteriaResult = parser.parse(query)
+
+    influxCriteriaResult should be(None)
+
+  }
+
 
 }
