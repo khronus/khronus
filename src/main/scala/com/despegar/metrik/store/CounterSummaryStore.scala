@@ -1,16 +1,27 @@
 package com.despegar.metrik.store
 
-import com.despegar.metrik.model.Summary
-import scala.concurrent.Future
-import scala.concurrent.duration.Duration
-import com.despegar.metrik.model.Metric
+import com.despegar.metrik.model.CounterSummary
+import com.despegar.metrik.util.KryoSerializer
 
-trait CounterSummaryStoreSupport extends SummaryStoreSupport {
+import scala.concurrent.duration._
+
+trait CounterSummaryStoreSupport extends SummaryStoreSupport[CounterSummary] {
   override def summaryStore = CounterSummaryStore
 }
 
-object CounterSummaryStore extends SummaryStore {
-  override def store(metric: Metric, windowDuration: Duration, summaries: Seq[Summary]): Future[Unit] = ???
+object CounterSummaryStore extends SummaryStore[CounterSummary] {
+  //create column family definition for every bucket duration
+  val windowDurations: Seq[Duration] = Seq(30 seconds)
 
-  override def sliceUntilNow(metric: Metric, windowDuration: Duration): Future[Seq[Summary]] = ???
+  val serializer: KryoSerializer[CounterSummary] = new KryoSerializer("counterSummary", List(CounterSummary.getClass))
+
+  override def getColumnFamilyName(duration: Duration) = s"counterSummary${duration.length}${duration.unit}"
+
+  override def serializeSummary(summary: CounterSummary): Array[Byte] = {
+    serializer.serialize(summary)
+  }
+
+  override def deserialize(bytes: Array[Byte]): CounterSummary = {
+    serializer.deserialize(bytes)
+  }
 }

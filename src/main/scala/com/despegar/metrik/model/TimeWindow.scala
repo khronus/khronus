@@ -27,7 +27,7 @@ import scala.concurrent.{ Future, Promise }
 import scala.util.control.NonFatal
 import scala.util.{ Failure, Success }
 
-abstract class TimeWindow[T <: Bucket] extends BucketStoreSupport[T] with SummaryStoreSupport with MetaSupport with Logging {
+abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[T] with SummaryStoreSupport[U] with MetaSupport with Logging {
 
   def process(metric: Metric, executionTimestamp: Long): Future[Unit] = {
     log.debug(s"Process HistogramTimeWindow of $duration for metric $metric")
@@ -46,7 +46,7 @@ abstract class TimeWindow[T <: Bucket] extends BucketStoreSupport[T] with Summar
     val storeTemporalFuture = storeTemporalBuckets(resultingBuckets, metric)
 
     //calculate the statistic summaries (percentiles, min, max, etc...)
-    val statisticsSummaries = storeTemporalFuture flatMap { _ ⇒ resultingBuckets.map(buckets ⇒ buckets map (_.summary)) }
+    val statisticsSummaries = storeTemporalFuture flatMap { _ ⇒ resultingBuckets.map(buckets ⇒ buckets map (getSummary(_))) }
 
     //store the statistic summaries
     val storeFuture = statisticsSummaries flatMap (summaries ⇒ summaryStore.store(metric, duration, summaries))
@@ -54,6 +54,8 @@ abstract class TimeWindow[T <: Bucket] extends BucketStoreSupport[T] with Summar
     //remove previous histogram buckets
     storeFuture flatMap { _ ⇒ previousWindowBuckets flatMap (windows ⇒ bucketStore.remove(metric, previousWindowDuration, windows)) }
   }
+
+  def getSummary(bucket: T): U
 
   private def storeTemporalBuckets(resultingBuckets: Future[Seq[T]], metric: Metric) = {
     if (shouldStoreTemporalHistograms) {
@@ -110,15 +112,22 @@ abstract class TimeWindow[T <: Bucket] extends BucketStoreSupport[T] with Summar
 }
 
 case class CounterTimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true)
-    extends TimeWindow[CounterBucket] with CounterBucketStoreSupport with CounterSummaryStoreSupport {
+    extends TimeWindow[CounterBucket, CounterSummary] with CounterBucketStoreSupport with CounterSummaryStoreSupport {
 
   def aggregate(bucketNumber: Long, buckets: Seq[CounterBucket]): CounterBucket = new CounterBucket(bucketNumber, duration, buckets)
+
+  override def getSummary(bucket: CounterBucket): CounterSummary = {
+    bucket.summary
+  }
 
 }
 
 case class HistogramTimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true)
-    extends TimeWindow[HistogramBucket] with HistogramBucketSupport with StatisticSummarySupport {
+    extends TimeWindow[HistogramBucket, StatisticSummary] with HistogramBucketSupport with StatisticSummarySupport {
 
   def aggregate(bucketNumber: Long, buckets: Seq[HistogramBucket]): HistogramBucket = new HistogramBucket(bucketNumber, duration, buckets)
 
+  override def getSummary(bucket: HistogramBucket): StatisticSummary = {
+    bucket.summary
+  }
 }
