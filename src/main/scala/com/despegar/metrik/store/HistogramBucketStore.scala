@@ -17,21 +17,20 @@
 package com.despegar.metrik.store
 
 import java.nio.ByteBuffer
-
 import com.despegar.metrik.model.HistogramBucket
 import com.despegar.metrik.util.Logging
 import com.netflix.astyanax.model.Column
 import org.HdrHistogram.Histogram
-
 import scala.concurrent.duration._
+import com.despegar.metrik.util.Settings
 
 trait HistogramBucketSupport extends BucketStoreSupport[HistogramBucket] {
   override def bucketStore: BucketStore[HistogramBucket] = CassandraHistogramBucketStore
 }
 
 object CassandraHistogramBucketStore extends BucketStore[HistogramBucket] with Logging {
-  //create column family definition for every bucket duration
-  val windowDurations: Seq[Duration] = Seq(1 millis, 30 seconds, 1 minute, 5 minute, 10 minute, 30 minute, 1 hour) //FIXME put configured windows
+
+  val windowDurations: Seq[Duration] = Settings().Histogram.windowDurations
 
   override def toBucket(windowDuration: Duration)(column: Column[java.lang.Long]) = {
     val timestamp = column.getName()

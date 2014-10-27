@@ -24,13 +24,10 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.Success
 
-//remove this
-
 class TimeWindowChain extends Logging with MetaSupport {
 
-  val histrogramsWindows = Seq(HistogramTimeWindow(30 seconds, 1 millis), HistogramTimeWindow(1 minute, 30 seconds), HistogramTimeWindow(5 minute, 1 minute), HistogramTimeWindow(10 minute, 5 minute, false))
-
-  val countersWindows = Seq(CounterTimeWindow(30 seconds, 1 millis, false))
+  val histrogramsWindows = Settings().Histogram.timeWindows
+  val countersWindows = Settings().Counter.timeWindows
 
   def process(metric: Metric): Future[Seq[Any]] = {
     val executionTimestamp = System.currentTimeMillis() - Settings().Window.ExecutionDelay

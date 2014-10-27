@@ -16,18 +16,20 @@
 
 package com.despegar.metrik.util
 
-import java.util.concurrent.TimeUnit
-
 import akka.actor._
-
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
+import scala.collection.JavaConverters._
+import com.despegar.metrik.model.TimeWindow
+import com.despegar.metrik.model.HistogramTimeWindow
+import com.despegar.metrik.model.CounterTimeWindow
 
 class Settings(config: com.typesafe.config.Config, extendedSystem: ExtendedActorSystem) extends Extension {
 
   object Master {
     val TickCronExpression = config.getString("metrik.master.tick-expression")
-    val DiscoveryStartDelay = FiniteDuration(config.getDuration("metrik.master.discovery-start-delay", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
-    val DiscoveryInterval = FiniteDuration(config.getDuration("metrik.master.discovery-interval", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
+    val DiscoveryStartDelay = FiniteDuration(config.getDuration("metrik.master.discovery-start-delay", MILLISECONDS), MILLISECONDS)
+    val DiscoveryInterval = FiniteDuration(config.getDuration("metrik.master.discovery-interval", MILLISECONDS), MILLISECONDS)
   }
 
   object Http {
@@ -36,7 +38,7 @@ class Settings(config: com.typesafe.config.Config, extendedSystem: ExtendedActor
   }
 
   object Window {
-    val ExecutionDelay: Long = config.getDuration("metrik.windows.execution-delay", TimeUnit.MILLISECONDS)
+    val ExecutionDelay: Long = config.getDuration("metrik.windows.execution-delay", MILLISECONDS)
   }
 
   object Cassandra {
@@ -45,6 +47,24 @@ class Settings(config: com.typesafe.config.Config, extendedSystem: ExtendedActor
     val Keyspace = cassandraCfg.getString("keyspace")
     val Port = cassandraCfg.getInt("port")
     val Seeds = cassandraCfg.getString("seeds")
+  }
+
+  object Histogram {
+    val windowDurations = (1 millis) +: config.getDurationList("histogram.windows", MILLISECONDS).asScala.map(FiniteDuration(_, MILLISECONDS))
+    val timeWindows = windowDurations.sliding(2).map { dp ⇒
+      val previous = dp.head
+      val duration = dp.last
+      HistogramTimeWindow(duration, previous, windowDurations.last != duration)
+    }.toSeq
+  }
+
+  object Counter {
+    val windowDurations = (1 millis) +: config.getDurationList("counter.windows", MILLISECONDS).asScala.map(FiniteDuration(_, MILLISECONDS))
+    val timeWindows = windowDurations.sliding(2).map { dp ⇒
+      val previous = dp.head
+      val duration = dp.last
+      CounterTimeWindow(duration, previous, windowDurations.last != duration)
+    }.toSeq
   }
 
 }
