@@ -6,6 +6,8 @@ import scala.util.parsing.combinator.syntactical._
 
 import scala.util.parsing.input.CharArrayReader.EofCh
 import com.despegar.metrik.util.Logging
+import scala.concurrent.duration.{FiniteDuration, Duration}
+import java.util.concurrent.TimeUnit
 
 class InfluxQueryParser extends StandardTokenParsers with Logging {
 
@@ -15,7 +17,7 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
 
   val functions = Seq(Functions.Count, Functions.Avg, Functions.Min, Functions.Max)
 
-  lexical.reserved += ("select", "as", "from", "where", "or", "and", "group", "by", "limit", "between", "null", "date")
+  lexical.reserved += ("select", "as", "from", "where", "or", "and", "group", "by", "time", "limit", "between", "null", "date", TimeSuffixes.Seconds, TimeSuffixes.Minutes, TimeSuffixes.Hours, TimeSuffixes.Days, TimeSuffixes.Weeks)
 
   lexical.reserved ++= functions
 
@@ -111,10 +113,24 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
 
 
   private def groupByParser: Parser[GroupBy] =
-    "group" ~> "by" ~> rep1sep(filterExpression, ",") ^^ {
-      case k ⇒ GroupBy(k)
+    "group" ~>  "by" ~>  "time" ~> "(" ~> timeSuffixParser <~ ")" ^^ (GroupBy(_))
+
+  private def timeSuffixParser: Parser[FiniteDuration] = {
+    numericLit ~ (TimeSuffixes.Seconds | TimeSuffixes.Minutes | TimeSuffixes.Hours | TimeSuffixes.Days | TimeSuffixes.Weeks) ^^ {
+      case number ~ timeUnit ⇒ {
+        timeUnit match {
+          case TimeSuffixes.Seconds => new FiniteDuration(TimeUnit.SECONDS.toMillis(number.toLong), TimeUnit.MILLISECONDS)
+          case TimeSuffixes.Minutes => new FiniteDuration(TimeUnit.MINUTES.toMillis(number.toLong), TimeUnit.MILLISECONDS)
+          case TimeSuffixes.Hours => new FiniteDuration(TimeUnit.HOURS.toMillis(number.toLong), TimeUnit.MILLISECONDS)
+          case TimeSuffixes.Days => new FiniteDuration(TimeUnit.DAYS.toMillis(number.toLong), TimeUnit.MILLISECONDS)
+          case TimeSuffixes.Weeks => new FiniteDuration(TimeUnit.DAYS.toMillis(number.toLong) * 7, TimeUnit.MILLISECONDS)
+        }
+      }
     }
+  }
+
 
   private def limitParser: Parser[Int] = "limit" ~> numericLit ^^ (_.toInt)
-
 }
+
+

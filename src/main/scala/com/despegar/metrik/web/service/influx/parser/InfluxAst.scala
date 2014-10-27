@@ -1,6 +1,7 @@
 package com.despegar.metrik.web.service.influx.parser
 
 import com.sun.corba.se.spi.legacy.interceptor.UnknownType
+import scala.concurrent.duration.FiniteDuration
 
 trait Node {
   def toString: String
@@ -129,6 +130,14 @@ case class DateLiteral(dateStr: String) extends LiteralExpression {
 }
 
 
-case class GroupBy(keys: Seq[Expression]) extends Node {
-  override def toString = Seq(Some("group by"), Some(keys.map(_.toString).mkString(", "))).flatten.mkString(" ")
+case class GroupBy(duration: FiniteDuration) extends Node {
+  override def toString = s"group by $duration"
+}
+
+object TimeSuffixes {
+  val Seconds = "s"
+  val Minutes = "m"
+  val Hours = "h"
+  val Days = "d"
+  val Weeks = "w"
 }
