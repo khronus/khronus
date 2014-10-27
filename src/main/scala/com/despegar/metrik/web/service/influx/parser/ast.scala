@@ -12,13 +12,10 @@ case class InfluxCriteria(projection: Projection,
     groupBy: Option[GroupBy],
     limit: Option[Int]) extends Node {
 
-  def toSqlString =
-    Seq(Some("select"),
-      Some(projection.toSqlString),
-      Some("from " + table.toSqlString),
-      filter.map(x ⇒ "where " + x.toSqlString),
-      groupBy.map(_.toSqlString),
-      limit.map(x ⇒ "limit " + x.toString)).flatten.mkString(" ")
+  def toSqlString = Seq(Some(s"select [${projection.toSqlString}] from [${table.toSqlString}]"),
+    filter.map(x ⇒ "where " + x.toSqlString),
+    groupBy.map(_.toSqlString),
+    limit.map(x ⇒ "limit " + x.toString)).flatten.mkString(" ")
 }
 
 sealed trait Projection extends Node
@@ -29,20 +26,35 @@ case class AllField() extends Projection {
   override def toSqlString = "*"
 }
 
-case class ExpressionProjection(expr: Expression, alias: Option[String]) extends Projection {
-  def toSqlString = Seq(Some(expr.toSqlString), alias).flatten.mkString(" as ")
+object InternalNames {
+  val Count = "count"
+  val Min = "min"
+  val Max = "max"
+  val Avg = "avg"
 }
-case class StarProjection() extends Projection {
-  def toSqlString = "*"
+
+trait ProjectionExpression extends Expression
+case class CountExpr(name: String) extends ProjectionExpression {
+  def toSqlString = s"count($name)"
+  override def gatherFields = Seq(InternalNames.Count)
+}
+case class Avg(name: String) extends ProjectionExpression {
+  def toSqlString = s"avg($name)"
+  override def gatherFields = Seq(InternalNames.Avg)
+}
+case class Min(name: String) extends ProjectionExpression {
+  def toSqlString = s"min($name)"
+  override def gatherFields = Seq(InternalNames.Min)
+}
+case class Max(name: String) extends ProjectionExpression {
+  def toSqlString = s"max($name)"
+  override def gatherFields = Seq(InternalNames.Max)
 }
 
 trait Expression extends Node {
   def isLiteral: Boolean = false
 
-  // (col, true if aggregate context false otherwise)
-  // only gathers fields within this context (
-  // wont traverse into subselects )
-  def gatherFields: Seq[(FieldIdentifier, Boolean)]
+  def gatherFields: Seq[String]
 }
 
 trait BinaryOperation extends Expression {
@@ -54,7 +66,7 @@ trait BinaryOperation extends Expression {
   override def isLiteral = lhs.isLiteral && rhs.isLiteral
   def gatherFields = lhs.gatherFields ++ rhs.gatherFields
 
-  def toSqlString = Seq("(" + lhs.toSqlString + ")", operator, "(" + rhs.toSqlString + ")") mkString " "
+  def toSqlString = s"(${lhs.toSqlString}) $operator (${rhs.toSqlString})"
 }
 
 case class Or(lhs: Expression, rhs: Expression) extends BinaryOperation {
@@ -90,40 +102,12 @@ trait UnaryOperation extends Expression {
   val opStr: String
   override def isLiteral = expr.isLiteral
   def gatherFields = expr.gatherFields
-  def toSqlString = Seq(opStr, "(", expr.toSqlString, ")") mkString " "
+  def toSqlString = s"$opStr (${expr.toSqlString})"
 }
 
 case class Not(expr: Expression) extends UnaryOperation {
   val opStr = "not"
 }
-
-case class FieldIdentifier(qualifier: Option[String], name: String, symbol: Symbol = null) extends Expression {
-  def gatherFields = Seq((this, false))
-  def toSqlString = Seq(qualifier, Some(name)).flatten.mkString(".")
-}
-
-trait SqlAgg extends Expression
-case class CountExpr(expr: Expression) extends SqlAgg {
-  def gatherFields = expr.gatherFields.map(_.copy(_2 = true))
-  def toSqlString = Seq(Some("count("), Some(expr.toSqlString), Some(")")).flatten.mkString("")
-}
-case class Avg(expr: Expression) extends SqlAgg {
-  def gatherFields = expr.gatherFields.map(_.copy(_2 = true))
-  def toSqlString = Seq(Some("avg("), Some(expr.toSqlString), Some(")")).flatten.mkString("")
-}
-case class Min(expr: Expression) extends SqlAgg {
-  def gatherFields = expr.gatherFields.map(_.copy(_2 = true))
-  def toSqlString = "min(" + expr.toSqlString + ")"
-}
-case class Max(expr: Expression) extends SqlAgg {
-  def gatherFields = expr.gatherFields.map(_.copy(_2 = true))
-  def toSqlString = "max(" + expr.toSqlString + ")"
-}
-case class AggCall(name: String, args: Seq[Expression]) extends SqlAgg {
-  def gatherFields = args.flatMap(_.gatherFields)
-  def toSqlString = Seq(name, "(", args.map(_.toSqlString).mkString(", "), ")").mkString("")
-}
-
 
 trait LiteralExpr extends Expression {
   override def isLiteral = true
@@ -135,6 +119,9 @@ case class IntLiteral(v: Long) extends LiteralExpr {
 case class FloatLiteral(v: Double) extends LiteralExpr {
   def toSqlString = v.toString
 }
+case class Identifier(v: String) extends LiteralExpr {
+  def toSqlString = v.toString
+}
 case class StringLiteral(v: String) extends LiteralExpr {
   def toSqlString = "\"" + v.toString + "\"" // TODO: escape...
 }
@@ -142,11 +129,11 @@ case class NullLiteral() extends LiteralExpr {
   def toSqlString = "null"
 }
 case class DateLiteral(d: String) extends LiteralExpr {
-  def toSqlString = Seq("date", "\"" + d + "\"") mkString " "
+  def toSqlString = s"date [$d]"
 }
 
 case class Table(name: String, alias: Option[String]) extends Node {
-  def toSqlString = Seq(Some(name), alias).flatten.mkString(" ")
+  def toSqlString = s"$name $alias"
 
 }
 

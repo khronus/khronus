@@ -48,9 +48,14 @@ class InfluxQueryParser extends StandardTokenParsers {
       }
 
   def projectionParser: Parser[Projection] =
-    "*" ^^ (_ ⇒ StarProjection()) |
-      expr ~ opt("as" ~> ident) ^^ {
-        case expr ~ ident ⇒ ExpressionProjection(expr, ident)
+    "*" ^^ (_ ⇒ AllField()) |
+      projectionExpressionParser ~ opt("as" ~> ident) ^^ {
+        case x ~ ident ⇒ {
+          x match {
+            case id: Identifier       ⇒ Field(id.v, ident)
+            case projectionExpression ⇒ Field(projectionExpression.gatherFields.head, ident)
+          }
+        }
       }
 
   def expr: Parser[Expression] = orExpressionParser
@@ -70,36 +75,38 @@ class InfluxQueryParser extends StandardTokenParsers {
         "between" ~ primaryExpressionParser ~ "and" ~ primaryExpressionParser ^^ {
           case op ~ a ~ _ ~ b ⇒ (op, a, b)
         } |
-        opt("not") ~ "like" ~ primaryExpressionParser ^^ { case n ~ op ~ a ⇒ (op, a, n.isDefined) }) ^^ {
+        opt("not") ~ "like" ~ primaryExpressionParser ^^ {
+          case n ~ op ~ a ⇒ (op, a, n.isDefined)
+        }) ^^ {
         case lhs ~ elems ⇒
           elems.foldLeft(lhs) {
-            case (acc, (("=", rhs: Expression)))                   ⇒ Eq(acc, rhs)
-            case (acc, (("<>", rhs: Expression)))                  ⇒ Neq(acc, rhs)
-            case (acc, (("!=", rhs: Expression)))                  ⇒ Neq(acc, rhs)
-            case (acc, (("<", rhs: Expression)))                   ⇒ Lt(acc, rhs)
-            case (acc, (("<=", rhs: Expression)))                  ⇒ Le(acc, rhs)
-            case (acc, ((">", rhs: Expression)))                   ⇒ Gt(acc, rhs)
-            case (acc, ((">=", rhs: Expression)))                  ⇒ Ge(acc, rhs)
-            case (acc, (("between", l: Expression, r: Expression)))   ⇒ And(Ge(acc, l), Le(acc, r))
-            case (acc, (("like", e: Expression, n: Boolean)))      ⇒ Like(acc, e, n)
+            case (acc, (("=", rhs: Expression)))                    ⇒ Eq(acc, rhs)
+            case (acc, (("<>", rhs: Expression)))                   ⇒ Neq(acc, rhs)
+            case (acc, (("!=", rhs: Expression)))                   ⇒ Neq(acc, rhs)
+            case (acc, (("<", rhs: Expression)))                    ⇒ Lt(acc, rhs)
+            case (acc, (("<=", rhs: Expression)))                   ⇒ Le(acc, rhs)
+            case (acc, ((">", rhs: Expression)))                    ⇒ Gt(acc, rhs)
+            case (acc, ((">=", rhs: Expression)))                   ⇒ Ge(acc, rhs)
+            case (acc, (("between", l: Expression, r: Expression))) ⇒ And(Ge(acc, l), Le(acc, r))
+            case (acc, (("like", e: Expression, n: Boolean)))       ⇒ Like(acc, e, n)
           }
       } |
       "not" ~> cmp_expr ^^ (Not(_))
 
-
   def primaryExpressionParser: Parser[Expression] =
     literalParser |
       knownFunctionParser |
-      ident ~ opt("." ~> ident | "(" ~> repsep(expr, ",") <~ ")") ^^ {
-        case id ~ None            ⇒ FieldIdentifier(None, id)
-        case a ~ Some(b: String)  ⇒ FieldIdentifier(Some(a), b)
-      }
+      ident ^^ (Identifier(_))
+
+  def projectionExpressionParser: Parser[Expression] =
+    ident ^^ (Identifier(_))|
+      knownFunctionParser
 
   def knownFunctionParser: Parser[Expression] =
-    "count" ~> "(" ~> expr <~ ")" ^^ (CountExpr(_)) |
-      "min" ~> "(" ~> expr <~ ")" ^^ (Min(_)) |
-      "max" ~> "(" ~> expr <~ ")" ^^ (Max(_)) |
-      "avg" ~> "(" ~> expr <~ ")" ^^ (Avg(_))
+    "count" ~> "(" ~> ident <~ ")" ^^ (CountExpr(_)) |
+      "min" ~> "(" ~> ident <~ ")" ^^ (Min(_)) |
+      "max" ~> "(" ~> ident <~ ")" ^^ (Max(_)) |
+      "avg" ~> "(" ~> ident <~ ")" ^^ (Avg(_))
 
   def literalParser: Parser[Expression] =
     numericLit ^^ { case i ⇒ IntLiteral(i.toInt) } |
