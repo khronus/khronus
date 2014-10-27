@@ -2,20 +2,18 @@ package com.despegar.metrik.store
 
 import com.despegar.metrik.model.{CounterBucket, Metric}
 import com.despegar.metrik.util.BaseIntegrationTest
+import com.netflix.astyanax.connectionpool.OperationResult
+import com.netflix.astyanax.model.ColumnFamily
 import org.scalatest.{FunSuite, Matchers}
 
 import scala.concurrent.duration._
-import scala.util.Try
 
 class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest with Matchers {
 
   val testMetric = Metric("testMetric","counter")
 
-
-  override def truncateColumnFamilies = Try {
-    CassandraCounterBucketStore.columnFamilies foreach { cf =>
-      Cassandra.keyspace.truncateColumnFamily(cf._2)
-    }
+  override def foreachColumnFamily(f: ColumnFamily[String,java.lang.Long] => OperationResult[_]) = {
+    CassandraCounterBucketStore.columnFamilies.values.foreach{ cf => val or = f(cf); or.getResult }
   }
 
   test("should store and retrieve buckets properly") {
