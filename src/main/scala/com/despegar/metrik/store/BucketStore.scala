@@ -1,20 +1,97 @@
 package com.despegar.metrik.store
 
-import com.despegar.metrik.model.{ Bucket, HistogramBucket, Metric }
+import java.nio.ByteBuffer
+import java.util.concurrent.Executors
 
-import scala.concurrent.Future
-import scala.concurrent.duration.Duration
+import com.despegar.metrik.model.{Bucket, Metric}
+import com.despegar.metrik.util.Logging
+import com.netflix.astyanax.ColumnListMutation
+import com.netflix.astyanax.model.{Column, ColumnFamily}
+import com.netflix.astyanax.serializers.{LongSerializer, StringSerializer}
+
+import scala.collection.JavaConverters._
+import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Failure
 
 trait BucketStoreSupport[T <: Bucket] {
 
   def bucketStore: BucketStore[T]
 }
 
-trait BucketStore[T <: Bucket] {
+trait BucketStore[T <: Bucket] extends Logging {
+  private val LIMIT = 1000
+  private val INFINITE = 1L
 
-  def sliceUntil(metric: Metric, until: Long, windowDuration: Duration): Future[Seq[T]]
+  def windowDurations: Seq[Duration]
 
-  def store(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit]
+  lazy val columnFamilies = windowDurations.map(duration ⇒ (duration, ColumnFamily.newColumnFamily(getColumnFamilyName(duration), StringSerializer.get(), LongSerializer.get()))).toMap
 
-  def remove(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit]
+  def getColumnFamilyName(duration: Duration): String
+
+  def toBucket(windowDuration: Duration)(column: Column[java.lang.Long]): T
+
+  def initialize = columnFamilies.foreach(cf ⇒ Cassandra.createColumnFamily(cf._2))
+
+  implicit val asyncExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(50))
+
+  def sliceUntil(metric: Metric, until: Long, sourceWindow: Duration): Future[Seq[T]] = {
+    Future {
+      executeSlice(metric, until, sourceWindow)
+    } map { _.map { toBucket(sourceWindow) _ }.toSeq }
+  }
+
+
+  def store(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit] = {
+    doUnit(buckets) {
+      log.debug(s"Storing ${buckets.length} buckets for metric $metric in window $windowDuration: $buckets")
+      mutate(metric, windowDuration, buckets) { (mutation, bucket) ⇒
+        mutation.putColumn(bucket.timestamp, serializeBucket(bucket))
+      }
+    }
+  }
+
+  def remove(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit] = {
+    doUnit(buckets) {
+      log.debug(s"Removing ${buckets.length} buckets for metric $metric in window $windowDuration")
+      mutate(metric, windowDuration, buckets) { (mutation, bucket) ⇒
+        mutation.deleteColumn(bucket.timestamp)
+      }
+    }
+  }
+
+  def serializeBucket(bucket: T): ByteBuffer
+
+  private def executeSlice(metric: Metric, until: Long, windowDuration: Duration): Iterable[Column[java.lang.Long]] = {
+    log.debug(s"Slicing window of $windowDuration for metric $metric")
+    val result = Cassandra.keyspace.prepareQuery(columnFamilies(windowDuration)).getKey(metric.name)
+      .withColumnRange(INFINITE, until, false, LIMIT).execute().getResult().asScala
+
+    log.debug(s"Slicing window. Found ${result.size} buckets of $windowDuration for metric $metric")
+    result
+  }
+
+  private def doUnit(col: Seq[Any])(f: ⇒ Future[Unit]): Future[Unit] = {
+    if (col.size > 0) {
+      f
+    } else {
+      Future {}
+    }
+  }
+
+  private def mutate(metric: Metric, windowDuration: Duration, buckets: Seq[T])(f: (ColumnListMutation[java.lang.Long], T) ⇒ Unit) = {
+    Future {
+      val mutationBatch = Cassandra.keyspace.prepareMutationBatch()
+      val mutation = mutationBatch.withRow(columnFamilies(windowDuration), metric.name)
+      buckets.foreach(f(mutation, _))
+      mutationBatch.execute
+      log.trace("Mutation successful")
+    } andThen {
+      case Failure(reason) ⇒ log.error("Mutation failed", reason)
+    }
+  }
+
+
+
+
 }

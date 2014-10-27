@@ -1,19 +1,27 @@
 package com.despegar.metrik.store
 
-import com.despegar.metrik.model.Bucket
+import java.nio.ByteBuffer
+
+import com.despegar.metrik.model.{StatisticSummary, Bucket, Metric, CounterBucket}
+import com.despegar.metrik.util.KryoSerializer
+import com.netflix.astyanax.model.Column
 import scala.concurrent.Future
-import scala.concurrent.duration.Duration
-import com.despegar.metrik.model.Metric
-import com.despegar.metrik.model.CounterBucket
+import scala.concurrent.duration._
 
 trait CounterBucketStoreSupport extends BucketStoreSupport[CounterBucket] {
   override def bucketStore: BucketStore[CounterBucket] = CassandraBucketStore
 }
 
 object CassandraBucketStore extends BucketStore[CounterBucket] {
-  override def sliceUntil(metric: Metric, until: Long, windowDuration: Duration): Future[Seq[CounterBucket]] = ???
+  val windowDurations: Seq[Duration] = Seq(1 millis, 30 seconds) //FIXME put configured windows
 
-  override def store(metric: Metric, windowDuration: Duration, buckets: Seq[CounterBucket]): Future[Unit] = ???
+  override def getColumnFamilyName(duration: Duration): String = ???
 
-  override def remove(metric: Metric, windowDuration: Duration, histogramBuckets: Seq[CounterBucket]): Future[Unit] = ???
+  override def toBucket(windowDuration: Duration)(column: Column[java.lang.Long]): CounterBucket = ???
+
+  val serializer: KryoSerializer[CounterBucket] = new KryoSerializer("counterBucket", List(CounterBucket.getClass))
+
+  override def serializeBucket(bucket: CounterBucket): ByteBuffer = {
+    ByteBuffer.wrap(serializer.serialize(bucket))
+  }
 }
