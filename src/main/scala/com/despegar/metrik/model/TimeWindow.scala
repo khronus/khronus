@@ -57,7 +57,10 @@ abstract class TimeWindow[T <: Bucket] extends BucketStoreSupport[T] with Summar
 
   private def storeTemporalBuckets(resultingBuckets: Future[Seq[T]], metric: Metric) = {
     if (shouldStoreTemporalHistograms) {
-      resultingBuckets flatMap (buckets ⇒ bucketStore.store(metric, duration, buckets))
+      resultingBuckets flatMap (buckets ⇒ bucketStore.store(metric, duration, buckets)) andThen {
+        case Failure(reason) ⇒ log.error("Fail to store temporal buckets", reason)
+        case Success(_)      ⇒ log.info("Success to store temporal buckets")
+      }
     } else {
       Future.successful[Unit](log.debug("Last window. No need to store buckets"))
     }
@@ -110,9 +113,12 @@ abstract class TimeWindow[T <: Bucket] extends BucketStoreSupport[T] with Summar
 }
 
 case class CounterTimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true)
-    extends TimeWindow[CounterBucket] with CounterBucketStoreSupport with CounterSummaryStoreSupport {
+    extends TimeWindow[CounterBucket] with CounterBucketStoreSupport with CounterSummaryStoreSupport with Logging {
 
-  def aggregate(bucketNumber: Long, buckets: Seq[CounterBucket]): CounterBucket = new CounterBucket(bucketNumber, duration, buckets)
+  def aggregate(bucketNumber: Long, buckets: Seq[CounterBucket]): CounterBucket = {
+    log.info(s"aggregating: $buckets")
+    new CounterBucket(bucketNumber, duration, buckets)
+  }
 
 }
 

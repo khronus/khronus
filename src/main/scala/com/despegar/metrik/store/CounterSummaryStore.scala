@@ -6,10 +6,12 @@ import scala.concurrent.duration.Duration
 import com.despegar.metrik.model.Metric
 
 trait CounterSummaryStoreSupport extends SummaryStoreSupport {
-  override def summaryStore = CounterSummaryStore
+  override def summaryStore: SummaryStore = CassandraCounterSummaryStore
 }
 
-object CounterSummaryStore extends SummaryStore {
+trait CounterSummaryStore extends SummaryStore
+
+object CassandraCounterSummaryStore extends CounterSummaryStore {
   override def store(metric: Metric, windowDuration: Duration, summaries: Seq[Summary]): Future[Unit] = ???
 
   override def sliceUntilNow(metric: Metric, windowDuration: Duration): Future[Seq[Summary]] = ???
