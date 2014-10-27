@@ -50,7 +50,7 @@ class Settings(config: com.typesafe.config.Config, extendedSystem: ExtendedActor
   }
 
   object Histogram {
-    val windowDurations = (1 millis) +: config.getDurationList("histogram.windows", MILLISECONDS).asScala.map(FiniteDuration(_, MILLISECONDS))
+    val windowDurations = (1 millis) +: config.getDurationList("metrik.histogram.windows", MILLISECONDS).asScala.map(FiniteDuration(_, MILLISECONDS))
     val timeWindows = windowDurations.sliding(2).map { dp ⇒
       val previous = dp.head
       val duration = dp.last
@@ -59,12 +59,12 @@ class Settings(config: com.typesafe.config.Config, extendedSystem: ExtendedActor
   }
 
   object Counter {
-    val windowDurations = (1 millis) +: config.getDurationList("counter.windows", MILLISECONDS).asScala.map(FiniteDuration(_, MILLISECONDS))
+    val windowDurations = (1 millis) +: config.getDurationList("metrik.counter.windows", MILLISECONDS).asScala.map(FiniteDuration(_, MILLISECONDS))
     val timeWindows = windowDurations.sliding(2).map { dp ⇒
       val previous = dp.head
       val duration = dp.last
       CounterTimeWindow(duration, previous, windowDurations.last != duration)
-    }.toSeq
+    }.toSeq 
   }
 
 }
