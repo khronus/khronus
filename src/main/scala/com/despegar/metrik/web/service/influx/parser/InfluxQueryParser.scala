@@ -73,47 +73,25 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
       case ident ~ _ ~ alias ⇒ Table(ident, alias)
     }
 
-  private def filterParser: Parser[Expression] = "where" ~> filterExpression
+  private def filterParser: Parser[List[Filter]] = "where" ~> filterExpression
 
-  private def filterExpression: Parser[Expression] = orExpressionParser
+  private def filterExpression: Parser[List[Filter]] = rep(comparatorExpression).map(x => x.flatten)
 
-  private def orExpressionParser: Parser[Expression] =
-    andExpressionParser * (Operators.Or ^^^ { (left: Expression, right: Expression) ⇒ Or(left, right) })
+  private def comparatorExpression: Parser[List[Filter]] =
+    (ident ~ (Operators.Eq | Operators.Neq | Operators.Lt | Operators.Lte | Operators.Gt | Operators.Gte) ~ stringParser <~ opt(Operators.And) ^^ {
+      case identifier ~ operator ~ strValue ⇒ List(StringFilter(identifier, operator, strValue))
+    }) |
+    (ident ~ (Operators.Eq | Operators.Neq | Operators.Lt | Operators.Lte | Operators.Gt | Operators.Gte) ~ numericParser <~ opt(Operators.And) ^^ {
+      case identifier ~ operator ~ longValue ⇒ List(NumericFilter(identifier, operator, longValue))
+    }) |
+      (ident ~ "between" ~ numericParser ~ "and" ~ numericParser <~ opt(Operators.And) ^^ {
+        case identifier ~ _ ~ longValueA ~ _ ~ longValueB ⇒ List(NumericFilter(identifier, Operators.Gte, longValueA), NumericFilter(identifier, Operators.Lte, longValueB))
+      })
 
-  private def andExpressionParser: Parser[Expression] =
-    comparatorExpression * (Operators.And ^^^ { (left: Expression, right: Expression) ⇒ And(left, right) })
+  private def numericParser: Parser[Long] = numericLit ^^ { case i ⇒ i.toLong }
 
-  // TODO: this function is nasty- clean it up!
-  private def comparatorExpression: Parser[Expression] =
-    primaryExpressionParser ~ rep(
-      (Operators.Eq | Operators.Neq | Operators.Lt | Operators.Lte | Operators.Gt | Operators.Gte) ~ primaryExpressionParser ^^ {
-        case operator ~ rhs ⇒ (operator, rhs)
-      } |
-        "between" ~ primaryExpressionParser ~ "and" ~ primaryExpressionParser ^^ {
-          case operator ~ a ~ _ ~ b ⇒ (operator, a, b)
-        }) ^^ {
-        case lhs ~ elems ⇒
-          elems.foldLeft(lhs) {
-            case (acc, ((Operators.Eq, rhs: Expression)))           ⇒ Eq(acc, rhs)
-            case (acc, ((Operators.Neq, rhs: Expression)))          ⇒ Neq(acc, rhs)
-            case (acc, ((Operators.Lt, rhs: Expression)))           ⇒ Lt(acc, rhs)
-            case (acc, ((Operators.Lte, rhs: Expression)))          ⇒ Le(acc, rhs)
-            case (acc, ((Operators.Gt, rhs: Expression)))           ⇒ Gt(acc, rhs)
-            case (acc, ((Operators.Gte, rhs: Expression)))          ⇒ Ge(acc, rhs)
-            case (acc, (("between", l: Expression, r: Expression))) ⇒ And(Ge(acc, l), Le(acc, r))
-          }
-      }
+  private def stringParser: Parser[String] = stringLit ^^ { case s ⇒ s }
 
-  private def primaryExpressionParser: Parser[Expression] =
-    literalParser |
-      knownFunctionParser |
-      ident ^^ (Identifier(_))
-
-  private def literalParser: Parser[Expression] =
-    numericLit ^^ { case i ⇒ IntLiteral(i.toInt) } |
-      stringLit ^^ { case s ⇒ StringLiteral(s) } |
-      "null" ^^ (_ ⇒ NullLiteral()) |
-      "date" ~> stringLit ^^ (DateLiteral(_))
 
   private def groupByParser: Parser[GroupBy] =
     "group_by_time" ~> "(" ~> timeSuffixParser <~ ")" ^^ (GroupBy(_))
