@@ -3,13 +3,13 @@ package com.despegar.metrik.web.service.influx.parser
 import scala.concurrent.duration.FiniteDuration
 
 case class InfluxCriteria(projection: Projection,
-    table: Table,
-    filters: Option[List[Filter]],
-    groupBy: Option[GroupBy],
-    limit: Option[Int])
-
+  table: Table,
+  filters: Option[List[Filter]],
+  groupBy: Option[GroupBy],
+  limit: Option[Int])
 
 sealed trait Projection
+
 case class Field(name: String, alias: Option[String]) extends Projection
 case class AllField() extends Projection
 
@@ -78,9 +78,8 @@ case class Percentile999(name: String) extends ProjectionExpression {
 }
 
 trait Filter
-case class NumericFilter(identifier: String, operator: String, value: Long) extends Filter
+case class IntervalFilter(identifier: String, operator: String, value: Long) extends Filter
 case class StringFilter(identifier: String, operator: String, value: String) extends Filter
-
 
 object Operators {
   val And = "and"
@@ -91,7 +90,6 @@ object Operators {
   val Lte = "<="
   val Lt = "<"
 }
-
 
 case class GroupBy(duration: FiniteDuration) {
   override def toString = s"group by $duration"

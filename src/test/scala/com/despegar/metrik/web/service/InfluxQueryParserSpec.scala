@@ -167,12 +167,12 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.table.alias should be(None)
 
     val filters = influxCriteria.filters.get
-    val filter1 = filters(0).asInstanceOf[NumericFilter]
+    val filter1 = filters(0).asInstanceOf[IntervalFilter]
     filter1.identifier should be("time")
     filter1.operator should be(Operators.Gte)
     filter1.value should be(1414508614L)
 
-    val filter2 = filters(1).asInstanceOf[NumericFilter]
+    val filter2 = filters(1).asInstanceOf[IntervalFilter]
     filter2.identifier should be("time")
     filter2.operator should be(Operators.Lt)
     filter2.value should be(1414509500L)
@@ -195,12 +195,12 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.table.alias should be(None)
 
     val filters = influxCriteria.filters.get
-    val filter1 = filters(0).asInstanceOf[NumericFilter]
+    val filter1 = filters(0).asInstanceOf[IntervalFilter]
     filter1.identifier should be("time")
     filter1.operator should be(Operators.Gte)
     filter1.value should be(1414508614L)
 
-    val filter2 = filters(1).asInstanceOf[NumericFilter]
+    val filter2 = filters(1).asInstanceOf[IntervalFilter]
     filter2.identifier should be("time")
     filter2.operator should be(Operators.Lte)
     filter2.value should be(1414509500L)
@@ -304,12 +304,12 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
 
     val filters = influxCriteria.filters.get
 
-    val filter1 = filters(0).asInstanceOf[NumericFilter]
+    val filter1 = filters(0).asInstanceOf[IntervalFilter]
     filter1.identifier should be("time")
     filter1.operator should be(Operators.Gt)
     filter1.value should be(1000L)
 
-    val filter2 = filters(1).asInstanceOf[NumericFilter]
+    val filter2 = filters(1).asInstanceOf[IntervalFilter]
     filter2.identifier should be("time")
     filter2.operator should be(Operators.Lte)
     filter2.value should be(5000L)

@@ -75,23 +75,22 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
 
   private def filterParser: Parser[List[Filter]] = "where" ~> filterExpression
 
-  private def filterExpression: Parser[List[Filter]] = rep(comparatorExpression).map(x => x.flatten)
+  private def filterExpression: Parser[List[Filter]] = rep(comparatorExpression).map(x ⇒ x.flatten)
 
   private def comparatorExpression: Parser[List[Filter]] =
     (ident ~ (Operators.Eq | Operators.Neq | Operators.Lt | Operators.Lte | Operators.Gt | Operators.Gte) ~ stringParser <~ opt(Operators.And) ^^ {
       case identifier ~ operator ~ strValue ⇒ List(StringFilter(identifier, operator, strValue))
     }) |
-    (ident ~ (Operators.Eq | Operators.Neq | Operators.Lt | Operators.Lte | Operators.Gt | Operators.Gte) ~ numericParser <~ opt(Operators.And) ^^ {
-      case identifier ~ operator ~ longValue ⇒ List(NumericFilter(identifier, operator, longValue))
-    }) |
+      (ident ~ (Operators.Eq | Operators.Neq | Operators.Lt | Operators.Lte | Operators.Gt | Operators.Gte) ~ numericParser <~ opt(Operators.And) ^^ {
+        case identifier ~ operator ~ longValue ⇒ List(IntervalFilter(identifier, operator, longValue))
+      }) |
       (ident ~ "between" ~ numericParser ~ "and" ~ numericParser <~ opt(Operators.And) ^^ {
-        case identifier ~ _ ~ longValueA ~ _ ~ longValueB ⇒ List(NumericFilter(identifier, Operators.Gte, longValueA), NumericFilter(identifier, Operators.Lte, longValueB))
+        case identifier ~ _ ~ longValueA ~ _ ~ longValueB ⇒ List(IntervalFilter(identifier, Operators.Gte, longValueA), IntervalFilter(identifier, Operators.Lte, longValueB))
       })
 
   private def numericParser: Parser[Long] = numericLit ^^ { case i ⇒ i.toLong }
 
   private def stringParser: Parser[String] = stringLit ^^ { case s ⇒ s }
-
 
   private def groupByParser: Parser[GroupBy] =
     "group_by_time" ~> "(" ~> timeSuffixParser <~ ")" ^^ (GroupBy(_))

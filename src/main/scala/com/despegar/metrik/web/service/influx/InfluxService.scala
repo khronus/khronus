@@ -25,7 +25,7 @@ import spray.http.MediaTypes._
 import spray.routing.HttpService
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ Future, Promise }
 
 case class QueryString(queryString: String)
 
@@ -58,6 +58,8 @@ trait InfluxService extends HttpService with Logging with CORSSupport with Influ
     }
 }
 
+case class Slice(from: Long, to: Long)
+
 trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
   this: InfluxService ⇒
 
@@ -69,37 +71,49 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
     if (ListSeries.equalsIgnoreCase(query)) metaStore.retrieveMetrics.map(results ⇒ results.map(x ⇒ new InfluxSeries(x)))
     else {
 
-      def filterExpression(summary: StatisticSummary, expression: Expression): Boolean = expression match {
-        case _ ⇒ true
+      def toInfluxSeries(summaries: Seq[StatisticSummary], projection: Projection, key: String): InfluxSeries = projection match {
+        case Field(name, _) ⇒ {
+          val points = summaries.foldLeft(Vector.empty[Vector[Long]]) {
+            (acc, current) ⇒
+              acc :+ Vector(current.timestamp, current.get(name)) //TODO: should avoid reflection strategy?
+          }
+          InfluxSeries(key, Vector("time", name), points)
+        }
+        case everythingElse ⇒ InfluxSeries("none")
       }
 
-      //      def toInfluxSeries(summary: StatisticSummary, projection: Projection) = projection match {
-      //        // case Field(name, _) => InfluxSeries(name, ); summary.get(name)
-      //        case AllField ⇒
-      //      }
-      null.asInstanceOf[Future[Seq[InfluxSeries]]]
-    }
+      def buildSlice(filters: List[Filter]): Slice = {
+        var from = -1L
+        var to = System.currentTimeMillis()
+        filters foreach {
+          case filter: IntervalFilter ⇒ {
+            filter.operator match {
+              case Operators.Gt  ⇒ from = filter.value + 1
+              case Operators.Gte ⇒ from = filter.value
+              case Operators.Lt  ⇒ to = filter.value - 1
+              case Operators.Lte ⇒ to = filter.value
+            }
+          }
+          case StringFilter(_, _, _) ⇒ //TODO
+        }
+        Slice(from, to)
+      }
+
+      parser.parse(query) flatMap { influxCriteria ⇒
+        for {
+          key ← Some(influxCriteria.table)
+          projection ← Some(influxCriteria.projection)
+          groupBy ← influxCriteria.groupBy //not optional
+          filters ← influxCriteria.filters
+          limit ← influxCriteria.limit
+        } yield {
+
+          val slice = buildSlice(filters)
+          statisticSummaryStore.readAllRows(groupBy.duration, key.name, slice.from, slice.to, limit) map {
+            results ⇒ Seq(toInfluxSeries(results, projection, key.name))
+          }
+        }
+      }
+    }.getOrElse(Promise[Seq[InfluxSeries]].future)
   }
-
-  //      }
-
-  //      val a = parser.parse(query) flatMap { influxCriteria ⇒
-  //          for {
-  //            key ← Some(influxCriteria.table)
-  //            projection ← Some(influxCriteria.projection)
-  //            groupBy ← influxCriteria.groupBy
-  //            filter ← influxCriteria.filter
-  //            limit ← influxCriteria.limit
-  //          } yield {
-  //             statisticSummaryStore.readAllRows(groupBy.duration, key.name, count = limit) map {
-  //              results ⇒
-  //                results.filter {
-  //                  summary => filterExpression(summary, filter)
-  //                }.map(x ⇒ toInfluxSeries(x,projection)))
-  //  }
-  // }
-  //  }
-  // a.get
-  //}
-  //}
 }

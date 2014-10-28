@@ -29,6 +29,7 @@ object Settings {
       "-target:jvm-1.6",
       "-language:postfixOps",
       "-language:implicitConversions",
+      "-language:reflectiveCalls",
       "-Xlog-reflective-calls"
     ))
 
