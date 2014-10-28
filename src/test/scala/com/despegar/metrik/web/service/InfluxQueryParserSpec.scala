@@ -73,40 +73,61 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.limit should be(None)
   }
 
+  test("Influx query with min should be parsed ok") {
+    val query = "select min(value) from metricA"
+    val influxCriteriaResult = parser.parse(query)
+
+    val influxCriteria = influxCriteriaResult.get
+
+    val resultedField = influxCriteria.projection.asInstanceOf[Field]
+    resultedField.name should be(Functions.Min)
+  }
+
   test("Influx query with avg should be parsed ok") {
-    val query = "select avg(value) as avgValue from metricA"
+    val query = "select avg(value) from metricA"
     val influxCriteriaResult = parser.parse(query)
 
     val influxCriteria = influxCriteriaResult.get
 
     val resultedField = influxCriteria.projection.asInstanceOf[Field]
     resultedField.name should be(Functions.Avg)
-    resultedField.alias should be(Some("avgValue"))
-
-    influxCriteria.table.name should be("metricA")
-    influxCriteria.table.alias should be(None)
-
-    influxCriteria.filter should be(None)
-    influxCriteria.groupBy should be(None)
-    influxCriteria.limit should be(None)
   }
 
   test("Influx query with count should be parsed ok") {
-    val query = "select count(value) as counter from metricA"
+    val query = "select count(value) from metricA"
     val influxCriteriaResult = parser.parse(query)
 
     val influxCriteria = influxCriteriaResult.get
 
     val resultedField = influxCriteria.projection.asInstanceOf[Field]
-    resultedField.name should be("count")
-    resultedField.alias should be(Some("counter"))
+    resultedField.name should be(Functions.Count)
+  }
 
-    influxCriteria.table.name should be("metricA")
-    influxCriteria.table.alias should be(None)
+  test("Influx query with percentiles should be parsed ok") {
+    val query50 = "select p50(value) from metricA"
+    val resultedField50 = parser.parse(query50).get.projection.asInstanceOf[Field]
+    resultedField50.name should be(Functions.Percentile50)
 
-    influxCriteria.filter should be(None)
-    influxCriteria.groupBy should be(None)
-    influxCriteria.limit should be(None)
+    val query80 = "select p80(value) from metricA"
+    val resultedField80 = parser.parse(query80).get.projection.asInstanceOf[Field]
+    resultedField80.name should be(Functions.Percentile80)
+
+    val query90 = "select p90(value) from metricA"
+    val resultedField90 = parser.parse(query90).get.projection.asInstanceOf[Field]
+    resultedField90.name should be(Functions.Percentile90)
+
+    val query95 = "select p95(value) from metricA"
+    val resultedField95 = parser.parse(query95).get.projection.asInstanceOf[Field]
+    resultedField95.name should be(Functions.Percentile95)
+
+    val query99 = "select p99(value) from metricA"
+    val resultedField99 = parser.parse(query99).get.projection.asInstanceOf[Field]
+    resultedField99.name should be(Functions.Percentile99)
+
+    val query999 = "select p999(value) from metricA"
+    val resultedField999 = parser.parse(query999).get.projection.asInstanceOf[Field]
+    resultedField999.name should be(Functions.Percentile999)
+
   }
 
   test("Where clause should be parsed ok") {

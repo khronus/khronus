@@ -15,7 +15,8 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
 
   override val lexical = new InfluxLexical
 
-  val functions = Seq(Functions.Count, Functions.Avg, Functions.Min, Functions.Max)
+  val functions = Seq(Functions.Count, Functions.Avg, Functions.Min, Functions.Max, Functions.Percentile50, Functions.Percentile80, Functions.Percentile90, Functions.Percentile95,
+                      Functions.Percentile99, Functions.Percentile999)
 
   lexical.reserved += ("select", "as", "from", "where", "or", "and", "group_by_time", "limit", "between", "null", "date", TimeSuffixes.Seconds, TimeSuffixes.Minutes, TimeSuffixes.Hours, TimeSuffixes.Days, TimeSuffixes.Weeks)
 
@@ -64,8 +65,13 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
     Functions.Count ~> "(" ~> ident <~ ")" ^^ (Count(_)) |
       Functions.Min ~> "(" ~> ident <~ ")" ^^ (Min(_)) |
       Functions.Max ~> "(" ~> ident <~ ")" ^^ (Max(_)) |
-      Functions.Avg ~> "(" ~> ident <~ ")" ^^ (Avg(_))
-
+      Functions.Avg ~> "(" ~> ident <~ ")" ^^ (Avg(_)) |
+      Functions.Percentile50 ~> "(" ~> ident <~ ")" ^^ (Percentile50(_)) |
+      Functions.Percentile80 ~> "(" ~> ident <~ ")" ^^ (Percentile80(_)) |
+      Functions.Percentile90 ~> "(" ~> ident <~ ")" ^^ (Percentile90(_)) |
+      Functions.Percentile95 ~> "(" ~> ident <~ ")" ^^ (Percentile95(_)) |
+      Functions.Percentile99 ~> "(" ~> ident <~ ")" ^^ (Percentile99(_)) |
+      Functions.Percentile999 ~> "(" ~> ident <~ ")" ^^ (Percentile999(_))
 
   private def tableParser: Parser[Table] =
     "from" ~> ident ~ opt("as") ~ opt(ident) ^^ {

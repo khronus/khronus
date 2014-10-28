@@ -35,13 +35,19 @@ case class Table(name: String, alias: Option[String]) extends Node {
 }
 
 
-// TODO - Add percentiles
 object Functions {
   val Count = "count"
   val Min = "min"
   val Max = "max"
   val Avg = "avg"
+  val Percentile50 = "p50"
+  val Percentile80 = "p80"
+  val Percentile90 = "p90"
+  val Percentile95 = "p95"
+  val Percentile99 = "p99"
+  val Percentile999 = "p999"
 }
+
 
 trait Expression extends Node
 
@@ -64,6 +70,31 @@ case class Max(name: String) extends ProjectionExpression {
   override def toString = s"max($name)"
   override def function = Functions.Max
 }
+case class Percentile50(name: String) extends ProjectionExpression {
+  override def toString = s"p50($name)"
+  override def function = Functions.Percentile50
+}
+case class Percentile80(name: String) extends ProjectionExpression {
+  override def toString = s"p80($name)"
+  override def function = Functions.Percentile80
+}
+case class Percentile90(name: String) extends ProjectionExpression {
+  override def toString = s"p90($name)"
+  override def function = Functions.Percentile90
+}
+case class Percentile95(name: String) extends ProjectionExpression {
+  override def toString = s"p95($name)"
+  override def function = Functions.Percentile95
+}
+case class Percentile99(name: String) extends ProjectionExpression {
+  override def toString = s"p99($name)"
+  override def function = Functions.Percentile99
+}
+case class Percentile999(name: String) extends ProjectionExpression {
+  override def toString = s"p999($name)"
+  override def function = Functions.Percentile999
+}
+
 
 trait BinaryOperation extends Expression {
   val leftExpression: Expression
