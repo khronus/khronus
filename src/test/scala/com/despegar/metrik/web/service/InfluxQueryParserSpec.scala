@@ -40,7 +40,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
   }
 
   test("select * should be parsed ok") {
-    val query = "select * from metricA as m"
+    val query = "select * from metricA as a"
     val influxCriteriaResult = parser.parse(query)
 
     val influxCriteria = influxCriteriaResult.get
@@ -48,7 +48,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.projection.isInstanceOf[AllField] should be(true)
 
     influxCriteria.table.name should be("metricA")
-    influxCriteria.table.alias should be(Some("m"))
+    influxCriteria.table.alias should be(Some("a"))
 
     influxCriteria.filter should be(None)
     influxCriteria.groupBy should be(None)

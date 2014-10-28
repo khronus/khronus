@@ -17,7 +17,7 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
 
   val functions = Seq(Functions.Count, Functions.Avg, Functions.Min, Functions.Max)
 
-  lexical.reserved += ("select", "as", "from", "where", "or", "and", "group", "by", "time", "limit", "between", "null", "date", TimeSuffixes.Seconds, TimeSuffixes.Minutes, TimeSuffixes.Hours, TimeSuffixes.Days, TimeSuffixes.Weeks)
+  lexical.reserved += ("select", "as", "from", "where", "or", "and", "group_by_time", "limit", "between", "null", "date", TimeSuffixes.Seconds, TimeSuffixes.Minutes, TimeSuffixes.Hours, TimeSuffixes.Days, TimeSuffixes.Weeks)
 
   lexical.reserved ++= functions
 
@@ -26,7 +26,11 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
 
   def parse(influxQuery: String): Option[InfluxCriteria] = {
     log.info(s"Parsing influx query [$influxQuery]")
-    phrase(influxQueryParser)(new lexical.Scanner(influxQuery)) match {
+
+    // TODO - Hack because of conflict: group by time & time as identifier
+    val queryToParse = influxQuery.replace("group by time", "group_by_time")
+
+    phrase(influxQueryParser)(new lexical.Scanner(queryToParse)) match {
       case Success(r, q) ⇒ Option(r)
       case x             ⇒ log.error(s"Error parsing query [$influxQuery]: $x"); None
     }
@@ -113,7 +117,14 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
 
 
   private def groupByParser: Parser[GroupBy] =
-    "group" ~>  "by" ~>  "time" ~> "(" ~> timeSuffixParser <~ ")" ^^ (GroupBy(_))
+    "group_by_time" ~> "(" ~> timeSuffixParser <~ ")" ^^ (GroupBy(_))
+
+  /*
+  def groupByTimeParser: Parser[String] = {
+    elem("group by time parser", x => "group by time".equalsIgnoreCase(x.toString)) ^^ (_.chars)
+  }
+  */
+
 
   private def timeSuffixParser: Parser[FiniteDuration] = {
     numericLit ~ (TimeSuffixes.Seconds | TimeSuffixes.Minutes | TimeSuffixes.Hours | TimeSuffixes.Days | TimeSuffixes.Weeks) ^^ {
