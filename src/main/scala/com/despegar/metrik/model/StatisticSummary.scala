@@ -20,3 +20,9 @@ case class StatisticSummary(timestamp: Long, p50: Double, p80: Double, p90: Doub
 
   override def getTimestamp = timestamp
 }
+
+object StatisticSummary {
+  implicit def reflector(ref: StatisticSummary) = new {
+    def get(name: String): Long = ref.getClass.getMethods.find(_.getName == name).get.invoke(ref).asInstanceOf[Long]
+  }
+}

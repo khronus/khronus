@@ -1,13 +1,12 @@
 package com.despegar.metrik.web.service.influx.parser
 
-import scala.util.matching.Regex
+import java.util.concurrent.TimeUnit
+
+import com.despegar.metrik.util.Logging
+
+import scala.concurrent.duration.FiniteDuration
 import scala.util.parsing.combinator.lexical._
 import scala.util.parsing.combinator.syntactical._
-
-import scala.util.parsing.input.CharArrayReader.EofCh
-import com.despegar.metrik.util.Logging
-import scala.concurrent.duration.{FiniteDuration, Duration}
-import java.util.concurrent.TimeUnit
 
 class InfluxQueryParser extends StandardTokenParsers with Logging {
 
@@ -15,15 +14,13 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
 
   override val lexical = new InfluxLexical
 
-  val functions = Seq(Functions.Count, Functions.Avg, Functions.Min, Functions.Max, Functions.Percentile50, Functions.Percentile80, Functions.Percentile90, Functions.Percentile95,
-                      Functions.Percentile99, Functions.Percentile999)
+  val functions = Functions.allValuesAsString
 
   lexical.reserved += ("select", "as", "from", "where", "or", "and", "group_by_time", "limit", "between", "null", "date", TimeSuffixes.Seconds, TimeSuffixes.Minutes, TimeSuffixes.Hours, TimeSuffixes.Days, TimeSuffixes.Weeks)
 
   lexical.reserved ++= functions
 
   lexical.delimiters += ("*", Operators.Lt, Operators.Eq, Operators.Neq, Operators.Lte, Operators.Gte, Operators.Gt, "(", ")", ",", ".", ";")
-
 
   def parse(influxQuery: String): Option[InfluxCriteria] = {
     log.info(s"Parsing influx query [$influxQuery]")
@@ -37,7 +34,6 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
     }
   }
 
-
   private def influxQueryParser: Parser[InfluxCriteria] =
     "select" ~> projectionParser ~
       tableParser ~ opt(filterParser) ~
@@ -45,39 +41,37 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
         case projection ~ table ~ filters ~ groupBy ~ limit ⇒ InfluxCriteria(projection, table, filters, groupBy, limit)
       }
 
-
   private def projectionParser: Parser[Projection] =
     "*" ^^ (_ ⇒ AllField()) |
       projectionExpressionParser ~ opt("as" ~> ident) ^^ {
         case x ~ alias ⇒ {
           x match {
-            case id: Identifier       ⇒ Field(id.value, alias)
+            case id: Identifier             ⇒ Field(id.value, alias)
             case proj: ProjectionExpression ⇒ Field(proj.function, alias)
           }
         }
       }
 
   private def projectionExpressionParser: Parser[Expression] =
-    ident ^^ (Identifier(_))|
+    ident ^^ (Identifier(_)) |
       knownFunctionParser
 
   private def knownFunctionParser: Parser[Expression] =
-    Functions.Count ~> "(" ~> ident <~ ")" ^^ (Count(_)) |
-      Functions.Min ~> "(" ~> ident <~ ")" ^^ (Min(_)) |
-      Functions.Max ~> "(" ~> ident <~ ")" ^^ (Max(_)) |
-      Functions.Avg ~> "(" ~> ident <~ ")" ^^ (Avg(_)) |
-      Functions.Percentile50 ~> "(" ~> ident <~ ")" ^^ (Percentile50(_)) |
-      Functions.Percentile80 ~> "(" ~> ident <~ ")" ^^ (Percentile80(_)) |
-      Functions.Percentile90 ~> "(" ~> ident <~ ")" ^^ (Percentile90(_)) |
-      Functions.Percentile95 ~> "(" ~> ident <~ ")" ^^ (Percentile95(_)) |
-      Functions.Percentile99 ~> "(" ~> ident <~ ")" ^^ (Percentile99(_)) |
-      Functions.Percentile999 ~> "(" ~> ident <~ ")" ^^ (Percentile999(_))
+    Functions.Count.value ~> "(" ~> ident <~ ")" ^^ (Count(_)) |
+      Functions.Min.value ~> "(" ~> ident <~ ")" ^^ (Min(_)) |
+      Functions.Max.value ~> "(" ~> ident <~ ")" ^^ (Max(_)) |
+      Functions.Avg.value ~> "(" ~> ident <~ ")" ^^ (Avg(_)) |
+      Functions.Percentile50.value ~> "(" ~> ident <~ ")" ^^ (Percentile50(_)) |
+      Functions.Percentile80.value ~> "(" ~> ident <~ ")" ^^ (Percentile80(_)) |
+      Functions.Percentile90.value ~> "(" ~> ident <~ ")" ^^ (Percentile90(_)) |
+      Functions.Percentile95.value ~> "(" ~> ident <~ ")" ^^ (Percentile95(_)) |
+      Functions.Percentile99.value ~> "(" ~> ident <~ ")" ^^ (Percentile99(_)) |
+      Functions.Percentile999.value ~> "(" ~> ident <~ ")" ^^ (Percentile999(_))
 
   private def tableParser: Parser[Table] =
     "from" ~> ident ~ opt("as") ~ opt(ident) ^^ {
       case ident ~ _ ~ alias ⇒ Table(ident, alias)
     }
-
 
   private def filterParser: Parser[Expression] = "where" ~> filterExpression
 
@@ -95,9 +89,9 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
       (Operators.Eq | Operators.Neq | Operators.Lt | Operators.Lte | Operators.Gt | Operators.Gte) ~ primaryExpressionParser ^^ {
         case operator ~ rhs ⇒ (operator, rhs)
       } |
-      "between" ~ primaryExpressionParser ~ "and" ~ primaryExpressionParser ^^ {
-        case operator ~ a ~ _ ~ b ⇒ (operator, a, b)
-      }) ^^ {
+        "between" ~ primaryExpressionParser ~ "and" ~ primaryExpressionParser ^^ {
+          case operator ~ a ~ _ ~ b ⇒ (operator, a, b)
+        }) ^^ {
         case lhs ~ elems ⇒
           elems.foldLeft(lhs) {
             case (acc, ((Operators.Eq, rhs: Expression)))           ⇒ Eq(acc, rhs)
@@ -121,7 +115,6 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
       "null" ^^ (_ ⇒ NullLiteral()) |
       "date" ~> stringLit ^^ (DateLiteral(_))
 
-
   private def groupByParser: Parser[GroupBy] =
     "group_by_time" ~> "(" ~> timeSuffixParser <~ ")" ^^ (GroupBy(_))
 
@@ -131,23 +124,20 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
   }
   */
 
-
   private def timeSuffixParser: Parser[FiniteDuration] = {
     numericLit ~ (TimeSuffixes.Seconds | TimeSuffixes.Minutes | TimeSuffixes.Hours | TimeSuffixes.Days | TimeSuffixes.Weeks) ^^ {
       case number ~ timeUnit ⇒ {
         timeUnit match {
-          case TimeSuffixes.Seconds => new FiniteDuration(TimeUnit.SECONDS.toMillis(number.toLong), TimeUnit.MILLISECONDS)
-          case TimeSuffixes.Minutes => new FiniteDuration(TimeUnit.MINUTES.toMillis(number.toLong), TimeUnit.MILLISECONDS)
-          case TimeSuffixes.Hours => new FiniteDuration(TimeUnit.HOURS.toMillis(number.toLong), TimeUnit.MILLISECONDS)
-          case TimeSuffixes.Days => new FiniteDuration(TimeUnit.DAYS.toMillis(number.toLong), TimeUnit.MILLISECONDS)
-          case TimeSuffixes.Weeks => new FiniteDuration(TimeUnit.DAYS.toMillis(number.toLong) * 7, TimeUnit.MILLISECONDS)
+          case TimeSuffixes.Seconds ⇒ new FiniteDuration(TimeUnit.SECONDS.toMillis(number.toLong), TimeUnit.MILLISECONDS)
+          case TimeSuffixes.Minutes ⇒ new FiniteDuration(TimeUnit.MINUTES.toMillis(number.toLong), TimeUnit.MILLISECONDS)
+          case TimeSuffixes.Hours   ⇒ new FiniteDuration(TimeUnit.HOURS.toMillis(number.toLong), TimeUnit.MILLISECONDS)
+          case TimeSuffixes.Days    ⇒ new FiniteDuration(TimeUnit.DAYS.toMillis(number.toLong), TimeUnit.MILLISECONDS)
+          case TimeSuffixes.Weeks   ⇒ new FiniteDuration(TimeUnit.DAYS.toMillis(number.toLong) * 7, TimeUnit.MILLISECONDS)
         }
       }
     }
   }
 
-
   private def limitParser: Parser[Int] = "limit" ~> numericLit ^^ (_.toInt)
 }
-
 

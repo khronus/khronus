@@ -16,63 +16,90 @@
 
 package com.despegar.metrik.web.service.influx
 
-import spray.routing.HttpService
 import akka.actor.Actor
-import spray.http.MediaTypes._
-import com.despegar.metrik.store.MetaSupport
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
+import com.despegar.metrik.model.StatisticSummary
+import com.despegar.metrik.store.{ MetaSupport, StatisticSummarySupport }
 import com.despegar.metrik.util.Logging
+import com.despegar.metrik.web.service.influx.parser._
+import spray.http.MediaTypes._
+import spray.routing.HttpService
 
-/**
- * Created by aholman on 21/10/14.
- */
-class InfluxActor extends Actor with InfluxService {
-
-  def actorRefFactory = context
-
-  def receive = runRoute(influxRoute)
-
-}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 case class QueryString(queryString: String)
 
-trait InfluxService extends HttpService with MetaSupport with Logging with CORSSupport {
+class InfluxActor extends Actor with InfluxService {
+  def actorRefFactory = context
+  def receive = runRoute(influxRoute)
+}
+
+trait InfluxService extends HttpService with Logging with CORSSupport with InfluxQueryResolver {
+
+  import com.despegar.metrik.web.service.influx.InfluxSeriesProtocol._
+
   val ListSeries = "list series"
 
   val influxRoute =
     respondWithCORS {
       path("metrik" / "influx" / "series") {
-
         parameters('q) {
           queryString ⇒
             get {
               log.info(s"GET /metrik/influx - Query: [$queryString]")
               respondWithMediaType(`application/json`) {
                 complete {
-                  import com.despegar.metrik.web.service.influx.InfluxSeriesProtocol._
-                  resolveInfluxQuery(queryString)
+                  search(queryString)
                 }
               }
             }
         }
       }
     }
-
-  def resolveInfluxQuery(queryString: String): Future[Seq[InfluxSeries]] = {
-    if (ListSeries.equalsIgnoreCase(queryString)) {
-      log.info("Starting Influx list series")
-      metaStore.retrieveMetrics map {
-        results ⇒
-          results.map {
-            x ⇒ new InfluxSeries(x)
-          }
-      }
-    } else {
-      log.error(s"Influx query [$queryString] is not supported")
-      throw new UnsupportedOperationException(s"Influx query [$queryString] is not supported")
-    }
-
-  }
 }
 
+trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
+  this: InfluxService ⇒
+
+  lazy val parser = new InfluxQueryParser
+
+  def search(query: String): Future[Seq[InfluxSeries]] = {
+    log.info("Starting Influx list series")
+
+    if (ListSeries.equalsIgnoreCase(query)) metaStore.retrieveMetrics.map(results ⇒ results.map(x ⇒ new InfluxSeries(x)))
+    else {
+
+      def filterExpression(summary: StatisticSummary, expression: Expression): Boolean = expression match {
+        case _ ⇒ true
+      }
+
+      //      def toInfluxSeries(summary: StatisticSummary, projection: Projection) = projection match {
+      //        // case Field(name, _) => InfluxSeries(name, ); summary.get(name)
+      //        case AllField ⇒
+      //      }
+      null.asInstanceOf[Future[Seq[InfluxSeries]]]
+    }
+  }
+
+  //      }
+
+  //      val a = parser.parse(query) flatMap { influxCriteria ⇒
+  //          for {
+  //            key ← Some(influxCriteria.table)
+  //            projection ← Some(influxCriteria.projection)
+  //            groupBy ← influxCriteria.groupBy
+  //            filter ← influxCriteria.filter
+  //            limit ← influxCriteria.limit
+  //          } yield {
+  //             statisticSummaryStore.readAllRows(groupBy.duration, key.name, count = limit) map {
+  //              results ⇒
+  //                results.filter {
+  //                  summary => filterExpression(summary, filter)
+  //                }.map(x ⇒ toInfluxSeries(x,projection)))
+  //  }
+  // }
+  //  }
+  // a.get
+  //}
+  //}
+}

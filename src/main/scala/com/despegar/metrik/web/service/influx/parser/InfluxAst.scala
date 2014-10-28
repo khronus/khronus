@@ -1,6 +1,5 @@
 package com.despegar.metrik.web.service.influx.parser
 
-import com.sun.corba.se.spi.legacy.interceptor.UnknownType
 import scala.concurrent.duration.FiniteDuration
 
 trait Node {
@@ -19,7 +18,6 @@ case class InfluxCriteria(projection: Projection,
     limit.map(x ⇒ "limit " + x.toString)).flatten.mkString(" ")
 }
 
-
 sealed trait Projection extends Node
 case class Field(name: String, alias: Option[String]) extends Projection {
   override def toString = s"$name as $alias"
@@ -28,26 +26,34 @@ case class AllField() extends Projection {
   override def toString = "*"
 }
 
-
 case class Table(name: String, alias: Option[String]) extends Node {
   override def toString = s"$name $alias"
 
 }
 
-
 object Functions {
-  val Count = "count"
-  val Min = "min"
-  val Max = "max"
-  val Avg = "avg"
-  val Percentile50 = "p50"
-  val Percentile80 = "p80"
-  val Percentile90 = "p90"
-  val Percentile95 = "p95"
-  val Percentile99 = "p99"
-  val Percentile999 = "p999"
-}
+  sealed trait Function {
+    def value: String
+  }
 
+  case object Count extends Functions.Function { val value = "count" }
+  case object Min extends Functions.Function { val value = "min" }
+  case object Max extends Functions.Function { val value = "max" }
+  case object Avg extends Functions.Function { val value = "avg" }
+  case object Percentile50 extends Functions.Function { val value = "p50" }
+  case object Percentile80 extends Functions.Function { val value = "p80" }
+  case object Percentile90 extends Functions.Function { val value = "p90" }
+  case object Percentile95 extends Functions.Function { val value = "p95" }
+  case object Percentile99 extends Functions.Function { val value = "p99" }
+  case object Percentile999 extends Functions.Function { val value = "p999" }
+
+  val allValues: Seq[Function] = Seq(Count, Min, Max, Avg, Percentile50, Percentile80, Percentile90, Percentile95, Percentile99, Percentile999)
+  val allValuesAsString: Seq[String] = allValues.map(_.value)
+
+  def withName(s: String): Function = allValues.find(_.toString == s).get
+
+  implicit def influxFunctions2Value(function: Functions.Function) = function.value
+}
 
 trait Expression extends Node
 
@@ -70,6 +76,7 @@ case class Max(name: String) extends ProjectionExpression {
   override def toString = s"max($name)"
   override def function = Functions.Max
 }
+
 case class Percentile50(name: String) extends ProjectionExpression {
   override def toString = s"p50($name)"
   override def function = Functions.Percentile50
@@ -94,7 +101,6 @@ case class Percentile999(name: String) extends ProjectionExpression {
   override def toString = s"p999($name)"
   override def function = Functions.Percentile999
 }
-
 
 trait BinaryOperation extends Expression {
   val leftExpression: Expression
@@ -159,7 +165,6 @@ case class NullLiteral() extends LiteralExpression {
 case class DateLiteral(dateStr: String) extends LiteralExpression {
   override def toString = s"date [$dateStr]"
 }
-
 
 case class GroupBy(duration: FiniteDuration) extends Node {
   override def toString = s"group by $duration"
