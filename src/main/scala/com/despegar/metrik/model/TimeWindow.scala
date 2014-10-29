@@ -60,11 +60,11 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
   private def storeTemporalBuckets(resultingBuckets: Future[Seq[T]], metric: Metric) = {
     if (shouldStoreTemporalHistograms) {
       resultingBuckets flatMap (buckets ⇒ bucketStore.store(metric, duration, buckets)) andThen {
-        case Failure(reason) ⇒ log.error("Fail to store temporal buckets", reason)
-        case Success(_)      ⇒ log.info("Success to store temporal buckets")
+        case Failure(reason) ⇒ log.error(s"Fail to store temporal buckets for $metric in window of $duration", reason)
+        case Success(_)      ⇒ log.info(s"Success to store temporal buckets for $metric in window of $duration")
       }
     } else {
-      Future.successful[Unit](log.debug("Last window. No need to store buckets"))
+      Future.successful[Unit](log.debug(s"Last window: $duration. No need to store buckets"))
     }
   }
 
