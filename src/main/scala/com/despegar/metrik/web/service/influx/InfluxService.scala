@@ -109,7 +109,7 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
         } yield {
 
           val slice = buildSlice(filters)
-          statisticSummaryStore.readAllRows(groupBy.duration, key.name, slice.from, slice.to, limit) map {
+          statisticSummaryStore.readAll(groupBy.duration, key.name, slice.from, slice.to, limit) map {
             results ⇒ Seq(toInfluxSeries(results, projection, key.name))
           }
         }

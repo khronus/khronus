@@ -26,7 +26,7 @@ import com.despegar.metrik.model.StatisticSummary
 import com.despegar.metrik.util.KryoSerializer
 import com.netflix.astyanax.MutationBatch
 import com.netflix.astyanax.connectionpool.OperationResult
-import com.netflix.astyanax.model.{ ColumnList, ColumnFamily }
+import com.netflix.astyanax.model.{ ColumnFamily, ColumnList }
 import com.netflix.astyanax.query.RowQuery
 import com.netflix.astyanax.serializers.{ LongSerializer, StringSerializer }
 
@@ -40,6 +40,7 @@ case class ColumnRange(from: Long, to: Long, reversed: Boolean, count: Int)
 
 trait StatisticSummarySupport extends SummaryStoreSupport[StatisticSummary] {
   override def summaryStore: SummaryStore[StatisticSummary] = CassandraStatisticSummaryStore
+
 }
 
 object CassandraStatisticSummaryStore extends SummaryStore[StatisticSummary] with Logging {
@@ -58,4 +59,27 @@ object CassandraStatisticSummaryStore extends SummaryStore[StatisticSummary] wit
     serializer.deserialize(bytes)
   }
 
+
+  def readAll(cf: Duration, key: String, from: Long, to: Long, count: Int): Future[Seq[StatisticSummary]] = Future {
+    val result = Vector.newBuilder[StatisticSummary]
+
+    val query: RowQuery[String, lang.Long] = Cassandra.keyspace.prepareQuery(columnFamilies(cf))
+      .getKey(key)
+      .withColumnRange(from, to, false, count)
+      .autoPaginate(true)
+
+    readRecursive(result)(query.execute())
+  }
+
+  @tailrec
+  private def readRecursive[A, B](resultBuilder: mutable.Builder[A, Vector[A]])(operation: ⇒ OperationResult[ColumnList[B]]): Seq[A] = {
+    if (operation.getResult.isEmpty) resultBuilder.result().toSeq
+    else {
+      operation.getResult.asScala.foldLeft(resultBuilder) {
+        (builder, column) ⇒
+          builder += serializer.deserialize(column.getByteArrayValue).asInstanceOf[A]
+      }
+      readRecursive(resultBuilder)(operation)
+    }
+  }
 }
