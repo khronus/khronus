@@ -19,6 +19,7 @@ package com.despegar.metrik.util
 import akka.actor._
 import com.despegar.metrik.cluster.ClusterSupport
 import com.despegar.metrik.web.service.MetrikService
+import com.despegar.metrik.store.Cassandra
 
 trait ActorSystemSupport {
   implicit def system: ActorSystem
@@ -26,4 +27,6 @@ trait ActorSystemSupport {
 
 object Metrik extends App with ActorSystemSupport with MetrikService with ClusterSupport {
   implicit lazy val system = ActorSystem("metrik-system")
+
+  Cassandra initialize
 }
