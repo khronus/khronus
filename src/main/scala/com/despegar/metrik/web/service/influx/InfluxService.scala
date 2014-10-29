@@ -66,13 +66,14 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
   lazy val parser = new InfluxQueryParser
 
   def search(query: String): Future[Seq[InfluxSeries]] = {
-    log.info("Starting Influx list series")
+    log.info(s"Starting Influx query [$query]")
 
     if (ListSeries.equalsIgnoreCase(query)) metaStore.retrieveMetrics.map(results ⇒ results.map(x ⇒ new InfluxSeries(x)))
     else {
 
       def toInfluxSeries(summaries: Seq[StatisticSummary], projection: Projection, key: String): InfluxSeries = projection match {
         case Field(name, _) ⇒ {
+          log.info(s"Building Influx series: Key $key - Projection: $projection")
           val points = summaries.foldLeft(Vector.empty[Vector[Long]]) {
             (acc, current) ⇒
               acc :+ Vector(current.timestamp, current.get(name)) //TODO: should avoid reflection strategy?
@@ -103,11 +104,10 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
         for {
           key ← Some(influxCriteria.table)
           projection ← Some(influxCriteria.projection)
-          groupBy ← influxCriteria.groupBy //not optional
+          groupBy ← Some(influxCriteria.groupBy)
           filters ← influxCriteria.filters
           limit ← influxCriteria.limit
         } yield {
-
           val slice = buildSlice(filters)
           statisticSummaryStore.readAll(groupBy.duration, key.name, slice.from, slice.to, limit) map {
             results ⇒ Seq(toInfluxSeries(results, projection, key.name))

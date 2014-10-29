@@ -37,7 +37,7 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
   private def influxQueryParser: Parser[InfluxCriteria] =
     "select" ~> projectionParser ~
       tableParser ~ opt(filterParser) ~
-      opt(groupByParser) ~ opt(limitParser) <~ opt(";") ^^ {
+      groupByParser ~ opt(limitParser) <~ opt(";") ^^ {
         case projection ~ table ~ filters ~ groupBy ~ limit ⇒ InfluxCriteria(projection, table, filters, groupBy, limit)
       }
 

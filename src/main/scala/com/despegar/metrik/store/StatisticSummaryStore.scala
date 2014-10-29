@@ -23,7 +23,7 @@ import java.lang
 import java.util.concurrent.Executors
 
 import com.despegar.metrik.model.StatisticSummary
-import com.despegar.metrik.util.KryoSerializer
+import com.despegar.metrik.util.{ Logging, KryoSerializer }
 import com.netflix.astyanax.MutationBatch
 import com.netflix.astyanax.connectionpool.OperationResult
 import com.netflix.astyanax.model.{ ColumnFamily, ColumnList }
@@ -40,7 +40,6 @@ case class ColumnRange(from: Long, to: Long, reversed: Boolean, count: Int)
 
 trait StatisticSummarySupport extends SummaryStoreSupport[StatisticSummary] {
   override def summaryStore: SummaryStore[StatisticSummary] = CassandraStatisticSummaryStore
-
 }
 
 object CassandraStatisticSummaryStore extends SummaryStore[StatisticSummary] with Logging {
@@ -61,6 +60,7 @@ object CassandraStatisticSummaryStore extends SummaryStore[StatisticSummary] wit
 
 
   def readAll(cf: Duration, key: String, from: Long, to: Long, count: Int): Future[Seq[StatisticSummary]] = Future {
+    log.info(s"Reading cassandra: Cf: $cf - key: $key - From: $from - To: $to - Count: $count")
     val result = Vector.newBuilder[StatisticSummary]
 
     val query: RowQuery[String, lang.Long] = Cassandra.keyspace.prepareQuery(columnFamilies(cf))
@@ -81,5 +81,6 @@ object CassandraStatisticSummaryStore extends SummaryStore[StatisticSummary] wit
       }
       readRecursive(resultBuilder)(operation)
     }
+
   }
 }

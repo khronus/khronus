@@ -7,6 +7,7 @@ import org.specs2.Specification
 import org.scalatest.Matchers._
 import com.despegar.metrik.web.service.influx.parser._
 import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.FiniteDuration
 
 /**
  * Created by aholman on 23/10/14.
@@ -22,7 +23,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
   val parser = new InfluxQueryParser()
 
   test("basic Influx query should be parsed ok") {
-    val query = "select aValue from metricA"
+    val query = "select aValue from metricA group by time(1h)"
     val influxCriteriaResult = parser.parse(query)
 
     val influxCriteria = influxCriteriaResult.get
@@ -34,13 +35,15 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.table.name should be("metricA")
     influxCriteria.table.alias should be(None)
 
+    influxCriteria.groupBy.duration.length should be(TimeUnit.HOURS.toMillis(1))
+    influxCriteria.groupBy.duration.unit should be(TimeUnit.MILLISECONDS)
+
     influxCriteria.filters should be(None)
-    influxCriteria.groupBy should be(None)
     influxCriteria.limit should be(None)
   }
 
   test("select * should be parsed ok") {
-    val query = "select * from metricA as a"
+    val query = "select * from metricA as a group by time (30s)"
     val influxCriteriaResult = parser.parse(query)
 
     val influxCriteria = influxCriteriaResult.get
@@ -50,13 +53,15 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.table.name should be("metricA")
     influxCriteria.table.alias should be(Some("a"))
 
+    influxCriteria.groupBy.duration.length should be(TimeUnit.SECONDS.toMillis(30))
+    influxCriteria.groupBy.duration.unit should be(TimeUnit.MILLISECONDS)
+
     influxCriteria.filters should be(None)
-    influxCriteria.groupBy should be(None)
     influxCriteria.limit should be(None)
   }
 
   test("Influx query with max should be parsed ok") {
-    val query = "select max(value) as maxValue from metricA"
+    val query = "select max(value) as maxValue from metricA group by time(5m)"
     val influxCriteriaResult = parser.parse(query)
 
     val influxCriteria = influxCriteriaResult.get
@@ -68,13 +73,15 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.table.name should be("metricA")
     influxCriteria.table.alias should be(None)
 
+    influxCriteria.groupBy.duration.length should be(TimeUnit.MINUTES.toMillis(5))
+    influxCriteria.groupBy.duration.unit should be(TimeUnit.MILLISECONDS)
+
     influxCriteria.filters should be(None)
-    influxCriteria.groupBy should be(None)
     influxCriteria.limit should be(None)
   }
 
   test("Influx query with min should be parsed ok") {
-    val query = "select min(value) from metricA"
+    val query = "select min(value) from metricA group by time(2m)"
     val influxCriteriaResult = parser.parse(query)
 
     val influxCriteria = influxCriteriaResult.get
@@ -84,7 +91,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
   }
 
   test("Influx query with avg should be parsed ok") {
-    val query = "select avg(value) from metricA"
+    val query = "select avg(value) from metricA group by time(30s)"
     val influxCriteriaResult = parser.parse(query)
 
     val influxCriteria = influxCriteriaResult.get
@@ -94,7 +101,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
   }
 
   test("Influx query with count should be parsed ok") {
-    val query = "select count(value) from metricA"
+    val query = "select count(value) from metricA group by time(1m)"
     val influxCriteriaResult = parser.parse(query)
 
     val influxCriteria = influxCriteriaResult.get
@@ -104,34 +111,34 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
   }
 
   test("Influx query with percentiles should be parsed ok") {
-    val query50 = "select p50(value) from metricA"
+    val query50 = "select p50(value) from metricA group by time(30s)"
     val resultedField50 = parser.parse(query50).get.projection.asInstanceOf[Field]
     resultedField50.name should be(Functions.Percentile50.value)
 
-    val query80 = "select p80(value) from metricA"
+    val query80 = "select p80(value) from metricA group by time(30s)"
     val resultedField80 = parser.parse(query80).get.projection.asInstanceOf[Field]
     resultedField80.name should be(Functions.Percentile80.value)
 
-    val query90 = "select p90(value) from metricA"
+    val query90 = "select p90(value) from metricA group by time(30s)"
     val resultedField90 = parser.parse(query90).get.projection.asInstanceOf[Field]
     resultedField90.name should be(Functions.Percentile90.value)
 
-    val query95 = "select p95(value) from metricA"
+    val query95 = "select p95(value) from metricA group by time(30s)"
     val resultedField95 = parser.parse(query95).get.projection.asInstanceOf[Field]
     resultedField95.name should be(Functions.Percentile95.value)
 
-    val query99 = "select p99(value) from metricA"
+    val query99 = "select p99(value) from metricA group by time(30s)"
     val resultedField99 = parser.parse(query99).get.projection.asInstanceOf[Field]
     resultedField99.name should be(Functions.Percentile99.value)
 
-    val query999 = "select p999(value) from metricA"
+    val query999 = "select p999(value) from metricA group by time(30s)"
     val resultedField999 = parser.parse(query999).get.projection.asInstanceOf[Field]
     resultedField999.name should be(Functions.Percentile999.value)
 
   }
 
   test("Where clause should be parsed ok") {
-    val query = "select aValue from metricA where host = 'aHost'"
+    val query = "select aValue from metricA where host = 'aHost' group by time(1d)"
     val influxCriteriaResult = parser.parse(query)
 
     val influxCriteria = influxCriteriaResult.get
@@ -149,12 +156,14 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     stringFilter.operator should be(Operators.Eq)
     stringFilter.value should be("aHost")
 
-    influxCriteria.groupBy should be(None)
+    influxCriteria.groupBy.duration.length should be(TimeUnit.DAYS.toMillis(1))
+    influxCriteria.groupBy.duration.unit should be(TimeUnit.MILLISECONDS)
+
     influxCriteria.limit should be(None)
   }
 
   test("Where clause with and should be parsed ok") {
-    val query = "select aValue from metricA where time >= 1414508614 and time < 1414509500"
+    val query = "select aValue from metricA where time >= 1414508614 and time < 1414509500 group by time(1m)"
     val influxCriteriaResult = parser.parse(query)
 
     val influxCriteria = influxCriteriaResult.get
@@ -177,12 +186,14 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     filter2.operator should be(Operators.Lt)
     filter2.value should be(1414509500L)
 
-    influxCriteria.groupBy should be(None)
+    influxCriteria.groupBy.duration.length should be(TimeUnit.MINUTES.toMillis(1))
+    influxCriteria.groupBy.duration.unit should be(TimeUnit.MILLISECONDS)
+
     influxCriteria.limit should be(None)
   }
 
   test("Between clause should be parsed ok") {
-    val query = "select aValue from metricA where time between 1414508614 and 1414509500"
+    val query = "select aValue from metricA where time between 1414508614 and 1414509500 group by time(30s)"
     val influxCriteriaResult = parser.parse(query)
 
     val influxCriteria = influxCriteriaResult.get
@@ -205,10 +216,11 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     filter2.operator should be(Operators.Lte)
     filter2.value should be(1414509500L)
 
-    influxCriteria.groupBy should be(None)
+    influxCriteria.groupBy.duration.length should be(TimeUnit.SECONDS.toMillis(30))
+    influxCriteria.groupBy.duration.unit should be(TimeUnit.MILLISECONDS)
+
     influxCriteria.limit should be(None)
   }
-
 
   test("Group by clause by seconds should be parsed ok") {
     val query = "select aValue as counter from metricA group by time(30s)"
@@ -223,8 +235,8 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.table.name should be("metricA")
     influxCriteria.table.alias should be(None)
 
-    influxCriteria.groupBy.get.duration.length should be(TimeUnit.SECONDS.toMillis(30))
-    influxCriteria.groupBy.get.duration.unit should be(TimeUnit.MILLISECONDS)
+    influxCriteria.groupBy.duration.length should be(TimeUnit.SECONDS.toMillis(30))
+    influxCriteria.groupBy.duration.unit should be(TimeUnit.MILLISECONDS)
 
     influxCriteria.limit should be(None)
     influxCriteria.filters should be(None)
@@ -236,8 +248,8 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
 
     val influxCriteria = influxCriteriaResult.get
 
-    influxCriteria.groupBy.get.duration.length should be(TimeUnit.MINUTES.toMillis(2))
-    influxCriteria.groupBy.get.duration.unit should be(TimeUnit.MILLISECONDS)
+    influxCriteria.groupBy.duration.length should be(TimeUnit.MINUTES.toMillis(2))
+    influxCriteria.groupBy.duration.unit should be(TimeUnit.MILLISECONDS)
   }
 
   test("Group by clause by hours should be parsed ok") {
@@ -246,8 +258,8 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
 
     val influxCriteria = influxCriteriaResult.get
 
-    influxCriteria.groupBy.get.duration.length should be(TimeUnit.HOURS.toMillis(1))
-    influxCriteria.groupBy.get.duration.unit should be(TimeUnit.MILLISECONDS)
+    influxCriteria.groupBy.duration.length should be(TimeUnit.HOURS.toMillis(1))
+    influxCriteria.groupBy.duration.unit should be(TimeUnit.MILLISECONDS)
   }
 
   test("Group by clause by days should be parsed ok") {
@@ -256,8 +268,8 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
 
     val influxCriteria = influxCriteriaResult.get
 
-    influxCriteria.groupBy.get.duration.length should be(TimeUnit.DAYS.toMillis(5))
-    influxCriteria.groupBy.get.duration.unit should be(TimeUnit.MILLISECONDS)
+    influxCriteria.groupBy.duration.length should be(TimeUnit.DAYS.toMillis(5))
+    influxCriteria.groupBy.duration.unit should be(TimeUnit.MILLISECONDS)
   }
 
   test("Group by clause by weeks should be parsed ok") {
@@ -266,13 +278,12 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
 
     val influxCriteria = influxCriteriaResult.get
 
-    influxCriteria.groupBy.get.duration.length should be(9 * TimeUnit.DAYS.toMillis(7))
-    influxCriteria.groupBy.get.duration.unit should be(TimeUnit.MILLISECONDS)
+    influxCriteria.groupBy.duration.length should be(9 * TimeUnit.DAYS.toMillis(7))
+    influxCriteria.groupBy.duration.unit should be(TimeUnit.MILLISECONDS)
   }
 
-
   test("Limit clause should be parsed ok") {
-    val query = "select aValue from metricA limit 10"
+    val query = "select aValue from metricA group by time(1m) limit 10"
     val influxCriteriaResult = parser.parse(query)
 
     val influxCriteria = influxCriteriaResult.get
@@ -284,8 +295,10 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.table.name should be("metricA")
     influxCriteria.table.alias should be(None)
 
+    influxCriteria.groupBy.duration.length should be(TimeUnit.MINUTES.toMillis(1))
+    influxCriteria.groupBy.duration.unit should be(TimeUnit.MILLISECONDS)
+
     influxCriteria.filters should be(None)
-    influxCriteria.groupBy should be(None)
     influxCriteria.limit should be(Some(10))
   }
 
@@ -319,8 +332,8 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     filter3.operator should be(Operators.Neq)
     filter3.value should be("aHost")
 
-    influxCriteria.groupBy.get.duration.length should be(30 * 1000)
-    influxCriteria.groupBy.get.duration.unit should be(TimeUnit.MILLISECONDS)
+    influxCriteria.groupBy.duration.length should be(30 * 1000)
+    influxCriteria.groupBy.duration.unit should be(TimeUnit.MILLISECONDS)
 
     influxCriteria.limit should be(Some(550))
   }
@@ -362,6 +375,5 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteriaResult should be(None)
 
   }
-
 
 }

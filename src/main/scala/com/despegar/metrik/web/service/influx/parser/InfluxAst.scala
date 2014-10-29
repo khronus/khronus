@@ -21,7 +21,7 @@ import scala.concurrent.duration.FiniteDuration
 case class InfluxCriteria(projection: Projection,
   table: Table,
   filters: Option[List[Filter]],
-  groupBy: Option[GroupBy],
+  groupBy: GroupBy,
   limit: Option[Int])
 
 sealed trait Projection

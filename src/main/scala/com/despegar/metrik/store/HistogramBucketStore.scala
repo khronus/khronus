@@ -17,6 +17,7 @@
 package com.despegar.metrik.store
 
 import java.nio.ByteBuffer
+import java.util.concurrent.{ TimeUnit, Executors }
 import com.despegar.metrik.model.HistogramBucket
 import com.despegar.metrik.util.Logging
 import com.netflix.astyanax.model.Column
