@@ -16,7 +16,7 @@
 
 package com.despegar.metrik.model
 
-case class StatisticSummary(timestamp: Long, p50: Double, p80: Double, p90: Double, p95: Double, p99: Double, p999: Double, min: Long, max: Long, count: Long, avg: Double) extends Summary {
+case class StatisticSummary(timestamp: Long, p50: Long, p80: Long, p90: Long, p95: Long, p99: Long, p999: Long, min: Long, max: Long, count: Long, avg: Double) extends Summary {
 
   override def getTimestamp = timestamp
 }

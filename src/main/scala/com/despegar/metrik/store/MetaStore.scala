@@ -51,7 +51,7 @@ object CassandraMetaStore extends MetaStore with Logging {
   def retrieveMetrics = {
     Future {
       val metrics = Cassandra.keyspace.prepareQuery(columnFamily).getKey(metricsKey).execute().getResult().asScala.map(c ⇒ fromString(c.getName)).toSeq
-      log.info(s"Found ${metrics.length} metrics in meta")s
+      log.info(s"Found ${metrics.length} metrics in meta")
       metrics
     } andThen {
       case Failure(reason) ⇒ log.error(s"Failed to retrieve metrics from meta", reason)

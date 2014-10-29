@@ -29,6 +29,7 @@ import org.scalatest.BeforeAndAfter
 import akka.actor.ActorRefFactory
 import org.specs2.matcher.{ MatchResult, Expectable }
 import spray.routing.HttpService
+import com.despegar.metrik.model.Metric
 
 class InfluxServiceSpec extends Specification with Specs2RouteTest with MetrikExceptionHandler with MockitoSugar with HttpService {
   override val actorRefFactory = system
@@ -110,8 +111,8 @@ class InfluxServiceSpec extends Specification with Specs2RouteTest with MetrikEx
           {
             val instance = new MockedInfluxService()
 
-            val firstMetric = "metric1"
-            val secondMetric = "metric2"
+            val firstMetric = Metric("metric1", "gauge")
+            val secondMetric = Metric("metric2", "gauge")
             Mockito.when(instance.metaStore.retrieveMetrics).thenReturn(Future(Seq(firstMetric, secondMetric)))
 
             Get(uri) ~> instance.influxRoute ~> check {
@@ -123,11 +124,11 @@ class InfluxServiceSpec extends Specification with Specs2RouteTest with MetrikEx
               val results = responseAs[Seq[InfluxSeries]]
               results.size must beEqualTo(2)
 
-              results(0).name === firstMetric
+              results(0).name === firstMetric.name
               results(0).columns must beEmpty
               results(0).points must beEmpty
 
-              results(1).name === secondMetric
+              results(1).name === secondMetric.name
               results(1).columns must beEmpty
               results(1).points must beEmpty
             }

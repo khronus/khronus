@@ -2,14 +2,19 @@ package com.despegar.metrik.store
 
 import java.util.concurrent.Executors
 
-import com.despegar.metrik.model.{ Metric, Summary }
+import com.despegar.metrik.model.{ StatisticSummary, Metric, Summary }
 import com.despegar.metrik.util.Logging
-import com.netflix.astyanax.model.ColumnFamily
+import com.netflix.astyanax.model.{ ColumnList, ColumnFamily }
 import com.netflix.astyanax.serializers.{ LongSerializer, StringSerializer }
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future }
+import com.netflix.astyanax.query.RowQuery
+import java.lang
+import scala.annotation.tailrec
+import scala.collection.mutable
+import com.netflix.astyanax.connectionpool.OperationResult
 
 trait SummaryStoreSupport[T <: Summary] {
 
@@ -73,5 +78,34 @@ trait SummaryStore[T <: Summary] extends Logging {
         summary
       }.toSeq
     }
+  }
+
+  def readAll(cf: Duration, key: String, from: Long, to: Long, count: Int): Future[Seq[StatisticSummary]] = Future {
+    log.info(s"Reading cassandra: Cf: $cf - key: $key - From: $from - To: $to - Count: $count")
+    val result = Vector.newBuilder[StatisticSummary]
+
+    val query: RowQuery[String, lang.Long] = Cassandra.keyspace.prepareQuery(columnFamilies(cf))
+      .getKey(key)
+      .withColumnRange(from, to, false, count)
+      .autoPaginate(true)
+
+    readRecursive(result)(() ⇒ query.execute())
+  }
+
+  @tailrec
+  private def readRecursive(resultBuilder: mutable.Builder[StatisticSummary, Vector[StatisticSummary]])(operation: () ⇒ OperationResult[ColumnList[lang.Long]]): Seq[StatisticSummary] = {
+    val r = operation().getResult
+    if (r.isEmpty) {
+      log.info("Empty results")
+      resultBuilder.result().toSeq
+    } else {
+      log.info(s"result count ${r}")
+      r.asScala.foldLeft(resultBuilder) {
+        (builder, column) ⇒
+          builder += CassandraStatisticSummaryStore.deserialize(column.getByteArrayValue)
+      }
+      readRecursive(resultBuilder)(operation)
+    }
+
   }
 }

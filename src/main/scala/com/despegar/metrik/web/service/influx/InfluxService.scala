@@ -68,7 +68,7 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
   def search(query: String): Future[Seq[InfluxSeries]] = {
     log.info(s"Starting Influx query [$query]")
 
-    if (ListSeries.equalsIgnoreCase(query)) metaStore.retrieveMetrics.map(results ⇒ results.map(x ⇒ new InfluxSeries(x)))
+    if (ListSeries.equalsIgnoreCase(query)) metaStore.retrieveMetrics.map(results ⇒ results.map(x ⇒ new InfluxSeries(x.name)))
     else {
 
       def toInfluxSeries(summaries: Seq[StatisticSummary], projection: Projection, key: String): InfluxSeries = projection match {
@@ -76,7 +76,7 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
           log.info(s"Building Influx series: Key $key - Projection: $projection")
           val points = summaries.foldLeft(Vector.empty[Vector[Long]]) {
             (acc, current) ⇒
-              acc :+ Vector(current.timestamp, current.get(name)) //TODO: should avoid reflection strategy?
+              acc :+ Vector(toSeconds(current.timestamp), current.get(name)) //TODO: should avoid reflection strategy?
           }
           InfluxSeries(key, Vector("time", name), points)
         }
@@ -109,11 +109,15 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
           limit ← influxCriteria.limit
         } yield {
           val slice = buildSlice(filters)
-          statisticSummaryStore.readAll(groupBy.duration, key.name, slice.from, slice.to, limit) map {
+          summaryStore.readAll(groupBy.duration, key.name, slice.from, slice.to, limit) map {
             results ⇒ Seq(toInfluxSeries(results, projection, key.name))
           }
         }
       }
     }.getOrElse(Promise[Seq[InfluxSeries]].future)
+  }
+
+  def toSeconds(millis: Long): Long = {
+    millis / 1000
   }
 }

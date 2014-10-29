@@ -16,7 +16,8 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
 
   val functions = Functions.allValuesAsString
 
-  lexical.reserved += ("select", "as", "from", "where", "or", "and", "group_by_time", "limit", "between", "null", "date", TimeSuffixes.Seconds, TimeSuffixes.Minutes, TimeSuffixes.Hours, TimeSuffixes.Days, TimeSuffixes.Weeks)
+  lexical.reserved += ("select", "as", "from", "where", "or", "and", "group_by_time", "limit", "between", "null", "date",
+    TimeSuffixes.Seconds, TimeSuffixes.Minutes, TimeSuffixes.Hours, TimeSuffixes.Days, TimeSuffixes.Weeks)
 
   lexical.reserved ++= functions
 
@@ -93,13 +94,28 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
   private def stringParser: Parser[String] = stringLit ^^ { case s ⇒ s }
 
   private def groupByParser: Parser[GroupBy] =
-    "group_by_time" ~> "(" ~> timeSuffixParser <~ ")" ^^ (GroupBy(_))
+    "group_by_time" ~> "(" ~> timeWindowParser <~ ")" ^^ (GroupBy(_))
 
   /*
   def groupByTimeParser: Parser[String] = {
     elem("group by time parser", x => "group by time".equalsIgnoreCase(x.toString)) ^^ (_.chars)
   }
   */
+
+  def timeWindowParser: Parser[FiniteDuration] =
+    numericLit ~ (TimeSuffixes.Seconds | TimeSuffixes.Minutes | TimeSuffixes.Hours | TimeSuffixes.Days | TimeSuffixes.Weeks) ^^ {
+      case number ~ timeUnit ⇒ {
+        (number, timeUnit) match {
+          case ("30", TimeSuffixes.Seconds) ⇒ new FiniteDuration(number.toLong, TimeUnit.SECONDS)
+          case ("1", TimeSuffixes.Minutes)  ⇒ new FiniteDuration(number.toLong, TimeUnit.MINUTES)
+          case ("5", TimeSuffixes.Minutes)  ⇒ new FiniteDuration(number.toLong, TimeUnit.MINUTES)
+          case ("10", TimeSuffixes.Minutes) ⇒ new FiniteDuration(number.toLong, TimeUnit.MINUTES)
+          case ("30", TimeSuffixes.Minutes) ⇒ new FiniteDuration(number.toLong, TimeUnit.MINUTES)
+          case ("1", TimeSuffixes.Hours)    ⇒ new FiniteDuration(number.toLong, TimeUnit.HOURS)
+          case _                            ⇒ throw new IllegalArgumentException(s"Unknown timeWindow $number$timeUnit")
+        }
+      }
+    }
 
   private def timeSuffixParser: Parser[FiniteDuration] = {
     numericLit ~ (TimeSuffixes.Seconds | TimeSuffixes.Minutes | TimeSuffixes.Hours | TimeSuffixes.Days | TimeSuffixes.Weeks) ^^ {
@@ -117,4 +133,3 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
 
   private def limitParser: Parser[Int] = "limit" ~> numericLit ^^ (_.toInt)
 }
-
