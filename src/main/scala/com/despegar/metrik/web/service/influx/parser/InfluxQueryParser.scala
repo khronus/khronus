@@ -39,7 +39,7 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
     "select" ~> projectionParser ~
       tableParser ~ opt(filterParser) ~
       groupByParser ~ opt(limitParser) <~ opt(";") ^^ {
-        case projection ~ table ~ filters ~ groupBy ~ limit ⇒ InfluxCriteria(projection, table, filters, groupBy, limit)
+        case projection ~ table ~ filters ~ groupBy ~ limit ⇒ InfluxCriteria(projection, table, filters.getOrElse(Nil), groupBy, limit)
       }
 
   private def projectionParser: Parser[Projection] =
@@ -96,10 +96,10 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
   private def groupByParser: Parser[GroupBy] =
     "group_by_time" ~> "(" ~> timeWindowParser <~ ")" ^^ (GroupBy(_))
 
-  def numberEqualTo(n: Int): Parser[Int] =
+  private def numberEqualTo(n: Int): Parser[Int] =
     elem(s"Expected number $n", _.toString == n.toString) ^^ (_.toString.toInt)
 
-  def timeWindowParser: Parser[FiniteDuration] =
+  private def timeWindowParser: Parser[FiniteDuration] =
     ((numberEqualTo(30) ~ TimeSuffixes.Seconds) | (numberEqualTo(1) ~ TimeSuffixes.Minutes) | (numberEqualTo(5) ~ TimeSuffixes.Minutes) |
       (numberEqualTo(10) ~ TimeSuffixes.Minutes) | (numberEqualTo(30) ~ TimeSuffixes.Minutes) | (numberEqualTo(1) ~ TimeSuffixes.Hours)) ^^ {
         case number ~ timeUnit ⇒ {

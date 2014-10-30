@@ -20,7 +20,7 @@ import scala.concurrent.duration.FiniteDuration
 
 case class InfluxCriteria(projection: Projection,
   table: Table,
-  filters: Option[List[Filter]],
+  filters: List[Filter],
   groupBy: GroupBy,
   limit: Option[Int])
 

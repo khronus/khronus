@@ -38,7 +38,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.groupBy.duration.length should be(1)
     influxCriteria.groupBy.duration.unit should be(TimeUnit.HOURS)
 
-    influxCriteria.filters should be(None)
+    influxCriteria.filters should be(Nil)
     influxCriteria.limit should be(None)
   }
 
@@ -56,7 +56,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.groupBy.duration.length should be(30)
     influxCriteria.groupBy.duration.unit should be(TimeUnit.SECONDS)
 
-    influxCriteria.filters should be(None)
+    influxCriteria.filters should be(Nil)
     influxCriteria.limit should be(None)
   }
 
@@ -76,7 +76,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.groupBy.duration.length should be(1)
     influxCriteria.groupBy.duration.unit should be(TimeUnit.MINUTES)
 
-    influxCriteria.filters should be(None)
+    influxCriteria.filters should be(Nil)
     influxCriteria.limit should be(None)
   }
 
@@ -150,8 +150,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.table.name should be("metricA")
     influxCriteria.table.alias should be(None)
 
-    val filters = influxCriteria.filters.get
-    val stringFilter = filters(0).asInstanceOf[StringFilter]
+    val stringFilter = influxCriteria.filters(0).asInstanceOf[StringFilter]
     stringFilter.identifier should be("host")
     stringFilter.operator should be(Operators.Eq)
     stringFilter.value should be("aHost")
@@ -175,13 +174,12 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.table.name should be("metricA")
     influxCriteria.table.alias should be(None)
 
-    val filters = influxCriteria.filters.get
-    val filter1 = filters(0).asInstanceOf[IntervalFilter]
+    val filter1 = influxCriteria.filters(0).asInstanceOf[IntervalFilter]
     filter1.identifier should be("time")
     filter1.operator should be(Operators.Gte)
     filter1.value should be(1414508614L)
 
-    val filter2 = filters(1).asInstanceOf[IntervalFilter]
+    val filter2 = influxCriteria.filters(1).asInstanceOf[IntervalFilter]
     filter2.identifier should be("time")
     filter2.operator should be(Operators.Lt)
     filter2.value should be(1414509500L)
@@ -205,13 +203,12 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.table.name should be("metricA")
     influxCriteria.table.alias should be(None)
 
-    val filters = influxCriteria.filters.get
-    val filter1 = filters(0).asInstanceOf[IntervalFilter]
+    val filter1 = influxCriteria.filters(0).asInstanceOf[IntervalFilter]
     filter1.identifier should be("time")
     filter1.operator should be(Operators.Gte)
     filter1.value should be(1414508614L)
 
-    val filter2 = filters(1).asInstanceOf[IntervalFilter]
+    val filter2 = influxCriteria.filters(1).asInstanceOf[IntervalFilter]
     filter2.identifier should be("time")
     filter2.operator should be(Operators.Lte)
     filter2.value should be(1414509500L)
@@ -265,7 +262,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.groupBy.duration.length should be(1)
     influxCriteria.groupBy.duration.unit should be(TimeUnit.MINUTES)
 
-    influxCriteria.filters should be(None)
+    influxCriteria.filters should be(Nil)
     influxCriteria.limit should be(Some(10))
   }
 
@@ -282,19 +279,17 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.table.name should be("metricA")
     influxCriteria.table.alias should be(None)
 
-    val filters = influxCriteria.filters.get
-
-    val filter1 = filters(0).asInstanceOf[IntervalFilter]
+    val filter1 = influxCriteria.filters(0).asInstanceOf[IntervalFilter]
     filter1.identifier should be("time")
     filter1.operator should be(Operators.Gt)
     filter1.value should be(1000L)
 
-    val filter2 = filters(1).asInstanceOf[IntervalFilter]
+    val filter2 = influxCriteria.filters(1).asInstanceOf[IntervalFilter]
     filter2.identifier should be("time")
     filter2.operator should be(Operators.Lte)
     filter2.value should be(5000L)
 
-    val filter3 = filters(2).asInstanceOf[StringFilter]
+    val filter3 = influxCriteria.filters(2).asInstanceOf[StringFilter]
     filter3.identifier should be("host")
     filter3.operator should be(Operators.Neq)
     filter3.value should be("aHost")

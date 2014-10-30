@@ -96,7 +96,7 @@ trait SummaryStore[T <: Summary] extends Logging {
   }
 
   def readAll(cf: Duration, key: String, from: Long, to: Long, count: Int): Future[Seq[StatisticSummary]] = Future {
-    log.info(s"Reading cassandra: Cf: $cf - key: $key - From: $from - To: $to - Count: $count")
+    log.info(s"Reading from Cassandra: Cf: $cf - Key: $key - From: $from - To: $to - Max results: $count")
 
     val query: RowQuery[String, lang.Long] = Cassandra.keyspace.prepareQuery(columnFamilies(cf))
       .getKey(key)
@@ -111,7 +111,6 @@ trait SummaryStore[T <: Summary] extends Logging {
     val result = operationResult().getResult.asScala
 
     if (result.isEmpty) {
-      log.info("Empty results")
       resultBuilder.result().toSeq
     } else {
       result.foldLeft(resultBuilder) {
