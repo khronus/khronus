@@ -74,7 +74,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
         val worker = idleWorkers.head
         val pending = pendingMetrics.head
 
-        log.debug(s"Dispatching $pending to ${worker.path}")
+        log.info(s"Dispatching $pending to ${worker.path}")
         worker ! Work(pending)
 
         idleWorkers = idleWorkers.tail
