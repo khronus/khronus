@@ -17,7 +17,7 @@
 package com.despegar.metrik.store
 
 import com.despegar.metrik.model.StatisticSummary
-import com.despegar.metrik.util.{KryoSerializer, Logging}
+import com.despegar.metrik.util.{ KryoSerializer, Logging }
 
 import scala.concurrent.duration._
 

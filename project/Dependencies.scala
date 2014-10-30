@@ -13,6 +13,7 @@ object Dependencies {
   val astyanaxVersion   =       "1.56.49"
 
   val sprayCan          =       "io.spray"                        %%  "spray-can"                   % sprayV
+  val sprayClient       =       "io.spray"                        %%  "spray-client"                % sprayV
   val sprayRouting      =       "io.spray"                        %%  "spray-routing"               % sprayV
   val sprayTestKit      =       "io.spray"                        %%  "spray-testkit"               % sprayV
   val sprayJson         =       "io.spray"                        %%  "spray-json"                  % "1.2.6"
@@ -28,8 +29,8 @@ object Dependencies {
   val hdrHistogram      =       "org.hdrhistogram"                %   "HdrHistogram"                % "1.2.1"
   val specs2            =       "org.specs2"          	          %%  "specs2-core"   		          % "2.3.11"
   val mockito           =       "org.mockito"         	          %   "mockito-all"   		          % "1.9.5"
-  val astyanaxCore      =       "com.netflix.astyanax"	          %	  "astyanax-core"		            %	astyanaxVersion excludeAll(ExclusionRule(name = "log4j"), ExclusionRule(name = "slf4j-log4j12"))
-  val astyanaxThrift    =       "com.netflix.astyanax"	          %	  "astyanax-thrift"	            %	astyanaxVersion excludeAll(ExclusionRule(name = "log4j"), ExclusionRule(name = "slf4j-log4j12"))
+  val astyanaxCore      =       "com.netflix.astyanax"	          %	  "astyanax-core"               %	astyanaxVersion excludeAll(ExclusionRule(name = "log4j"), ExclusionRule(name = "slf4j-log4j12"))
+  val astyanaxThrift    =       "com.netflix.astyanax"	          %	  "astyanax-thrift"             %	astyanaxVersion excludeAll(ExclusionRule(name = "log4j"), ExclusionRule(name = "slf4j-log4j12"))
   val astyanaxCassandra =       "com.netflix.astyanax"	          %	  "astyanax-cassandra"          %	astyanaxVersion excludeAll(ExclusionRule(name = "log4j"), ExclusionRule(name = "slf4j-log4j12"))
   val kryo              =       "com.esotericsoftware.kryo"       %   "kryo"                        % "2.24.0"
   val scalaLogging      =       "com.typesafe.scala-logging"      %%  "scala-logging"               % "3.1.0"

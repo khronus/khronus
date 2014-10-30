@@ -47,4 +47,3 @@ trait InfluxService extends HttpService with Logging with CORSSupport with Influ
     }
 }
 
-

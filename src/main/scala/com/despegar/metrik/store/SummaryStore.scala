@@ -80,7 +80,6 @@ trait SummaryStore[T <: Summary] extends Logging {
     }
   }
 
-
   def sliceUntilNow(metric: Metric, windowDuration: Duration): Future[Seq[T]] = {
     val asyncResult = Future {
       Cassandra.keyspace.prepareQuery(columnFamilies(windowDuration))
@@ -92,7 +91,7 @@ trait SummaryStore[T <: Summary] extends Logging {
     }
 
     asyncResult map { slice ⇒
-      slice.map (column ⇒ deserialize(column.getByteArrayValue)).toSeq
+      slice.map(column ⇒ deserialize(column.getByteArrayValue)).toSeq
     }
   }
 

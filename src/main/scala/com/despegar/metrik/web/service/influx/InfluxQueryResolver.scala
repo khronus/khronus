@@ -17,8 +17,9 @@
 package com.despegar.metrik.web.service.influx
 
 import com.despegar.metrik.model.StatisticSummary
-import com.despegar.metrik.store.{StatisticSummarySupport, MetaSupport}
+import com.despegar.metrik.store.{ StatisticSummarySupport, MetaSupport }
 import com.despegar.metrik.web.service.influx.parser._
+import scala.concurrent.ExecutionContext.Implicits.global
 
 import scala.concurrent.Future
 
