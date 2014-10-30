@@ -117,4 +117,5 @@ object TimeSuffixes {
   val Hours = "h"
   val Days = "d"
   val Weeks = "w"
+
 }
