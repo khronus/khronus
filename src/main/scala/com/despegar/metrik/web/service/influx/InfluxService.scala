@@ -68,7 +68,8 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
   def search(query: String): Future[Seq[InfluxSeries]] = {
     log.info(s"Starting Influx query [$query]")
 
-    if (ListSeries.equalsIgnoreCase(query)) metaStore.retrieveMetrics.map(results ⇒ results.map(x ⇒ new InfluxSeries(x.name)))
+    if (ListSeries.equalsIgnoreCase(query))
+      metaStore.retrieveMetrics.map(results ⇒ results.map(x ⇒ new InfluxSeries(x.name)))
     else {
 
       def toInfluxSeries(summaries: Seq[StatisticSummary], projection: Projection, key: String): InfluxSeries = projection match {
@@ -114,7 +115,7 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
           }
         }
       }
-    }.getOrElse(Promise[Seq[InfluxSeries]].future)
+    }.getOrElse(throw new UnsupportedOperationException(s"Unsupported query [$query]"))
   }
 
   def toSeconds(millis: Long): Long = {

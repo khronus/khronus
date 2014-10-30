@@ -34,6 +34,8 @@ import com.despegar.metrik.model.Metric
 class InfluxServiceSpec extends Specification with Specs2RouteTest with MetrikExceptionHandler with MockitoSugar with HttpService {
   override val actorRefFactory = system
 
+  val influxSeriesURI = "/metrik/influx/series"
+
   class MockedInfluxService extends InfluxService {
     override val actorRefFactory = system
 
@@ -56,10 +58,10 @@ class InfluxServiceSpec extends Specification with Specs2RouteTest with MetrikEx
       applying {
         () ⇒
           {
-            val uri = Uri("/metrik/influx").withQuery("q" -> "Some query")
+            val uri = Uri(influxSeriesURI).withQuery("q" -> "Some query")
             Put(uri) ~> sealRoute(new MockedInfluxService().influxRoute) ~> check {
               status === MethodNotAllowed
-              responseAs[String] === "HTTP method not allowed, supported methods: GET"
+              responseAs[String] === "HTTP method not allowed, supported methods: GET, OPTIONS"
             }
 
           }
@@ -70,7 +72,7 @@ class InfluxServiceSpec extends Specification with Specs2RouteTest with MetrikEx
       applying {
         () ⇒
           {
-            val uri = Uri("/metrik/influx").withQuery("q" -> "Unsupported query")
+            val uri = Uri(influxSeriesURI).withQuery("q" -> "Unsupported query")
             Get(uri) ~> sealRoute(new MockedInfluxService().influxRoute) ~> check {
               status === BadRequest
             }
@@ -81,7 +83,7 @@ class InfluxServiceSpec extends Specification with Specs2RouteTest with MetrikEx
   }
 
   "InfluxService for listing series" should {
-    val uri = Uri("/metrik/influx").withQuery("q" -> "list series")
+    val listSeriesURI = Uri(influxSeriesURI).withQuery("q" -> "list series")
 
     "return empty list when there isnt any metric" in {
       applying {
@@ -91,7 +93,7 @@ class InfluxServiceSpec extends Specification with Specs2RouteTest with MetrikEx
 
             Mockito.when(instance.metaStore.retrieveMetrics).thenReturn(Future(Seq()))
 
-            Get(uri) ~> instance.influxRoute ~> check {
+            Get(listSeriesURI) ~> instance.influxRoute ~> check {
 
               handled must beTrue
               response.status == OK
@@ -115,7 +117,7 @@ class InfluxServiceSpec extends Specification with Specs2RouteTest with MetrikEx
             val secondMetric = Metric("metric2", "gauge")
             Mockito.when(instance.metaStore.retrieveMetrics).thenReturn(Future(Seq(firstMetric, secondMetric)))
 
-            Get(uri) ~> instance.influxRoute ~> check {
+            Get(listSeriesURI) ~> instance.influxRoute ~> check {
               handled must beTrue
               status == OK
 

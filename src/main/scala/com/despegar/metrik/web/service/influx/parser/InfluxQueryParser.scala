@@ -96,20 +96,20 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
   private def groupByParser: Parser[GroupBy] =
     "group_by_time" ~> "(" ~> timeWindowParser <~ ")" ^^ (GroupBy(_))
 
-  def numberEqualTo(n:Int): Parser[Int] =
+  def numberEqualTo(n: Int): Parser[Int] =
     elem(s"Expected number $n", _.toString == n.toString) ^^ (_.toString.toInt)
 
   def timeWindowParser: Parser[FiniteDuration] =
     ((numberEqualTo(30) ~ TimeSuffixes.Seconds) | (numberEqualTo(1) ~ TimeSuffixes.Minutes) | (numberEqualTo(5) ~ TimeSuffixes.Minutes) |
       (numberEqualTo(10) ~ TimeSuffixes.Minutes) | (numberEqualTo(30) ~ TimeSuffixes.Minutes) | (numberEqualTo(1) ~ TimeSuffixes.Hours)) ^^ {
-      case number ~ timeUnit ⇒ {
-        timeUnit match {
-          case TimeSuffixes.Seconds ⇒ new FiniteDuration(number.toLong, TimeUnit.SECONDS)
-          case TimeSuffixes.Minutes  ⇒ new FiniteDuration(number.toLong, TimeUnit.MINUTES)
-          case TimeSuffixes.Hours    ⇒ new FiniteDuration(number.toLong, TimeUnit.HOURS)
+        case number ~ timeUnit ⇒ {
+          timeUnit match {
+            case TimeSuffixes.Seconds ⇒ new FiniteDuration(number.toLong, TimeUnit.SECONDS)
+            case TimeSuffixes.Minutes ⇒ new FiniteDuration(number.toLong, TimeUnit.MINUTES)
+            case TimeSuffixes.Hours   ⇒ new FiniteDuration(number.toLong, TimeUnit.HOURS)
+          }
         }
       }
-    }
 
   private def timeSuffixParser: Parser[FiniteDuration] = {
     numericLit ~ (TimeSuffixes.Seconds | TimeSuffixes.Minutes | TimeSuffixes.Hours | TimeSuffixes.Days | TimeSuffixes.Weeks) ^^ {
