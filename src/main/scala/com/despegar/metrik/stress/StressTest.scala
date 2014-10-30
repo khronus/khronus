@@ -1,13 +1,22 @@
 package com.despegar.metrik.stress
 
 import java.util.concurrent.Executors
+import akka.actor.{ Props, ActorSystem }
+import spray.http._
+import spray.client.pipelining._
 
-import com.despegar.metrik.model.{ MetricMeasurement, Measurement, MetricBatch }
+import com.despegar.metrik.model.{ MetricBatchProtocol, Measurement, MetricBatch, MetricMeasurement }
 
-import scala.concurrent.Await
-import scala.util.Random
+import scala.concurrent.Future
+import scala.util.{ Success, Failure, Random }
+import spray.http._
+import spray.client.pipelining._
+
+import MetricBatchProtocol._
 
 object StressTest extends App {
+  implicit val system = ActorSystem("StressActorSystem")
+  import system.dispatcher // execution context for futures
 
   doIt()
 
@@ -47,9 +56,19 @@ object StressTest extends App {
     } while (j < n)
 
     def postToMetrikApi(call: Int, run: Int): Unit = {
-      val metricMeasurements = (for (i ← 1 to nMetrics) yield MetricMeasurement(s"metric$i", "timer", getMeasurements())) toList
+      val metricMeasurements = (for (i ← 1 to nMetrics) yield MetricMeasurement(s"cachorra$i", "timer", getMeasurements())) toList
 
-      println(s"calling Metrik #$call, run #$run ${MetricBatch(metricMeasurements)}")
+      val metricBatch: MetricBatch = MetricBatch(metricMeasurements)
+      println(s"calling Metrik #$call, run #$run")
+
+      val request = Post("http://ht-core-01:8080/metrik/metrics", metricBatch)
+      val pipeline: HttpRequest ⇒ Future[HttpResponse] = sendReceive
+
+      val response = pipeline(request)
+      response onComplete {
+        case Failure(ex)   ⇒ ex.printStackTrace()
+        case Success(resp) ⇒ println("success: " + resp.status)
+      }
     }
 
     def getMeasurements(): List[Measurement] = {
@@ -59,5 +78,9 @@ object StressTest extends App {
     def getMeasurementValues(): Seq[Long] = {
       for (i ← 1 to nnMeasurements) yield (random.nextInt(10000)).toLong
     }
+
+    println("Ending...")
+    executor.shutdown()
+    system.shutdown()
   }
 }
