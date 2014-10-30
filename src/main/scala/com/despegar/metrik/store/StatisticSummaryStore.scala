@@ -17,24 +17,9 @@
 package com.despegar.metrik.store
 
 import com.despegar.metrik.model.StatisticSummary
-import com.despegar.metrik.util.{ KryoSerializer, Logging }
+import com.despegar.metrik.util.{KryoSerializer, Logging}
 
-import java.lang
-import java.util.concurrent.Executors
-
-import com.despegar.metrik.model.StatisticSummary
-import com.despegar.metrik.util.{ Logging, KryoSerializer }
-import com.netflix.astyanax.MutationBatch
-import com.netflix.astyanax.connectionpool.OperationResult
-import com.netflix.astyanax.model.{ ColumnFamily, ColumnList }
-import com.netflix.astyanax.query.RowQuery
-import com.netflix.astyanax.serializers.{ LongSerializer, StringSerializer }
-
-import scala.annotation.tailrec
-import scala.collection.JavaConverters._
-import scala.collection.mutable
 import scala.concurrent.duration._
-import scala.concurrent.{ ExecutionContext, Future }
 
 case class ColumnRange(from: Long, to: Long, reversed: Boolean, count: Int)
 

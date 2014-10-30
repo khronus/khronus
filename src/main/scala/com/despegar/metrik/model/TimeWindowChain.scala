@@ -16,13 +16,11 @@
 
 package com.despegar.metrik.model
 
-import java.util.concurrent.TimeUnit
 import com.despegar.metrik.store.MetaSupport
 import com.despegar.metrik.util.{ BucketUtils, Logging, Settings }
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import scala.concurrent.duration._
-import scala.util.Success
 
 class TimeWindowChain extends Logging with MetaSupport {
 

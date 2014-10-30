@@ -31,7 +31,7 @@ class HistogramBucket(override val bucketNumber: Long, override val duration: Du
     val min = histogram.getMinValue
     val max = histogram.getMaxValue
     val count = histogram.getTotalCount
-    val avg = histogram.getMean()
+    val avg = histogram.getMean
     StatisticSummary(timestamp, p50, p80, p90, p95, p99, p999, min, max, count, avg)
   }
 }

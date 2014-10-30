@@ -22,6 +22,7 @@ import com.despegar.metrik.store.MetaSupport
 import com.despegar.metrik.util.Settings
 import us.theatr.akka.quartz.{ AddCronScheduleFailure, _ }
 import scala.concurrent.Future
+import scala.util.control.NonFatal
 import scala.util.{ Failure, Success }
 import com.despegar.metrik.model.Metric
 
@@ -59,8 +60,8 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
   def initialized(router: ActorRef): Receive = {
 
     case Tick ⇒ lookupMetrics onComplete {
-      case Success(metrics) ⇒ self ! PendingMetrics(metrics)
-      case Failure(reason)  ⇒ log.error(reason, "Error trying to get metrics.")
+      case Success(metrics)          ⇒ self ! PendingMetrics(metrics)
+      case Failure(NonFatal(reason)) ⇒ log.error(reason, "Error trying to get metrics.")
     }
 
     case PendingMetrics(metrics) ⇒ {
