@@ -28,7 +28,7 @@ import scala.util.{ Failure, Success }
 
 abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[T] with SummaryStoreSupport[U] with MetaSupport with Logging {
 
-  def process(metric: Metric, executionTimestamp: Long): Future[Unit] = {
+  def process(metric: Metric, executionTimestamp: Long): Future[Unit] = measureTime(metric) {
     log.debug(s"Processing time window of $duration for $metric")
     //retrieve the temporal histogram buckets from previous window
     val previousWindowBuckets = retrievePreviousBuckets(metric, executionTimestamp)
@@ -52,6 +52,13 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
 
     //remove previous histogram buckets
     storeFuture flatMap { _ ⇒ previousWindowBuckets flatMap (windows ⇒ bucketStore.remove(metric, previousWindowDuration, windows)) }
+  }
+
+  private def measureTime[T](metric: Metric)(block: ⇒ Future[T]): Future[T] = {
+    val start = System.currentTimeMillis()
+    block andThen {
+      case Success(_) ⇒ log.info(s"time window of $duration for $metric processed in ${System.currentTimeMillis() - start}ms")
+    }
   }
 
   protected def getSummary(bucket: T): U

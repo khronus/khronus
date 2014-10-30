@@ -44,7 +44,11 @@ trait MetricsService extends HttpService with BucketSupport with MetaSupport wit
     metrics foreach storeMetric
   }
 
-  private def storeMetric(metricMeasurement: MetricMeasurement) = {
+  private def storeMetric(metricMeasurement: MetricMeasurement): Unit = {
+    if (metricMeasurement.measurements.isEmpty) {
+      log.warn(s"Discarding post of ${metricMeasurement.asMetric} with empty measurements")
+      return
+    }
     val metric = metricMeasurement.asMetric
     track(metric)
     log.debug(s"Storing metric $metric")
