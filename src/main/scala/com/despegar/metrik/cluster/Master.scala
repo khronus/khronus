@@ -65,14 +65,16 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
     }
 
     case PendingMetrics(metrics) ⇒ {
-      log.info(s"Pending metrics received: Metrics pending $pendingMetrics workers idle: $idleWorkers")
+      log.info(s"Pending metrics received: ${pendingMetrics.size} pending metrics and ${idleWorkers.size} idle workers")
+      log.debug(s"Pending metrics: $pendingMetrics workers idle: $idleWorkers")
+      log.debug(s"Idle workers: $idleWorkers")
       pendingMetrics ++= metrics filterNot (metric ⇒ pendingMetrics contains metric)
 
       while (pendingMetrics.nonEmpty && idleWorkers.nonEmpty) {
         val worker = idleWorkers.head
         val pending = pendingMetrics.head
 
-        log.debug(s"Dispatching metric $pending to ${worker.path}")
+        log.debug(s"Dispatching $pending to ${worker.path}")
         worker ! Work(pending)
 
         idleWorkers = idleWorkers.tail
@@ -87,7 +89,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
     case WorkDone(worker) ⇒
       if (pendingMetrics.nonEmpty) {
-        log.debug(s"Dispatching metric ${pendingMetrics.head} to ${worker.path}")
+        log.debug(s"Dispatching ${pendingMetrics.head} to ${worker.path}")
         worker ! Work(pendingMetrics.head)
         pendingMetrics = pendingMetrics.tail
       } else {

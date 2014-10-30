@@ -43,7 +43,7 @@ trait BucketStore[T <: Bucket] extends Logging {
 
   def store(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit] = {
     doUnit(buckets) {
-      log.debug(s"Storing ${buckets.length} buckets for metric $metric in window $windowDuration: $buckets")
+      log.debug(s"Storing ${buckets.length} buckets of $windowDuration for $metric")
       mutate(metric, windowDuration, buckets) { (mutation, bucket) ⇒
         mutation.putColumn(bucket.timestamp, serializeBucket(bucket))
       }
@@ -52,7 +52,7 @@ trait BucketStore[T <: Bucket] extends Logging {
 
   def remove(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit] = {
     doUnit(buckets) {
-      log.debug(s"Removing ${buckets.length} buckets for metric $metric in window $windowDuration")
+      log.debug(s"Removing ${buckets.length} buckets of $windowDuration for $metric")
       mutate(metric, windowDuration, buckets) { (mutation, bucket) ⇒
         mutation.deleteColumn(bucket.timestamp)
       }
@@ -62,11 +62,10 @@ trait BucketStore[T <: Bucket] extends Logging {
   def serializeBucket(bucket: T): ByteBuffer
 
   private def executeSlice(metric: Metric, until: Long, windowDuration: Duration): Iterable[Column[java.lang.Long]] = {
-    log.debug(s"Slicing window of $windowDuration for metric $metric")
     val result = Cassandra.keyspace.prepareQuery(columnFamilies(windowDuration)).getKey(metric.name)
       .withColumnRange(INFINITE, until, false, LIMIT).execute().getResult().asScala
 
-    log.debug(s"Slicing window. Found ${result.size} buckets of $windowDuration for metric $metric")
+    log.debug(s"Found ${result.size} buckets of $windowDuration for $metric")
     result
   }
 
