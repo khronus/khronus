@@ -19,12 +19,15 @@ package com.despegar.metrik.web.service.influx
 import akka.actor.Actor
 import com.despegar.metrik.util.Logging
 import spray.http.MediaTypes._
+import spray.http.StatusCodes._
+import spray.httpx.encoding.Gzip
 import spray.routing.HttpService
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class InfluxActor extends Actor with InfluxService {
   def actorRefFactory = context
+
   def receive = runRoute(influxRoute)
 }
 
@@ -33,13 +36,15 @@ trait InfluxService extends HttpService with Logging with CORSSupport with Influ
   import InfluxSeriesProtocol._
 
   val influxRoute =
-    respondWithCORS {
-      path("metrik" / "influx" / "series") {
-        parameters('q) { queryString ⇒
+    compressResponse(Gzip) {
+      respondWithCORS {
+        path("metrik" / "influx" / "series") {
           get {
-            log.info(s"GET /metrik/influx - Query: [$queryString]")
-            respondWithMediaType(`application/json`) {
-              complete { search(queryString) }
+            parameters('q.?, 'p, 'u) { (query, password, username) ⇒
+              query.map { q ⇒
+                log.info(s"GET /metrik/influx - Query: [$q]")
+                respondWithMediaType(`application/json`) { complete { search(q) } }
+              } getOrElse { complete { (OK, s"Authenticated with username: $username and password: " + password) } }
             }
           }
         }
