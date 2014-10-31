@@ -112,18 +112,18 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
   private def timeWithSuffixToMillisParser: Parser[Long] = {
     numericLit ~ opt(TimeSuffixes.Seconds | TimeSuffixes.Minutes | TimeSuffixes.Hours | TimeSuffixes.Days | TimeSuffixes.Weeks) ^^ {
       case number ~ timeUnit ⇒
-        timeUnit.map {toMillis(number, _)}.getOrElse(number.toLong)
-      }
+        timeUnit.map { toMillis(number, _) }.getOrElse(number.toLong)
+    }
   }
 
   private def toMillis(number: String, suffix: String): Long = suffix match {
-      case TimeSuffixes.Seconds ⇒ TimeUnit.SECONDS.toMillis(number.toLong)
-      case TimeSuffixes.Minutes ⇒ TimeUnit.MINUTES.toMillis(number.toLong)
-      case TimeSuffixes.Hours ⇒ TimeUnit.HOURS.toMillis(number.toLong)
-      case TimeSuffixes.Days ⇒ TimeUnit.DAYS.toMillis(number.toLong)
-      case TimeSuffixes.Weeks ⇒ TimeUnit.DAYS.toMillis(number.toLong) * 7L
-      case _ => number.toLong
-    }
+    case TimeSuffixes.Seconds ⇒ TimeUnit.SECONDS.toMillis(number.toLong)
+    case TimeSuffixes.Minutes ⇒ TimeUnit.MINUTES.toMillis(number.toLong)
+    case TimeSuffixes.Hours   ⇒ TimeUnit.HOURS.toMillis(number.toLong)
+    case TimeSuffixes.Days    ⇒ TimeUnit.DAYS.toMillis(number.toLong)
+    case TimeSuffixes.Weeks   ⇒ TimeUnit.DAYS.toMillis(number.toLong) * 7L
+    case _                    ⇒ number.toLong
+  }
 
   private def groupByParser: Parser[GroupBy] =
     "group_by_time" ~> "(" ~> timeWindowParser <~ ")" ^^ (GroupBy(_))
@@ -150,6 +150,5 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
   private def stringParser: Parser[String] = stringLit ^^ {
     case s ⇒ s
   }
-
 
 }

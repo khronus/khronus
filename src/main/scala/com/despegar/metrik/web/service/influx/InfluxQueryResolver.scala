@@ -24,9 +24,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.TimeUnit
-import scala.util.Random
 import scala.collection.concurrent.TrieMap
-
 trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
   this: InfluxService ⇒
 

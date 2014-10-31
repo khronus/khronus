@@ -72,7 +72,7 @@ class InfluxServiceSpec extends Specification with Specs2RouteTest with MetrikEx
       applying {
         () ⇒
           {
-            val uri = Uri(influxSeriesURI).withQuery("q" -> "Unsupported query")
+            val uri = Uri(influxSeriesURI).withQuery("q" -> "Unsupported query", "u" -> "aUser", "p" -> "****")
             Get(uri) ~> sealRoute(new MockedInfluxService().influxRoute) ~> check {
               status === BadRequest
             }
@@ -83,7 +83,7 @@ class InfluxServiceSpec extends Specification with Specs2RouteTest with MetrikEx
   }
 
   "InfluxService for listing series" should {
-    val listSeriesURI = Uri(influxSeriesURI).withQuery("q" -> "list series")
+    val listSeriesURI = Uri(influxSeriesURI).withQuery("q" -> "list series", "u" -> "aUser", "p" -> "****")
 
     "return empty list when there isnt any metric" in {
       applying {

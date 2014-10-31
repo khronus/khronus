@@ -20,7 +20,7 @@ import akka.actor.Actor
 import com.despegar.metrik.util.Logging
 import spray.http.MediaTypes._
 import spray.http.StatusCodes._
-import spray.httpx.encoding.Gzip
+import spray.httpx.encoding.{ NoEncoding, Gzip }
 import spray.routing.HttpService
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -36,7 +36,7 @@ trait InfluxService extends HttpService with Logging with CORSSupport with Influ
   import InfluxSeriesProtocol._
 
   val influxRoute =
-    compressResponse(Gzip) {
+    compressResponse(NoEncoding, Gzip) {
       respondWithCORS {
         path("metrik" / "influx" / "series") {
           get {
