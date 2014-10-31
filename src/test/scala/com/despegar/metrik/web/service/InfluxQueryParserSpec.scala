@@ -14,10 +14,6 @@ import scala.concurrent.duration.FiniteDuration
  * Created by aholman on 23/10/14.
  */
 class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
-  // TODO Fechas:
-  //      where time > '2013-08-12 23:32:01.232' (YYYY-MM-DD HH:MM:SS.mmm)
-  //      where time > 1388534400s
-  // TODO - filter by sequence_number?
   // TODO - Where con soporte para expresiones regulares: =~ matches against, !~ doesn’t match against
 
   val parser = new InfluxQueryParser()
@@ -174,6 +170,16 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.limit should be(None)
   }
 
+  test("Where clause with time suffix should be parsed ok") {
+    val query = "select aValue from metricA where time >= 1414508614s group by time(10m)"
+    val influxCriteria = parser.parse(query).get
+
+    val filter1 = influxCriteria.filters(0).asInstanceOf[TimeFilter]
+    filter1.identifier should be("time")
+    filter1.operator should be(Operators.Gte)
+    filter1.value should be(1414508614000L)
+  }
+
   test("Where clauses like (now - 1h) should be parsed ok") {
     val mockedNow = 1414767928000L
     val mockedParser = new InfluxQueryParser() {
@@ -218,7 +224,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
   }
 
   test("Between clause should be parsed ok") {
-    val query = "select aValue from metricA where time between 1414508614 and 1414509500 group by time(30m)"
+    val query = "select aValue from metricA where time between 1414508614 and 1414509500s group by time(30m)"
     val influxCriteria = parser.parse(query).get
 
     val resultedField = influxCriteria.projection.asInstanceOf[Field]
@@ -236,7 +242,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     val filter2 = influxCriteria.filters(1).asInstanceOf[TimeFilter]
     filter2.identifier should be("time")
     filter2.operator should be(Operators.Lte)
-    filter2.value should be(1414509500L)
+    filter2.value should be(1414509500000L)
 
     influxCriteria.groupBy.duration.length should be(30)
     influxCriteria.groupBy.duration.unit should be(TimeUnit.MINUTES)
