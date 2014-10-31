@@ -54,7 +54,7 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar {
     val bucketB = new HistogramBucket(1, windowDuration, histogramB)
     val myBuckets = Seq(bucketB, bucketA)
 
-    val summaryBucketA = StatisticSummary(0, 50, 80, 90, 95, 99, 100, 1, 100, 100, 50.5)
+    val summaryBucketA = StatisticSummary(0, 50, 80, 90, 95, 99, 100, 1, 100, 100, 50)
     val summaryBucketB = StatisticSummary(30000, 100, 100, 100, 100, 100, 100, 100, 100, 2, 100)
     val mySummaries = Seq(summaryBucketB, summaryBucketA)
 
@@ -204,7 +204,7 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar {
     val bucketB = new HistogramBucket(1, windowDuration, histogramB)
     val myBuckets = Seq(bucketB, bucketA)
 
-    val summaryBucketA = StatisticSummary(0, 50, 80, 90, 95, 99, 100, 1, 100, 100, 50.5)
+    val summaryBucketA = StatisticSummary(0, 50, 80, 90, 95, 99, 100, 1, 100, 100, 50)
     val summaryBucketB = StatisticSummary(30000, 100, 100, 100, 100, 100, 100, 100, 100, 2, 100)
     val mySummaries = Seq(summaryBucketB, summaryBucketA)
 

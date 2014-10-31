@@ -16,6 +16,7 @@
 
 package com.despegar.metrik.web.service.influx.parser
 
+import com.despegar.metrik.model.Functions
 import scala.concurrent.duration.FiniteDuration
 
 case class InfluxCriteria(projection: Projection,
@@ -32,30 +33,6 @@ case class AllField() extends Projection
 case class Identifier(value: String) extends Expression
 
 case class Table(name: String, alias: Option[String])
-
-object Functions {
-  sealed trait Function {
-    def value: String
-  }
-
-  case object Count extends Functions.Function { val value = "count" }
-  case object Min extends Functions.Function { val value = "min" }
-  case object Max extends Functions.Function { val value = "max" }
-  case object Avg extends Functions.Function { val value = "avg" }
-  case object Percentile50 extends Functions.Function { val value = "p50" }
-  case object Percentile80 extends Functions.Function { val value = "p80" }
-  case object Percentile90 extends Functions.Function { val value = "p90" }
-  case object Percentile95 extends Functions.Function { val value = "p95" }
-  case object Percentile99 extends Functions.Function { val value = "p99" }
-  case object Percentile999 extends Functions.Function { val value = "p999" }
-
-  val allValues: Seq[Function] = Seq(Count, Min, Max, Avg, Percentile50, Percentile80, Percentile90, Percentile95, Percentile99, Percentile999)
-  val allValuesAsString: Seq[String] = allValues.map(_.value)
-
-  def withName(s: String): Function = allValues.find(_.toString == s).get
-
-  implicit def influxFunctions2Value(function: Functions.Function) = function.value
-}
 
 trait Expression
 

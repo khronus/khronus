@@ -16,7 +16,7 @@
 
 package com.despegar.metrik.web.service.influx
 
-import com.despegar.metrik.model.StatisticSummary
+import com.despegar.metrik.model.{ Functions, StatisticSummary }
 import com.despegar.metrik.store.{ StatisticSummarySupport, MetaSupport }
 import com.despegar.metrik.web.service.influx.parser._
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -42,11 +42,10 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
       metaStore.retrieveMetrics.map(results ⇒ results.map(x ⇒ new InfluxSeries(x.name)))
     } else {
       log.info(s"Executing query [$query]")
+
       parser.parse(query) map {
         influxCriteria ⇒
-
           val slice = buildSlice(influxCriteria.filters)
-
           val timeWindow: FiniteDuration = influxCriteria.groupBy.duration
           val metricName: String = influxCriteria.table.name
           val maxResults: Int = influxCriteria.limit.getOrElse(Int.MaxValue)
@@ -64,7 +63,7 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
 
     val functions = projection match {
       case Field(name, _) ⇒ Iterable(name)
-      case AllField()     ⇒ StatisticSummary.toMap(summaries.head).getOrElse(Map()).keys
+      case AllField()     ⇒ Functions.allValuesAsString
     }
 
     buildInfluxSeries(summaries, metricName, functions)
@@ -75,7 +74,7 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
 
     summaries.foreach(summary ⇒ {
       functions.foreach(function ⇒ {
-        pointsPerFunction.put(function, pointsPerFunction.get(function).getOrElse(Vector.empty) :+ Vector(toSeconds(summary.timestamp), summary.get(function)))
+        pointsPerFunction.put(function, pointsPerFunction.getOrElse(function, Vector.empty) :+ Vector(toSeconds(summary.timestamp), summary.get(function)))
       })
     })
 
@@ -106,9 +105,7 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
 
 object InfluxQueryResolver {
   val ListSeries = "list series"
-
   val influxTimeKey = "time"
 
   case class Slice(from: Long, to: Long)
-
 }

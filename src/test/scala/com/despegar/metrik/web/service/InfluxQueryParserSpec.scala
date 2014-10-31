@@ -1,5 +1,6 @@
 package com.despegar.metrik.web.service
 
+import com.despegar.metrik.model.Functions
 import org.scalatest.{ ShouldMatchers, FunSuite }
 import org.scalatest.mock.MockitoSugar
 import com.despegar.metrik.web.service.influx.parser.{ InfluxCriteria, InfluxQueryParser }

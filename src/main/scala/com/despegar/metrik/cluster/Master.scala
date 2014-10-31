@@ -42,7 +42,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
   def uninitialized: Receive = {
     case Initialize ⇒
-      log.info(s"Initializating master ${self.path}")
+      log.info(s"Initializing master ${self.path}")
       val router = createRouter()
 
       scheduleHeartbeat(router)
@@ -68,6 +68,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
       log.info(s"Pending metrics received: ${pendingMetrics.size} pending metrics and ${idleWorkers.size} idle workers")
       log.debug(s"Pending metrics: $pendingMetrics workers idle: $idleWorkers")
       log.debug(s"Idle workers: $idleWorkers")
+
       pendingMetrics ++= metrics filterNot (metric ⇒ pendingMetrics contains metric)
 
       while (pendingMetrics.nonEmpty && idleWorkers.nonEmpty) {

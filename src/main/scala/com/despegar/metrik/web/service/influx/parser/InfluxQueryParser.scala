@@ -7,6 +7,7 @@ import com.despegar.metrik.util.Logging
 import scala.concurrent.duration.FiniteDuration
 import scala.util.parsing.combinator.lexical._
 import scala.util.parsing.combinator.syntactical._
+import com.despegar.metrik.model.Functions
 
 class InfluxQueryParser extends StandardTokenParsers with Logging {
 
