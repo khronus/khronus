@@ -24,6 +24,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.TimeUnit
+import scala.util.Random
+import scala.collection.concurrent.TrieMap
 
 trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
   this: InfluxService ⇒
@@ -42,6 +44,7 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
       log.info(s"Executing query [$query]")
       parser.parse(query) map {
         influxCriteria ⇒
+
           val slice = buildSlice(influxCriteria.filters)
 
           val timeWindow: FiniteDuration = influxCriteria.groupBy.duration
@@ -49,26 +52,34 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
           val maxResults: Int = influxCriteria.limit.getOrElse(Int.MaxValue)
 
           summaryStore.readAll(timeWindow, metricName, slice.from, slice.to, maxResults) map {
-            results ⇒ Seq(toInfluxSeries(results, influxCriteria.projection, metricName))
+            results ⇒ toInfluxSeries(results, influxCriteria.projection, metricName)
           }
+
       }
     }.getOrElse(throw new UnsupportedOperationException(s"Unsupported query [$query]"))
   }
 
-  private def toInfluxSeries(summaries: Seq[StatisticSummary], projection: Projection, key: String): InfluxSeries = {
-    log.info(s"Building Influx series: Key $key - Projection: $projection - Summaries count: ${summaries.size}")
+  private def toInfluxSeries(summaries: Seq[StatisticSummary], projection: Projection, metricName: String): Seq[InfluxSeries] = {
+    log.info(s"Building Influx series: Metric $metricName - Projection: $projection - Summaries count: ${summaries.size}")
 
-    projection match {
-      case Field(name, _) ⇒ {
-
-        val points = summaries.foldLeft(Vector.empty[Vector[Long]]) {
-          (acc, current) ⇒
-            acc :+ Vector(toSeconds(current.timestamp), current.get(name)) //TODO: should avoid reflection strategy?
-        }
-        InfluxSeries(key, Vector(influxTimeKey, name), points)
-      }
-      case everythingElse ⇒ InfluxSeries("none")
+    val functions = projection match {
+      case Field(name, _) ⇒ Iterable(name)
+      case AllField()     ⇒ StatisticSummary.toMap(summaries.head).getOrElse(Map()).keys
     }
+
+    buildInfluxSeries(summaries, metricName, functions)
+  }
+
+  def buildInfluxSeries(summaries: Seq[StatisticSummary], metricName: String, functions: Iterable[String]): Seq[InfluxSeries] = {
+    val pointsPerFunction = TrieMap[String, Vector[Vector[Long]]]()
+
+    summaries.foreach(summary ⇒ {
+      functions.foreach(function ⇒ {
+        pointsPerFunction.put(function, pointsPerFunction.get(function).getOrElse(Vector.empty) :+ Vector(toSeconds(summary.timestamp), summary.get(function)))
+      })
+    })
+
+    pointsPerFunction.collect { case (functionName, points) ⇒ InfluxSeries(metricName, Vector(influxTimeKey, functionName), points) }.toSeq
   }
 
   private def buildSlice(filters: List[Filter]): Slice = {
