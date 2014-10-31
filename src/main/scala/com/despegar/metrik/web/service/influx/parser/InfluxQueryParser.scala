@@ -16,12 +16,12 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
 
   val functions = Functions.allValuesAsString
 
-  lexical.reserved += ("select", "as", "from", "where", "or", "and", "group_by_time", "limit", "between", "null", "date",
+  lexical.reserved += ("select", "as", "from", "where", "or", "and", "group_by_time", "limit", "between", "null", "date", "time", "now",
     TimeSuffixes.Seconds, TimeSuffixes.Minutes, TimeSuffixes.Hours, TimeSuffixes.Days, TimeSuffixes.Weeks)
 
   lexical.reserved ++= functions
 
-  lexical.delimiters += ("*", Operators.Lt, Operators.Eq, Operators.Neq, Operators.Lte, Operators.Gte, Operators.Gt, "(", ")", ",", ".", ";")
+  lexical.delimiters += ("*", Operators.Lt, Operators.Eq, Operators.Neq, Operators.Lte, Operators.Gte, Operators.Gt, "(", ")", ",", ".", ";", "-")
 
   def parse(influxQuery: String): Option[InfluxCriteria] = {
     log.info(s"Parsing influx query [$influxQuery]")
@@ -76,40 +76,37 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
 
   private def filterParser: Parser[List[Filter]] = "where" ~> filterExpression
 
-  private def filterExpression: Parser[List[Filter]] = rep(comparatorExpression).map(x ⇒ x.flatten)
+  private def filterExpression: Parser[List[Filter]] = rep(
+    stringComparatorExpression |
+      timestampComparatorExpression |
+      timeBetweenExpression |
+      nowMinusIntervalExpression).map(x ⇒ x.flatten)
 
-  private def comparatorExpression: Parser[List[Filter]] =
-    (ident ~ (Operators.Eq | Operators.Neq | Operators.Lt | Operators.Lte | Operators.Gt | Operators.Gte) ~ stringParser <~ opt(Operators.And) ^^ {
+  def stringComparatorExpression: Parser[List[StringFilter]] = {
+    ident ~ (Operators.Eq | Operators.Neq) ~ stringParser <~ opt(Operators.And) ^^ {
       case identifier ~ operator ~ strValue ⇒ List(StringFilter(identifier, operator, strValue))
-    }) |
-      (ident ~ (Operators.Eq | Operators.Neq | Operators.Lt | Operators.Lte | Operators.Gt | Operators.Gte) ~ numericParser <~ opt(Operators.And) ^^ {
-        case identifier ~ operator ~ longValue ⇒ List(IntervalFilter(identifier, operator, longValue))
-      }) |
-      (ident ~ "between" ~ numericParser ~ "and" ~ numericParser <~ opt(Operators.And) ^^ {
-        case identifier ~ _ ~ longValueA ~ _ ~ longValueB ⇒ List(IntervalFilter(identifier, Operators.Gte, longValueA), IntervalFilter(identifier, Operators.Lte, longValueB))
-      })
+    }
+  }
 
-  private def numericParser: Parser[Long] = numericLit ^^ { case i ⇒ i.toLong }
+  def timestampComparatorExpression: Parser[List[TimeFilter]] = {
+    "time" ~ (Operators.Lt | Operators.Lte | Operators.Gt | Operators.Gte) ~ numericParser <~ opt(Operators.And) ^^ {
+      case identifier ~ operator ~ longValue ⇒ List(TimeFilter(identifier, operator, longValue))
+    }
+  }
 
-  private def stringParser: Parser[String] = stringLit ^^ { case s ⇒ s }
+  def timeBetweenExpression: Parser[List[TimeFilter]] = {
+    "time" ~ "between" ~ numericParser ~ "and" ~ numericParser <~ opt(Operators.And) ^^ {
+      case identifier ~ _ ~ longValueA ~ _ ~ longValueB ⇒ List(TimeFilter(identifier, Operators.Gte, longValueA), TimeFilter(identifier, Operators.Lte, longValueB))
+    }
+  }
 
-  private def groupByParser: Parser[GroupBy] =
-    "group_by_time" ~> "(" ~> timeWindowParser <~ ")" ^^ (GroupBy(_))
-
-  private def numberEqualTo(n: Int): Parser[Int] =
-    elem(s"Expected number $n", _.toString == n.toString) ^^ (_.toString.toInt)
-
-  private def timeWindowParser: Parser[FiniteDuration] =
-    ((numberEqualTo(30) ~ TimeSuffixes.Seconds) | (numberEqualTo(1) ~ TimeSuffixes.Minutes) | (numberEqualTo(5) ~ TimeSuffixes.Minutes) |
-      (numberEqualTo(10) ~ TimeSuffixes.Minutes) | (numberEqualTo(30) ~ TimeSuffixes.Minutes) | (numberEqualTo(1) ~ TimeSuffixes.Hours)) ^^ {
-        case number ~ timeUnit ⇒ {
-          timeUnit match {
-            case TimeSuffixes.Seconds ⇒ new FiniteDuration(number.toLong, TimeUnit.SECONDS)
-            case TimeSuffixes.Minutes ⇒ new FiniteDuration(number.toLong, TimeUnit.MINUTES)
-            case TimeSuffixes.Hours   ⇒ new FiniteDuration(number.toLong, TimeUnit.HOURS)
-          }
-        }
+  def nowMinusIntervalExpression: Parser[List[TimeFilter]] = {
+    "time" ~ (Operators.Lt | Operators.Lte | Operators.Gt | Operators.Gte) ~ "now" ~ "(" ~ ")" ~ opt("-") ~ opt(timeSuffixParser) <~ opt(Operators.And) ^^ {
+      case identifier ~ operator ~ _ ~ _ ~ _ ~ _ ~ durationInMillis ⇒ {
+        List(TimeFilter(identifier, operator, now - durationInMillis.map(_.length).getOrElse(0L)))
       }
+    }
+  }
 
   private def timeSuffixParser: Parser[FiniteDuration] = {
     numericLit ~ (TimeSuffixes.Seconds | TimeSuffixes.Minutes | TimeSuffixes.Hours | TimeSuffixes.Days | TimeSuffixes.Weeks) ^^ {
@@ -125,5 +122,34 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
     }
   }
 
+  private def groupByParser: Parser[GroupBy] =
+    "group_by_time" ~> "(" ~> timeWindowParser <~ ")" ^^ (GroupBy(_))
+
+  private def timeWindowParser: Parser[FiniteDuration] =
+    ((numberEqualTo(30) ~ TimeSuffixes.Seconds) | (numberEqualTo(1) ~ TimeSuffixes.Minutes) | (numberEqualTo(5) ~ TimeSuffixes.Minutes) |
+      (numberEqualTo(10) ~ TimeSuffixes.Minutes) | (numberEqualTo(30) ~ TimeSuffixes.Minutes) | (numberEqualTo(1) ~ TimeSuffixes.Hours)) ^^ {
+        case number ~ timeUnit ⇒ {
+          timeUnit match {
+            case TimeSuffixes.Seconds ⇒ new FiniteDuration(number.toLong, TimeUnit.SECONDS)
+            case TimeSuffixes.Minutes ⇒ new FiniteDuration(number.toLong, TimeUnit.MINUTES)
+            case TimeSuffixes.Hours   ⇒ new FiniteDuration(number.toLong, TimeUnit.HOURS)
+          }
+        }
+      }
+
   private def limitParser: Parser[Int] = "limit" ~> numericLit ^^ (_.toInt)
+
+  protected def now: Long = System.currentTimeMillis()
+
+  private def numericParser: Parser[Long] = numericLit ^^ {
+    case i ⇒ i.toLong
+  }
+
+  private def numberEqualTo(n: Int): Parser[Int] =
+    elem(s"Expected number $n", _.toString == n.toString) ^^ (_.toString.toInt)
+
+  private def stringParser: Parser[String] = stringLit ^^ {
+    case s ⇒ s
+  }
+
 }

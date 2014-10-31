@@ -86,7 +86,7 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
     var from = -1L
     var to = System.currentTimeMillis()
     filters foreach {
-      case filter: IntervalFilter ⇒ {
+      case filter: TimeFilter ⇒ {
         filter.operator match {
           case Operators.Gt  ⇒ from = filter.value + 1
           case Operators.Gte ⇒ from = filter.value

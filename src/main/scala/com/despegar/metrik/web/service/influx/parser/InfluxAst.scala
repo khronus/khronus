@@ -94,7 +94,7 @@ case class Percentile999(name: String) extends ProjectionExpression {
 }
 
 trait Filter
-case class IntervalFilter(identifier: String, operator: String, value: Long) extends Filter
+case class TimeFilter(identifier: String = "time", operator: String, value: Long) extends Filter
 case class StringFilter(identifier: String, operator: String, value: String) extends Filter
 
 object Operators {

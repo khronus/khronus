@@ -32,11 +32,12 @@ object StatisticSummary {
     Some(Map(
       "min" -> summary.min,
       "max" -> summary.max,
-      "p50"  -> summary.p50,
-      "p80"  -> summary.p80,
-      "p90"  -> summary.p90,
-      "p95"  -> summary.p95,
-      "p99"  -> summary.p99,
+      "count" -> summary.count,
+      "p50" -> summary.p50,
+      "p80" -> summary.p80,
+      "p90" -> summary.p90,
+      "p95" -> summary.p95,
+      "p99" -> summary.p99,
       "p999" -> summary.p999))
   }
 }

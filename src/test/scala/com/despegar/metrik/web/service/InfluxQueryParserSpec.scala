@@ -15,7 +15,6 @@ import scala.concurrent.duration.FiniteDuration
 class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
   // TODO Fechas:
   //      where time > '2013-08-12 23:32:01.232' (YYYY-MM-DD HH:MM:SS.mmm)
-  //      where time > now() - 1h (s for seconds, m for minutes, h for hours, d for days and w for weeks. If no suffix is given the value is interpreted as microseconds)
   //      where time > 1388534400s
   // TODO - filter by sequence_number?
   // TODO - Where con soporte para expresiones regulares: =~ matches against, !~ doesn’t match against
@@ -24,9 +23,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
 
   test("basic Influx query should be parsed ok") {
     val query = "select aValue from metricA group by time(1h)"
-    val influxCriteriaResult = parser.parse(query)
-
-    val influxCriteria = influxCriteriaResult.get
+    val influxCriteria = parser.parse(query).get
 
     val resultedField = influxCriteria.projection.asInstanceOf[Field]
     resultedField.name should be("aValue")
@@ -44,9 +41,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
 
   test("select * should be parsed ok") {
     val query = "select * from metricA as a group by time (30s)"
-    val influxCriteriaResult = parser.parse(query)
-
-    val influxCriteria = influxCriteriaResult.get
+    val influxCriteria = parser.parse(query).get
 
     influxCriteria.projection.isInstanceOf[AllField] should be(true)
 
@@ -62,9 +57,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
 
   test("Influx query with max should be parsed ok") {
     val query = "select max(value) as maxValue from metricA group by time(1m)"
-    val influxCriteriaResult = parser.parse(query)
-
-    val influxCriteria = influxCriteriaResult.get
+    val influxCriteria = parser.parse(query).get
 
     val resultedField = influxCriteria.projection.asInstanceOf[Field]
     resultedField.name should be(Functions.Max.value)
@@ -82,9 +75,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
 
   test("Influx query with min should be parsed ok") {
     val query = "select min(value) from metricA group by time(5m)"
-    val influxCriteriaResult = parser.parse(query)
-
-    val influxCriteria = influxCriteriaResult.get
+    val influxCriteria = parser.parse(query).get
 
     val resultedField = influxCriteria.projection.asInstanceOf[Field]
     resultedField.name should be(Functions.Min.value)
@@ -92,9 +83,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
 
   test("Influx query with avg should be parsed ok") {
     val query = "select avg(value) from metricA group by time(30s)"
-    val influxCriteriaResult = parser.parse(query)
-
-    val influxCriteria = influxCriteriaResult.get
+    val influxCriteria = parser.parse(query).get
 
     val resultedField = influxCriteria.projection.asInstanceOf[Field]
     resultedField.name should be(Functions.Avg.value)
@@ -102,9 +91,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
 
   test("Influx query with count should be parsed ok") {
     val query = "select count(value) from metricA group by time(1m)"
-    val influxCriteriaResult = parser.parse(query)
-
-    val influxCriteria = influxCriteriaResult.get
+    val influxCriteria = parser.parse(query).get
 
     val resultedField = influxCriteria.projection.asInstanceOf[Field]
     resultedField.name should be(Functions.Count.value)
@@ -139,9 +126,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
 
   test("Where clause should be parsed ok") {
     val query = "select aValue from metricA where host = 'aHost' group by time(5m)"
-    val influxCriteriaResult = parser.parse(query)
-
-    val influxCriteria = influxCriteriaResult.get
+    val influxCriteria = parser.parse(query).get
 
     val resultedField = influxCriteria.projection.asInstanceOf[Field]
     resultedField.name should be("aValue")
@@ -163,9 +148,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
 
   test("Where clause with and should be parsed ok") {
     val query = "select aValue from metricA where time >= 1414508614 and time < 1414509500 group by time(10m)"
-    val influxCriteriaResult = parser.parse(query)
-
-    val influxCriteria = influxCriteriaResult.get
+    val influxCriteria = parser.parse(query).get
 
     val resultedField = influxCriteria.projection.asInstanceOf[Field]
     resultedField.name should be("aValue")
@@ -174,12 +157,12 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.table.name should be("metricA")
     influxCriteria.table.alias should be(None)
 
-    val filter1 = influxCriteria.filters(0).asInstanceOf[IntervalFilter]
+    val filter1 = influxCriteria.filters(0).asInstanceOf[TimeFilter]
     filter1.identifier should be("time")
     filter1.operator should be(Operators.Gte)
     filter1.value should be(1414508614L)
 
-    val filter2 = influxCriteria.filters(1).asInstanceOf[IntervalFilter]
+    val filter2 = influxCriteria.filters(1).asInstanceOf[TimeFilter]
     filter2.identifier should be("time")
     filter2.operator should be(Operators.Lt)
     filter2.value should be(1414509500L)
@@ -190,11 +173,52 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.limit should be(None)
   }
 
+  test("Where clauses like (now - 1h) should be parsed ok") {
+    val mockedNow = 1414767928000L
+    val mockedParser = new InfluxQueryParser() {
+      override def now: Long = mockedNow
+    }
+
+    val criteriaNow = mockedParser.parse("select aValue from metricA where time > now() group by time(10m)").get
+    val filterNow = criteriaNow.filters(0).asInstanceOf[TimeFilter]
+    filterNow.identifier should be("time")
+    filterNow.operator should be(Operators.Gt)
+    filterNow.value should be(mockedNow)
+
+    val criteriaNow20s = mockedParser.parse("select aValue from metricA where time < now() - 20s group by time(10m)").get
+    val filterNow20s = criteriaNow20s.filters(0).asInstanceOf[TimeFilter]
+    filterNow20s.identifier should be("time")
+    filterNow20s.operator should be(Operators.Lt)
+    filterNow20s.value should be(mockedNow - TimeUnit.SECONDS.toMillis(20))
+
+    val criteriaNow5m = mockedParser.parse("select aValue from metricA where time <= now() - 5m group by time(10m)").get
+    val filterNow5m = criteriaNow5m.filters(0).asInstanceOf[TimeFilter]
+    filterNow5m.identifier should be("time")
+    filterNow5m.operator should be(Operators.Lte)
+    filterNow5m.value should be(mockedNow - TimeUnit.MINUTES.toMillis(5))
+
+    val criteriaNow3h = mockedParser.parse("select aValue from metricA where time >= now() - 3h group by time(10m)").get
+    val filterNow3h = criteriaNow3h.filters(0).asInstanceOf[TimeFilter]
+    filterNow3h.identifier should be("time")
+    filterNow3h.operator should be(Operators.Gte)
+    filterNow3h.value should be(mockedNow - TimeUnit.HOURS.toMillis(3))
+
+    val criteriaNow10d = mockedParser.parse("select aValue from metricA where time >= now() - 10d group by time(10m)").get
+    val filterNow10d = criteriaNow10d.filters(0).asInstanceOf[TimeFilter]
+    filterNow10d.identifier should be("time")
+    filterNow10d.operator should be(Operators.Gte)
+    filterNow10d.value should be(mockedNow - TimeUnit.DAYS.toMillis(10))
+
+    val criteriaNow2w = mockedParser.parse("select aValue from metricA where time <= now() - 2w group by time(10m)").get
+    val filterNow2w = criteriaNow2w.filters(0).asInstanceOf[TimeFilter]
+    filterNow2w.identifier should be("time")
+    filterNow2w.operator should be(Operators.Lte)
+    filterNow2w.value should be(mockedNow - TimeUnit.DAYS.toMillis(14))
+  }
+
   test("Between clause should be parsed ok") {
     val query = "select aValue from metricA where time between 1414508614 and 1414509500 group by time(30m)"
-    val influxCriteriaResult = parser.parse(query)
-
-    val influxCriteria = influxCriteriaResult.get
+    val influxCriteria = parser.parse(query).get
 
     val resultedField = influxCriteria.projection.asInstanceOf[Field]
     resultedField.name should be("aValue")
@@ -203,12 +227,12 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.table.name should be("metricA")
     influxCriteria.table.alias should be(None)
 
-    val filter1 = influxCriteria.filters(0).asInstanceOf[IntervalFilter]
+    val filter1 = influxCriteria.filters(0).asInstanceOf[TimeFilter]
     filter1.identifier should be("time")
     filter1.operator should be(Operators.Gte)
     filter1.value should be(1414508614L)
 
-    val filter2 = influxCriteria.filters(1).asInstanceOf[IntervalFilter]
+    val filter2 = influxCriteria.filters(1).asInstanceOf[TimeFilter]
     filter2.identifier should be("time")
     filter2.operator should be(Operators.Lte)
     filter2.value should be(1414509500L)
@@ -248,9 +272,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
 
   test("Limit clause should be parsed ok") {
     val query = "select aValue from metricA group by time(1m) limit 10"
-    val influxCriteriaResult = parser.parse(query)
-
-    val influxCriteria = influxCriteriaResult.get
+    val influxCriteria = parser.parse(query).get
 
     val resultedField = influxCriteria.projection.asInstanceOf[Field]
     resultedField.name should be("aValue")
@@ -268,9 +290,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
 
   test("Full Influx query should be parsed ok") {
     val query = "select count(value) as counter from metricA where time > 1000 and time <= 5000 and host <> 'aHost' group by time(30s) limit 550;"
-    val influxCriteriaResult = parser.parse(query)
-
-    val influxCriteria = influxCriteriaResult.get
+    val influxCriteria = parser.parse(query).get
 
     val resultedField = influxCriteria.projection.asInstanceOf[Field]
     resultedField.name should be("count")
@@ -279,12 +299,12 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.table.name should be("metricA")
     influxCriteria.table.alias should be(None)
 
-    val filter1 = influxCriteria.filters(0).asInstanceOf[IntervalFilter]
+    val filter1 = influxCriteria.filters(0).asInstanceOf[TimeFilter]
     filter1.identifier should be("time")
     filter1.operator should be(Operators.Gt)
     filter1.value should be(1000L)
 
-    val filter2 = influxCriteria.filters(1).asInstanceOf[IntervalFilter]
+    val filter2 = influxCriteria.filters(1).asInstanceOf[TimeFilter]
     filter2.identifier should be("time")
     filter2.operator should be(Operators.Lte)
     filter2.value should be(5000L)
@@ -302,48 +322,37 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
 
   test("Query without projection should fail") {
     val query = "select from metricA"
-    val influxCriteriaResult = parser.parse(query)
-
-    influxCriteriaResult should be(None)
+    parser.parse(query) should be(None)
   }
 
   test("Query without from clause should fail") {
     val query = "select max(value) "
-    val influxCriteriaResult = parser.parse(query)
-
-    influxCriteriaResult should be(None)
+    parser.parse(query) should be(None)
   }
 
   test("Query without table should fail") {
     val query = "select max(value) from"
-    val influxCriteriaResult = parser.parse(query)
-
-    influxCriteriaResult should be(None)
-
+    parser.parse(query) should be(None)
   }
 
   test("Query with unclosed string literal should fail") {
     val query = "select max(value) from metricA where host = 'host"
-    val influxCriteriaResult = parser.parse(query)
-
-    influxCriteriaResult should be(None)
-
+    parser.parse(query) should be(None)
   }
 
   test("Query with unclosed parenthesis should fail") {
     val query = "select max(value) from metricA group by time(30s"
-    val influxCriteriaResult = parser.parse(query)
-
-    influxCriteriaResult should be(None)
-
+    parser.parse(query) should be(None)
   }
 
   test("Query with invalid time window should fail") {
     val query = "select max(value) from metricA group by time(3s)"
-    val influxCriteriaResult = parser.parse(query)
+    parser.parse(query) should be(None)
+  }
 
-    influxCriteriaResult should be(None)
-
+  test("Query with invalid time now expression should fail") {
+    val query = "select max(value) from metricA where time  > now() - 1j group by time(30s)"
+    parser.parse(query) should be(None)
   }
 
 }
