@@ -17,7 +17,7 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
 
   val functions = Functions.allValuesAsString
 
-  lexical.reserved += ("select", "as", "from", "where", "or", "and", "group_by_time", "limit", "between", "null", "date", "time", "now",
+  lexical.reserved += ("select", "as", "from", "where", "or", "and", "group_by_time", "limit", "between", "null", "date", "time", "now", "order", "asc", "desc",
     TimeSuffixes.Seconds, TimeSuffixes.Minutes, TimeSuffixes.Hours, TimeSuffixes.Days, TimeSuffixes.Weeks)
 
   lexical.reserved ++= functions
@@ -39,8 +39,8 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
   private def influxQueryParser: Parser[InfluxCriteria] =
     "select" ~> projectionParser ~
       tableParser ~ opt(filterParser) ~
-      groupByParser ~ opt(limitParser) <~ opt(";") ^^ {
-        case projection ~ table ~ filters ~ groupBy ~ limit ⇒ InfluxCriteria(projection, table, filters.getOrElse(Nil), groupBy, limit)
+      groupByParser ~ opt(limitParser) ~ opt(orderParser) <~ opt(";") ^^ {
+        case projection ~ table ~ filters ~ groupBy ~ limit ~ order ⇒ InfluxCriteria(projection, table, filters.getOrElse(Nil), groupBy, limit, order.getOrElse(true))
       }
 
   private def projectionParser: Parser[Seq[Projection]] =
@@ -147,6 +147,8 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
       }
 
   private def limitParser: Parser[Int] = "limit" ~> numericLit ^^ (_.toInt)
+
+  private def orderParser: Parser[Boolean] = "order" ~> ("asc" | "desc") ^^ { case o ⇒ "asc".equals(o) }
 
   protected def now: Long = System.currentTimeMillis()
 

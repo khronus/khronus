@@ -32,10 +32,11 @@ trait MetrikExceptionHandler extends Logging {
   implicit def myExceptionHandler =
     ExceptionHandler.apply {
       case e: UnsupportedOperationException ⇒ ctx ⇒ {
+        log.error(s"Handling UnsupportedOperationException ${e.getMessage()}", e)
         ctx.complete(BadRequest)
       }
       case e: Exception ⇒ ctx ⇒ {
-        log.error(e.getMessage(), e)
+        log.error(s"Handling exception ${e.getMessage()}", e)
         ctx.complete(InternalServerError)
       }
     }

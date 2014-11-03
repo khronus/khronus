@@ -37,7 +37,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
   }
 
   test("select with many projections should be parsed ok") {
-    val query = "select aValue, max(value) as maxValue, min(value) from metricA group by time(1h)"
+    val query = "select aValue max(value) as maxValue min(value) from metricA group by time(1h)"
     val influxCriteria = parser.parse(query).get
 
     influxCriteria.projections.size should be(3)
@@ -324,8 +324,16 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.limit should be(Some(10))
   }
 
+  test("Order clause should be parsed ok") {
+    val influxCriteriaAsc = parser.parse("select aValue from metricA group by time(1m) order asc").get
+    influxCriteriaAsc.orderAsc should be(true)
+
+    val influxCriteriaDesc = parser.parse("select aValue from metricA group by time(1m) order desc").get
+    influxCriteriaDesc.orderAsc should be(false)
+  }
+
   test("Full Influx query should be parsed ok") {
-    val query = "select count(value) as counter from metricA where time > 1000 and time <= 5000 and host <> 'aHost' group by time(30s) limit 550;"
+    val query = "select count(value) as counter from metricA where time > 1000 and time <= 5000 and host <> 'aHost' group by time(30s) limit 550 order desc;"
     val influxCriteria = parser.parse(query).get
 
     val resultedField = influxCriteria.projections(0).asInstanceOf[Field]
@@ -354,6 +362,8 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     influxCriteria.groupBy.duration.unit should be(TimeUnit.SECONDS)
 
     influxCriteria.limit should be(Some(550))
+
+    influxCriteria.orderAsc should be(false)
   }
 
   test("Query without projection should fail") {
@@ -392,7 +402,12 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
   }
 
   test("Select * with other projection should fail") {
-    val query = "select *, aValue from metricA group by time(30s)"
+    val query = "select * aValue from metricA group by time(30s)"
+    parser.parse(query) should be(None)
+  }
+
+  test("Select with unknown order should fail") {
+    val query = "select * from metricA group by time(30s) order inexistentOrder"
     parser.parse(query) should be(None)
   }
 

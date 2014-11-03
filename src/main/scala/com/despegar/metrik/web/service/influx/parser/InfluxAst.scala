@@ -23,7 +23,8 @@ case class InfluxCriteria(projections: Seq[Projection],
   table: Table,
   filters: List[Filter],
   groupBy: GroupBy,
-  limit: Option[Int])
+  limit: Option[Int],
+  orderAsc: Boolean = true)
 
 sealed trait Projection
 

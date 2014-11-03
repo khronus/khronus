@@ -31,6 +31,7 @@ import java.lang
 import scala.annotation.tailrec
 import scala.collection.mutable
 import com.netflix.astyanax.connectionpool.OperationResult
+import com.despegar.metrik.web.service.influx.InfluxQueryResolver.Slice
 
 trait SummaryStoreSupport[T <: Summary] {
   def summaryStore: SummaryStore[T]
@@ -97,12 +98,12 @@ trait SummaryStore[T <: Summary] extends Logging {
     }
   }
 
-  def readAll(cf: Duration, key: String, from: Long, to: Long, count: Int): Future[Seq[StatisticSummary]] = Future {
-    log.info(s"Reading from Cassandra: Cf: $cf - Key: $key - From: $from - To: $to - Max results: $count")
+  def readAll(cf: Duration, key: String, slice: Slice, count: Int): Future[Seq[StatisticSummary]] = Future {
+    log.info(s"Reading from Cassandra: Cf: $cf - Key: $key - From: ${slice.from} - To: ${slice.to} - Reverse: ${slice.reverseOrder} - Max results: $count")
 
     val query: RowQuery[String, lang.Long] = Cassandra.keyspace.prepareQuery(columnFamilies(cf))
       .getKey(key)
-      .withColumnRange(from, to, false, count)
+      .withColumnRange(slice.from, slice.to, slice.reverseOrder, count)
       .autoPaginate(true)
 
     readRecursive(Vector.newBuilder[StatisticSummary])(() ⇒ query.execute())

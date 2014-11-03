@@ -43,12 +43,12 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
 
       parser.parse(query) map {
         influxCriteria ⇒
-          val slice = buildSlice(influxCriteria.filters)
+          val slice = buildSlice(influxCriteria.filters, influxCriteria.orderAsc)
           val timeWindow: FiniteDuration = influxCriteria.groupBy.duration
           val metricName: String = influxCriteria.table.name
           val maxResults: Int = influxCriteria.limit.getOrElse(Int.MaxValue)
 
-          summaryStore.readAll(timeWindow, metricName, slice.from, slice.to, maxResults) map {
+          summaryStore.readAll(timeWindow, metricName, slice, maxResults) map {
             results ⇒ toInfluxSeries(results, influxCriteria.projections, metricName)
           }
 
@@ -79,7 +79,7 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
     pointsPerFunction.collect { case (functionName, points) ⇒ InfluxSeries(metricName, Vector(influxTimeKey, functionName), points) }.toSeq
   }
 
-  private def buildSlice(filters: List[Filter]): Slice = {
+  private def buildSlice(filters: List[Filter], ascendingOrder: Boolean): Slice = {
     var from = -1L
     var to = System.currentTimeMillis()
     filters foreach {
@@ -93,7 +93,11 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
       }
       case StringFilter(_, _, _) ⇒ //TODO
     }
-    Slice(from, to)
+
+    if (ascendingOrder)
+      Slice(from, to, false)
+    else
+      Slice(to, from, true)
   }
 
   private def toSeconds(millis: Long): Long = {
@@ -105,5 +109,6 @@ object InfluxQueryResolver {
   val ListSeries = "list series"
   val influxTimeKey = "time"
 
-  case class Slice(from: Long, to: Long)
+  case class Slice(from: Long, to: Long, reverseOrder: Boolean = false)
+
 }
