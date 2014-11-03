@@ -43,18 +43,24 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
         case projection ~ table ~ filters ~ groupBy ~ limit ⇒ InfluxCriteria(projection, table, filters.getOrElse(Nil), groupBy, limit)
       }
 
-  private def projectionParser: Parser[Projection] =
-    "*" ^^ (_ ⇒ AllField()) |
-      projectionExpressionParser ~ opt("as" ~> ident) ^^ {
-        case x ~ alias ⇒ {
-          x match {
-            case id: Identifier             ⇒ Field(id.value, alias)
-            case proj: ProjectionExpression ⇒ Field(proj.function, alias)
-          }
+  private def projectionParser: Parser[Seq[Projection]] =
+    allFieldProjectionParser |
+      rep(projectionExpressionParser).map(x ⇒ x.flatten)
+
+  private def allFieldProjectionParser: Parser[Seq[Projection]] = "*" ^^ (_ ⇒ Seq(AllField()))
+
+  private def projectionExpressionParser: Parser[Seq[Projection]] = {
+    projectionFieldOrFunctionParser ~ opt("as" ~> ident) ~ opt(",") ^^ {
+      case x ~ alias ~ _ ⇒ {
+        x match {
+          case id: Identifier             ⇒ Seq(Field(id.value, alias))
+          case proj: ProjectionExpression ⇒ Seq(Field(proj.function, alias))
         }
       }
+    }
+  }
 
-  private def projectionExpressionParser: Parser[Expression] =
+  private def projectionFieldOrFunctionParser: Parser[Expression] =
     ident ^^ (Identifier(_)) |
       knownFunctionParser
 

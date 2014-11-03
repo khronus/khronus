@@ -49,20 +49,20 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
           val maxResults: Int = influxCriteria.limit.getOrElse(Int.MaxValue)
 
           summaryStore.readAll(timeWindow, metricName, slice.from, slice.to, maxResults) map {
-            results ⇒ toInfluxSeries(results, influxCriteria.projection, metricName)
+            results ⇒ toInfluxSeries(results, influxCriteria.projections, metricName)
           }
 
       }
     }.getOrElse(throw new UnsupportedOperationException(s"Unsupported query [$query]"))
   }
 
-  private def toInfluxSeries(summaries: Seq[StatisticSummary], projection: Projection, metricName: String): Seq[InfluxSeries] = {
-    log.info(s"Building Influx series: Metric $metricName - Projection: $projection - Summaries count: ${summaries.size}")
+  private def toInfluxSeries(summaries: Seq[StatisticSummary], projections: Seq[Projection], metricName: String): Seq[InfluxSeries] = {
+    log.info(s"Building Influx series: Metric $metricName - Projections: $projections - Summaries count: ${summaries.size}")
 
-    val functions = projection match {
-      case Field(name, _) ⇒ Iterable(name)
+    val functions = projections.collect({
+      case Field(name, _) ⇒ Seq(name)
       case AllField()     ⇒ Functions.allValuesAsString
-    }
+    }).flatten
 
     buildInfluxSeries(summaries, metricName, functions)
   }

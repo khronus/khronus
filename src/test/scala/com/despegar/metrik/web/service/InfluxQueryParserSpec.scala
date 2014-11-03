@@ -22,9 +22,37 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     val query = "select aValue from metricA group by time(1h)"
     val influxCriteria = parser.parse(query).get
 
-    val resultedField = influxCriteria.projection.asInstanceOf[Field]
+    val resultedField = influxCriteria.projections(0).asInstanceOf[Field]
     resultedField.name should be("aValue")
     resultedField.alias should be(None)
+
+    influxCriteria.table.name should be("metricA")
+    influxCriteria.table.alias should be(None)
+
+    influxCriteria.groupBy.duration.length should be(1)
+    influxCriteria.groupBy.duration.unit should be(TimeUnit.HOURS)
+
+    influxCriteria.filters should be(Nil)
+    influxCriteria.limit should be(None)
+  }
+
+  test("select with many projections should be parsed ok") {
+    val query = "select aValue, max(value) as maxValue, min(value) from metricA group by time(1h)"
+    val influxCriteria = parser.parse(query).get
+
+    influxCriteria.projections.size should be(3)
+
+    val firstProjection = influxCriteria.projections(0).asInstanceOf[Field]
+    firstProjection.name should be("aValue")
+    firstProjection.alias should be(None)
+
+    val secondProjection = influxCriteria.projections(1).asInstanceOf[Field]
+    secondProjection.name should be(Functions.Max.value)
+    secondProjection.alias should be(Some("maxValue"))
+
+    val thirdProjection = influxCriteria.projections(2).asInstanceOf[Field]
+    thirdProjection.name should be(Functions.Min.value)
+    thirdProjection.alias should be(None)
 
     influxCriteria.table.name should be("metricA")
     influxCriteria.table.alias should be(None)
@@ -40,7 +68,8 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     val query = "select * from metricA as a group by time (30s)"
     val influxCriteria = parser.parse(query).get
 
-    influxCriteria.projection.isInstanceOf[AllField] should be(true)
+    influxCriteria.projections.size should be(1)
+    influxCriteria.projections(0).isInstanceOf[AllField] should be(true)
 
     influxCriteria.table.name should be("metricA")
     influxCriteria.table.alias should be(Some("a"))
@@ -56,7 +85,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     val query = "select max(value) as maxValue from metricA group by time(1m)"
     val influxCriteria = parser.parse(query).get
 
-    val resultedField = influxCriteria.projection.asInstanceOf[Field]
+    val resultedField = influxCriteria.projections(0).asInstanceOf[Field]
     resultedField.name should be(Functions.Max.value)
     resultedField.alias should be(Some("maxValue"))
 
@@ -74,7 +103,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     val query = "select min(value) from metricA group by time(5m)"
     val influxCriteria = parser.parse(query).get
 
-    val resultedField = influxCriteria.projection.asInstanceOf[Field]
+    val resultedField = influxCriteria.projections(0).asInstanceOf[Field]
     resultedField.name should be(Functions.Min.value)
   }
 
@@ -82,7 +111,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     val query = "select avg(value) from metricA group by time(30s)"
     val influxCriteria = parser.parse(query).get
 
-    val resultedField = influxCriteria.projection.asInstanceOf[Field]
+    val resultedField = influxCriteria.projections(0).asInstanceOf[Field]
     resultedField.name should be(Functions.Avg.value)
   }
 
@@ -90,33 +119,33 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     val query = "select count(value) from metricA group by time(1m)"
     val influxCriteria = parser.parse(query).get
 
-    val resultedField = influxCriteria.projection.asInstanceOf[Field]
+    val resultedField = influxCriteria.projections(0).asInstanceOf[Field]
     resultedField.name should be(Functions.Count.value)
   }
 
   test("Influx query with percentiles should be parsed ok") {
     val query50 = "select p50(value) from metricA group by time(30s)"
-    val resultedField50 = parser.parse(query50).get.projection.asInstanceOf[Field]
+    val resultedField50 = parser.parse(query50).get.projections(0).asInstanceOf[Field]
     resultedField50.name should be(Functions.Percentile50.value)
 
     val query80 = "select p80(value) from metricA group by time(30s)"
-    val resultedField80 = parser.parse(query80).get.projection.asInstanceOf[Field]
+    val resultedField80 = parser.parse(query80).get.projections(0).asInstanceOf[Field]
     resultedField80.name should be(Functions.Percentile80.value)
 
     val query90 = "select p90(value) from metricA group by time(30s)"
-    val resultedField90 = parser.parse(query90).get.projection.asInstanceOf[Field]
+    val resultedField90 = parser.parse(query90).get.projections(0).asInstanceOf[Field]
     resultedField90.name should be(Functions.Percentile90.value)
 
     val query95 = "select p95(value) from metricA group by time(30s)"
-    val resultedField95 = parser.parse(query95).get.projection.asInstanceOf[Field]
+    val resultedField95 = parser.parse(query95).get.projections(0).asInstanceOf[Field]
     resultedField95.name should be(Functions.Percentile95.value)
 
     val query99 = "select p99(value) from metricA group by time(30s)"
-    val resultedField99 = parser.parse(query99).get.projection.asInstanceOf[Field]
+    val resultedField99 = parser.parse(query99).get.projections(0).asInstanceOf[Field]
     resultedField99.name should be(Functions.Percentile99.value)
 
     val query999 = "select p999(value) from metricA group by time(30s)"
-    val resultedField999 = parser.parse(query999).get.projection.asInstanceOf[Field]
+    val resultedField999 = parser.parse(query999).get.projections(0).asInstanceOf[Field]
     resultedField999.name should be(Functions.Percentile999.value)
 
   }
@@ -125,7 +154,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     val query = "select aValue from metricA where host = 'aHost' group by time(5m)"
     val influxCriteria = parser.parse(query).get
 
-    val resultedField = influxCriteria.projection.asInstanceOf[Field]
+    val resultedField = influxCriteria.projections(0).asInstanceOf[Field]
     resultedField.name should be("aValue")
     resultedField.alias should be(None)
 
@@ -147,7 +176,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     val query = "select aValue from metricA where time >= 1414508614 and time < 1414509500 group by time(10m)"
     val influxCriteria = parser.parse(query).get
 
-    val resultedField = influxCriteria.projection.asInstanceOf[Field]
+    val resultedField = influxCriteria.projections(0).asInstanceOf[Field]
     resultedField.name should be("aValue")
     resultedField.alias should be(None)
 
@@ -227,7 +256,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     val query = "select aValue from metricA where time between 1414508614 and 1414509500s group by time(30m)"
     val influxCriteria = parser.parse(query).get
 
-    val resultedField = influxCriteria.projection.asInstanceOf[Field]
+    val resultedField = influxCriteria.projections(0).asInstanceOf[Field]
     resultedField.name should be("aValue")
     resultedField.alias should be(None)
 
@@ -281,7 +310,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     val query = "select aValue from metricA group by time(1m) limit 10"
     val influxCriteria = parser.parse(query).get
 
-    val resultedField = influxCriteria.projection.asInstanceOf[Field]
+    val resultedField = influxCriteria.projections(0).asInstanceOf[Field]
     resultedField.name should be("aValue")
     resultedField.alias should be(None)
 
@@ -299,7 +328,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     val query = "select count(value) as counter from metricA where time > 1000 and time <= 5000 and host <> 'aHost' group by time(30s) limit 550;"
     val influxCriteria = parser.parse(query).get
 
-    val resultedField = influxCriteria.projection.asInstanceOf[Field]
+    val resultedField = influxCriteria.projections(0).asInstanceOf[Field]
     resultedField.name should be("count")
     resultedField.alias should be(Some("counter"))
 
@@ -359,6 +388,11 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
 
   test("Query with invalid time now expression should fail") {
     val query = "select max(value) from metricA where time  > now() - 1j group by time(30s)"
+    parser.parse(query) should be(None)
+  }
+
+  test("Select * with other projection should fail") {
+    val query = "select *, aValue from metricA group by time(30s)"
     parser.parse(query) should be(None)
   }
 

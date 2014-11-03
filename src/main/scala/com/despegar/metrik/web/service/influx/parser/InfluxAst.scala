@@ -19,7 +19,7 @@ package com.despegar.metrik.web.service.influx.parser
 import com.despegar.metrik.model.Functions
 import scala.concurrent.duration.FiniteDuration
 
-case class InfluxCriteria(projection: Projection,
+case class InfluxCriteria(projections: Seq[Projection],
   table: Table,
   filters: List[Filter],
   groupBy: GroupBy,
