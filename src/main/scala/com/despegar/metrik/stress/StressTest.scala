@@ -2,6 +2,7 @@ package com.despegar.metrik.stress
 
 import java.util.concurrent.Executors
 import akka.actor.{ Props, ActorSystem }
+import com.typesafe.config.ConfigFactory
 import spray.http._
 import spray.client.pipelining._
 
@@ -15,7 +16,15 @@ import spray.client.pipelining._
 import MetricBatchProtocol._
 
 object StressTest extends App {
-  implicit val system = ActorSystem("StressActorSystem")
+  implicit val system = ActorSystem("StressActorSystem", ConfigFactory.parseString(
+    """
+      |akka {
+      |  loglevel = INFO
+      |  stdout-loglevel = DEBUG
+      |  event-handlers = ["akka.event.Logging$DefaultLogger"]
+      |}
+    """.stripMargin))
+
   import system.dispatcher // execution context for futures
 
   doIt()
