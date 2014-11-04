@@ -26,51 +26,18 @@ case class InfluxCriteria(projections: Seq[Projection],
   limit: Option[Int],
   orderAsc: Boolean = true)
 
+// SELECT
 sealed trait Projection
 
 case class Field(name: String, alias: Option[String]) extends Projection
 case class AllField() extends Projection
 
-case class Identifier(value: String) extends Expression
+case class Identifier(value: String)
 
+// FROM
 case class Table(name: String, alias: Option[String])
 
-trait Expression
-
-trait ProjectionExpression extends Expression {
-  def function: String
-}
-case class Count(name: String) extends ProjectionExpression {
-  override def function = Functions.Count
-}
-case class Avg(name: String) extends ProjectionExpression {
-  override def function = Functions.Avg
-}
-case class Min(name: String) extends ProjectionExpression {
-  override def function = Functions.Min
-}
-case class Max(name: String) extends ProjectionExpression {
-  override def function = Functions.Max
-}
-case class Percentile50(name: String) extends ProjectionExpression {
-  override def function = Functions.Percentile50
-}
-case class Percentile80(name: String) extends ProjectionExpression {
-  override def function = Functions.Percentile80
-}
-case class Percentile90(name: String) extends ProjectionExpression {
-  override def function = Functions.Percentile90
-}
-case class Percentile95(name: String) extends ProjectionExpression {
-  override def function = Functions.Percentile95
-}
-case class Percentile99(name: String) extends ProjectionExpression {
-  override def function = Functions.Percentile99
-}
-case class Percentile999(name: String) extends ProjectionExpression {
-  override def function = Functions.Percentile999
-}
-
+// WHERE
 trait Filter
 case class TimeFilter(identifier: String = "time", operator: String, value: Long) extends Filter
 case class StringFilter(identifier: String, operator: String, value: String) extends Filter
@@ -85,6 +52,7 @@ object Operators {
   val Lt = "<"
 }
 
+// GROUP BY
 case class GroupBy(duration: FiniteDuration) {
   override def toString = s"group by $duration"
 }

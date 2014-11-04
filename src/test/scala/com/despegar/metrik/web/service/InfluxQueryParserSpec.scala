@@ -47,11 +47,11 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     firstProjection.alias should be(None)
 
     val secondProjection = influxCriteria.projections(1).asInstanceOf[Field]
-    secondProjection.name should be(Functions.Max.value)
+    secondProjection.name should be(Functions.Max.name)
     secondProjection.alias should be(Some("maxValue"))
 
     val thirdProjection = influxCriteria.projections(2).asInstanceOf[Field]
-    thirdProjection.name should be(Functions.Min.value)
+    thirdProjection.name should be(Functions.Min.name)
     thirdProjection.alias should be(None)
 
     influxCriteria.table.name should be("metricA")
@@ -86,7 +86,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     val influxCriteria = parser.parse(query).get
 
     val resultedField = influxCriteria.projections(0).asInstanceOf[Field]
-    resultedField.name should be(Functions.Max.value)
+    resultedField.name should be(Functions.Max.name)
     resultedField.alias should be(Some("maxValue"))
 
     influxCriteria.table.name should be("metricA")
@@ -104,7 +104,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     val influxCriteria = parser.parse(query).get
 
     val resultedField = influxCriteria.projections(0).asInstanceOf[Field]
-    resultedField.name should be(Functions.Min.value)
+    resultedField.name should be(Functions.Min.name)
   }
 
   test("Influx query with avg should be parsed ok") {
@@ -112,7 +112,7 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     val influxCriteria = parser.parse(query).get
 
     val resultedField = influxCriteria.projections(0).asInstanceOf[Field]
-    resultedField.name should be(Functions.Avg.value)
+    resultedField.name should be(Functions.Avg.name)
   }
 
   test("Influx query with count should be parsed ok") {
@@ -120,34 +120,59 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
     val influxCriteria = parser.parse(query).get
 
     val resultedField = influxCriteria.projections(0).asInstanceOf[Field]
-    resultedField.name should be(Functions.Count.value)
+    resultedField.name should be(Functions.Count.name)
   }
 
   test("Influx query with percentiles should be parsed ok") {
     val query50 = "select p50(value) from metricA group by time(30s)"
     val resultedField50 = parser.parse(query50).get.projections(0).asInstanceOf[Field]
-    resultedField50.name should be(Functions.Percentile50.value)
+    resultedField50.name should be(Functions.Percentile50.name)
 
     val query80 = "select p80(value) from metricA group by time(30s)"
     val resultedField80 = parser.parse(query80).get.projections(0).asInstanceOf[Field]
-    resultedField80.name should be(Functions.Percentile80.value)
+    resultedField80.name should be(Functions.Percentile80.name)
 
     val query90 = "select p90(value) from metricA group by time(30s)"
     val resultedField90 = parser.parse(query90).get.projections(0).asInstanceOf[Field]
-    resultedField90.name should be(Functions.Percentile90.value)
+    resultedField90.name should be(Functions.Percentile90.name)
 
     val query95 = "select p95(value) from metricA group by time(30s)"
     val resultedField95 = parser.parse(query95).get.projections(0).asInstanceOf[Field]
-    resultedField95.name should be(Functions.Percentile95.value)
+    resultedField95.name should be(Functions.Percentile95.name)
 
     val query99 = "select p99(value) from metricA group by time(30s)"
     val resultedField99 = parser.parse(query99).get.projections(0).asInstanceOf[Field]
-    resultedField99.name should be(Functions.Percentile99.value)
+    resultedField99.name should be(Functions.Percentile99.name)
 
     val query999 = "select p999(value) from metricA group by time(30s)"
     val resultedField999 = parser.parse(query999).get.projections(0).asInstanceOf[Field]
-    resultedField999.name should be(Functions.Percentile999.value)
+    resultedField999.name should be(Functions.Percentile999.name)
 
+  }
+
+  test("All Percentiles function should be parsed ok") {
+    val queryAllPercentiles = "select percentiles() from metricA group by time(30s)"
+    val projections = parser.parse(queryAllPercentiles).get.projections
+
+    projections.size should be(6)
+
+    projections(0).asInstanceOf[Field].name should be(Functions.Percentile50.name)
+    projections(1).asInstanceOf[Field].name should be(Functions.Percentile80.name)
+    projections(2).asInstanceOf[Field].name should be(Functions.Percentile90.name)
+    projections(3).asInstanceOf[Field].name should be(Functions.Percentile95.name)
+    projections(4).asInstanceOf[Field].name should be(Functions.Percentile99.name)
+    projections(5).asInstanceOf[Field].name should be(Functions.Percentile999.name)
+  }
+
+  test("Some Percentiles function should be parsed ok") {
+    val queryPercentiles = "select percentiles(80 99 50) from metricA group by time(30s)"
+    val projections = parser.parse(queryPercentiles).get.projections
+
+    projections.size should be(3)
+
+    projections(0).asInstanceOf[Field].name should be(Functions.Percentile80.name)
+    projections(1).asInstanceOf[Field].name should be(Functions.Percentile99.name)
+    projections(2).asInstanceOf[Field].name should be(Functions.Percentile50.name)
   }
 
   test("Where clause should be parsed ok") {
@@ -408,6 +433,11 @@ class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
 
   test("Select with unknown order should fail") {
     val query = "select * from metricA group by time(30s) order inexistentOrder"
+    parser.parse(query) should be(None)
+  }
+
+  test("Select with invalid percentile function should fail") {
+    val query = "select percentiles(12) from metricA group by time(30s)"
     parser.parse(query) should be(None)
   }
 

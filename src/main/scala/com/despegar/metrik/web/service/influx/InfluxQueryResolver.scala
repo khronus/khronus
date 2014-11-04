@@ -61,7 +61,7 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
 
     val functions = projections.collect({
       case Field(name, _) ⇒ Seq(name)
-      case AllField()     ⇒ Functions.allValuesAsString
+      case AllField()     ⇒ Functions.allNames
     }).flatten
 
     buildInfluxSeries(summaries, metricName, functions)

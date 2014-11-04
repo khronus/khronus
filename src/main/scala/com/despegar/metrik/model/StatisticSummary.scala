@@ -37,24 +37,37 @@ object StatisticSummary {
 
 object Functions {
   sealed trait Function {
-    def value: String
+    def name: String
   }
 
-  case object Count extends Functions.Function { val value = "count" }
-  case object Min extends Functions.Function { val value = "min" }
-  case object Max extends Functions.Function { val value = "max" }
-  case object Avg extends Functions.Function { val value = "avg" }
-  case object Percentile50 extends Functions.Function { val value = "p50" }
-  case object Percentile80 extends Functions.Function { val value = "p80" }
-  case object Percentile90 extends Functions.Function { val value = "p90" }
-  case object Percentile95 extends Functions.Function { val value = "p95" }
-  case object Percentile99 extends Functions.Function { val value = "p99" }
-  case object Percentile999 extends Functions.Function { val value = "p999" }
+  sealed trait Percentile extends Function {
+    def name: String
+    def value: Int
+  }
 
-  val allValues: Seq[Function] = Seq(Count, Min, Max, Avg, Percentile50, Percentile80, Percentile90, Percentile95, Percentile99, Percentile999)
-  val allValuesAsString: Seq[String] = allValues.map(_.value)
+  case object Count extends Functions.Function { val name = "count" }
+  case object Min extends Functions.Function { val name = "min" }
+  case object Max extends Functions.Function { val name = "max" }
+  case object Avg extends Functions.Function { val name = "avg" }
+  case object Percentile50 extends Functions.Percentile { val name = "p50"; val value = 50 }
+  case object Percentile80 extends Functions.Percentile { val name = "p80"; val value = 80 }
+  case object Percentile90 extends Functions.Percentile { val name = "p90"; val value = 90 }
+  case object Percentile95 extends Functions.Percentile { val name = "p95"; val value = 95 }
+  case object Percentile99 extends Functions.Percentile { val name = "p99"; val value = 99 }
+  case object Percentile999 extends Functions.Percentile { val name = "p999"; val value = 999 }
 
-  def withName(s: String): Function = allValues.find(_.toString == s).get
+  val allPercentiles: Seq[Percentile] = Seq(Percentile50, Percentile80, Percentile90, Percentile95, Percentile99, Percentile999)
 
-  implicit def influxFunctions2Value(function: Functions.Function) = function.value
+  val allPercentileNames: Seq[String] = allPercentiles.map(_.name)
+
+  val allPercentilesValues: Seq[Int] = allPercentiles.map(_.value)
+
+  def percentileByValue(i: Int): Function = allPercentiles.find(_.value == i).get
+
+  val all: Seq[Function] = Seq(Count, Min, Max, Avg) ++ allPercentiles
+  val allNames: Seq[String] = all.map(_.name)
+
+  def withName(s: String): Function = all.find(_.name == s).get
+
+  implicit def influxFunctions2Value(function: Functions.Function) = function.name
 }

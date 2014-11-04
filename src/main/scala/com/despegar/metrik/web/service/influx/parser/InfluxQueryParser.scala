@@ -15,9 +15,9 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
 
   override val lexical = new InfluxLexical
 
-  val functions = Functions.allValuesAsString
+  val functions = Functions.allNames
 
-  lexical.reserved += ("select", "as", "from", "where", "or", "and", "group_by_time", "limit", "between", "null", "date", "time", "now", "order", "asc", "desc",
+  lexical.reserved += ("select", "as", "from", "where", "or", "and", "group_by_time", "limit", "between", "null", "date", "time", "now", "order", "asc", "desc", "percentiles",
     TimeSuffixes.Seconds, TimeSuffixes.Minutes, TimeSuffixes.Hours, TimeSuffixes.Days, TimeSuffixes.Weeks)
 
   lexical.reserved ++= functions
@@ -50,31 +50,31 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
   private def allFieldProjectionParser: Parser[Seq[Projection]] = "*" ^^ (_ ⇒ Seq(AllField()))
 
   private def projectionExpressionParser: Parser[Seq[Projection]] = {
-    projectionFieldOrFunctionParser ~ opt("as" ~> ident) ~ opt(",") ^^ {
+    (ident ^^ (Identifier(_)) | knownFunctionParser | percentilesFunctionParser) ~ opt("as" ~> ident) ~ opt(",") ^^ {
       case x ~ alias ~ _ ⇒ {
         x match {
-          case id: Identifier             ⇒ Seq(Field(id.value, alias))
-          case proj: ProjectionExpression ⇒ Seq(Field(proj.function, alias))
+          case id: Identifier                                ⇒ Seq(Field(id.value, alias))
+          case functions: Seq[Functions.Function @unchecked] ⇒ functions.map(f ⇒ Field(f.name, alias))
         }
       }
     }
   }
 
-  private def projectionFieldOrFunctionParser: Parser[Expression] =
-    ident ^^ (Identifier(_)) |
-      knownFunctionParser
+  private def knownFunctionParser: Parser[Seq[Functions.Function]] = {
+    elem(s"Expected some function", { e ⇒ Functions.allNames.contains(e.chars.toString) }) <~ "(" <~ ident <~ ")" ^^ {
+      case f ⇒ Seq(Functions.withName(f.chars.toString))
+    }
+  }
 
-  private def knownFunctionParser: Parser[Expression] =
-    Functions.Count.value ~> "(" ~> ident <~ ")" ^^ (Count(_)) |
-      Functions.Min.value ~> "(" ~> ident <~ ")" ^^ (Min(_)) |
-      Functions.Max.value ~> "(" ~> ident <~ ")" ^^ (Max(_)) |
-      Functions.Avg.value ~> "(" ~> ident <~ ")" ^^ (Avg(_)) |
-      Functions.Percentile50.value ~> "(" ~> ident <~ ")" ^^ (Percentile50(_)) |
-      Functions.Percentile80.value ~> "(" ~> ident <~ ")" ^^ (Percentile80(_)) |
-      Functions.Percentile90.value ~> "(" ~> ident <~ ")" ^^ (Percentile90(_)) |
-      Functions.Percentile95.value ~> "(" ~> ident <~ ")" ^^ (Percentile95(_)) |
-      Functions.Percentile99.value ~> "(" ~> ident <~ ")" ^^ (Percentile99(_)) |
-      Functions.Percentile999.value ~> "(" ~> ident <~ ")" ^^ (Percentile999(_))
+  private def percentilesFunctionParser: Parser[Seq[Functions.Function]] = {
+    "percentiles" ~> "(" ~> rep(validPercentilesParser) <~ ")" ^^ {
+      case Nil                 ⇒ Functions.allPercentiles
+      case selectedPercentiles ⇒ selectedPercentiles.collect { case p ⇒ Functions.percentileByValue(p) }
+    }
+  }
+
+  private def validPercentilesParser: Parser[Int] =
+    elem(s"Expected some valid percentile", { e ⇒ e.chars.forall(_.isDigit) && Functions.allPercentilesValues.contains(e.chars.toInt) }) ^^ (_.chars.toInt)
 
   private def tableParser: Parser[Table] =
     "from" ~> ident ~ opt("as") ~ opt(ident) ^^ {
