@@ -19,8 +19,9 @@ package com.despegar.metrik.web.service
 import akka.actor.Actor
 import spray.routing._
 import spray.http.StatusCodes._
-import com.despegar.metrik.web.service.influx.InfluxService
+import com.despegar.metrik.web.service.influx.{ CORSSupport, InfluxService }
 import com.despegar.metrik.util.Logging
+import spray.httpx.marshalling.ToResponseMarshaller
 
 class HandlerActor extends Actor with MetrikExceptionHandler with MetricsService with VersionService with InfluxService {
   def actorRefFactory = context
@@ -29,16 +30,20 @@ class HandlerActor extends Actor with MetrikExceptionHandler with MetricsService
 
 trait MetrikExceptionHandler extends Logging {
 
-  implicit def myExceptionHandler =
+  implicit def myExceptionHandler: ExceptionHandler =
     ExceptionHandler.apply {
       case e: UnsupportedOperationException ⇒ ctx ⇒ {
         log.error(s"Handling UnsupportedOperationException ${e.getMessage()}", e)
-        ctx.complete(BadRequest)
+        responseWithCORSHeaders(ctx, (BadRequest, s"${e.getMessage()}"))
       }
       case e: Exception ⇒ ctx ⇒ {
-        log.error(s"Handling exception ${e.getMessage()}", e)
-        ctx.complete(InternalServerError)
+        log.error(s"Handling Exception ${e.getMessage()}", e)
+        responseWithCORSHeaders(ctx, InternalServerError)
       }
     }
+
+  private def responseWithCORSHeaders[T](ctx: RequestContext, response: T)(implicit marshaller: ToResponseMarshaller[T]) = {
+    ctx.withHttpResponseHeadersMapped(_ ⇒ CORSSupport.headers).complete(response)(marshaller)
+  }
 
 }

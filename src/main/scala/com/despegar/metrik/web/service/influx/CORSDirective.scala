@@ -24,16 +24,22 @@ import spray.routing._
 trait CORSSupport extends Directives {
   this: HttpService ⇒
 
-  private val CORSHeaders = List(
-    `Access-Control-Allow-Methods`(GET, POST, PUT, DELETE, OPTIONS),
-    `Access-Control-Allow-Headers`("Origin, X-Requested-With, Content-Type, Accept, Accept-Encoding, Accept-Language, Host, Referer, User-Agent"),
-    `Access-Control-Allow-Credentials`(true))
+  import CORSSupport._
 
   def respondWithCORS(routes: ⇒ Route) = {
-    val originHeader = `Access-Control-Allow-Origin`(AllOrigins)
-
-    respondWithHeaders(originHeader :: CORSHeaders) {
+    respondWithHeaders(headers) {
       routes ~ options { complete(StatusCodes.OK) }
     }
   }
+
+}
+
+object CORSSupport {
+
+  val headers: List[HttpHeader] = List(
+    `Access-Control-Allow-Methods`(GET, POST, PUT, DELETE, OPTIONS),
+    `Access-Control-Allow-Headers`("Origin, X-Requested-With, Content-Type, Accept, Accept-Encoding, Accept-Language, Host, Referer, User-Agent"),
+    `Access-Control-Allow-Credentials`(true),
+    `Access-Control-Allow-Origin`(AllOrigins))
+
 }

@@ -24,15 +24,15 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
 
   lexical.delimiters += ("*", Operators.Lt, Operators.Eq, Operators.Neq, Operators.Lte, Operators.Gte, Operators.Gt, "(", ")", ",", ".", ";", "-")
 
-  def parse(influxQuery: String): Option[InfluxCriteria] = {
+  def parse(influxQuery: String): InfluxCriteria = {
     log.info(s"Parsing influx query [$influxQuery]")
 
     // TODO - Hack because of conflict: group by time & time as identifier
     val queryToParse = influxQuery.replace("group by time", "group_by_time")
 
     phrase(influxQueryParser)(new lexical.Scanner(queryToParse)) match {
-      case Success(r, q) ⇒ Option(r)
-      case x             ⇒ log.error(s"Error parsing query [$influxQuery]: $x"); None
+      case Success(r, q) ⇒ r
+      case x             ⇒ log.error(s"Error parsing query [$influxQuery]: $x"); throw new UnsupportedOperationException(s"Unsupported query [$influxQuery]: $x")
     }
   }
 

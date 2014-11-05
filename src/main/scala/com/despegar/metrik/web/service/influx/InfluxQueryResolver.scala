@@ -25,6 +25,7 @@ import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.TimeUnit
 import scala.collection.concurrent.TrieMap
+
 trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
   this: InfluxService ⇒
 
@@ -41,24 +42,22 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
     } else {
       log.info(s"Executing query [$query]")
 
-      parser.parse(query) map {
-        influxCriteria ⇒
-          val slice = buildSlice(influxCriteria.filters, influxCriteria.orderAsc)
-          val timeWindow: FiniteDuration = influxCriteria.groupBy.duration
-          val metricName: String = influxCriteria.table.name
-          val maxResults: Int = influxCriteria.limit.getOrElse(Int.MaxValue)
+      val influxCriteria = parser.parse(query)
 
-          summaryStore.readAll(timeWindow, metricName, slice, maxResults) map {
-            results ⇒ toInfluxSeries(results, influxCriteria.projections, metricName)
-          }
+      val slice = buildSlice(influxCriteria.filters, influxCriteria.orderAsc)
+      val timeWindow: FiniteDuration = influxCriteria.groupBy.duration
+      val metricName: String = influxCriteria.table.name
+      val maxResults: Int = influxCriteria.limit.getOrElse(Int.MaxValue)
 
+      summaryStore.readAll(timeWindow, metricName, slice, maxResults) map {
+        results ⇒ toInfluxSeries(results, influxCriteria.projections, metricName)
       }
-    }.getOrElse(throw new UnsupportedOperationException(s"Unsupported query [$query]"))
+
+    }
   }
 
   private def toInfluxSeries(summaries: Seq[StatisticSummary], projections: Seq[Projection], metricName: String): Seq[InfluxSeries] = {
     log.info(s"Building Influx series: Metric $metricName - Projections: $projections - Summaries count: ${summaries.size}")
-
     val functions = projections.collect({
       case Field(name, _) ⇒ Seq(name)
       case AllField()     ⇒ Functions.allNames
@@ -76,7 +75,9 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
       })
     })
 
-    pointsPerFunction.collect { case (functionName, points) ⇒ InfluxSeries(metricName, Vector(influxTimeKey, functionName), points) }.toSeq
+    pointsPerFunction.collect {
+      case (functionName, points) ⇒ InfluxSeries(metricName, Vector(influxTimeKey, functionName), points)
+    }.toSeq
   }
 
   private def buildSlice(filters: List[Filter], ascendingOrder: Boolean): Slice = {
