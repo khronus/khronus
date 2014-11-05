@@ -28,7 +28,6 @@ trait BucketStore[T <: Bucket] extends Logging {
   lazy val columnFamilies = windowDurations.map(duration ⇒ (duration, ColumnFamily.newColumnFamily(getColumnFamilyName(duration), StringSerializer.get(), LongSerializer.get()))).toMap
 
   def getColumnFamilyName(duration: Duration): String
-
   def toBucket(windowDuration: Duration)(column: Column[java.lang.Long]): T
 
   def initialize = columnFamilies.foreach(cf ⇒ Cassandra.createColumnFamily(cf._2))
