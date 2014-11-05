@@ -7,6 +7,7 @@ import com.netflix.astyanax.model.Column
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import com.despegar.metrik.util.Settings
+import com.despegar.metrik.model.Timestamp
 
 trait CounterBucketStoreSupport extends BucketStoreSupport[CounterBucket] {
   override def bucketStore: BucketStore[CounterBucket] = CassandraCounterBucketStore
@@ -27,7 +28,7 @@ object CassandraCounterBucketStore extends BucketStore[CounterBucket] {
   override def toBucket(windowDuration: Duration)(column: Column[java.lang.Long]): CounterBucket = {
     val timestamp = column.getName()
     val counter = deserialize(column.getByteBufferValue)
-    new CounterBucket(timestamp / windowDuration.toMillis, windowDuration, counter.counts)
+    new CounterBucket(Timestamp(timestamp).toBucketNumber(windowDuration), counter.counts)
   }
 
   override def serializeBucket(metric: Metric, windowDuration: Duration, bucket: CounterBucket): ByteBuffer = {

@@ -25,6 +25,7 @@ import org.HdrHistogram.Histogram
 import scala.concurrent.duration._
 import com.despegar.metrik.util.Settings
 import com.despegar.metrik.model.Metric
+import com.despegar.metrik.model.Timestamp
 
 trait HistogramBucketSupport extends BucketStoreSupport[HistogramBucket] {
   override def bucketStore: BucketStore[HistogramBucket] = CassandraHistogramBucketStore
@@ -37,7 +38,7 @@ object CassandraHistogramBucketStore extends BucketStore[HistogramBucket] with L
   override def toBucket(windowDuration: Duration)(column: Column[java.lang.Long]) = {
     val timestamp = column.getName()
     val histogram = deserializeHistogram(column.getByteBufferValue)
-    new HistogramBucket(timestamp / windowDuration.toMillis, windowDuration, histogram)
+    new HistogramBucket(Timestamp(timestamp).toBucketNumber(windowDuration), histogram)
   }
 
   override def getColumnFamilyName(duration: Duration) = s"histogramBucket${duration.length}${duration.unit}"

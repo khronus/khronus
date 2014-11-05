@@ -72,7 +72,7 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
 
     summaries.foreach(summary ⇒ {
       functions.foreach(function ⇒ {
-        pointsPerFunction.put(function, pointsPerFunction.getOrElse(function, Vector.empty) :+ Vector(toSeconds(summary.timestamp), summary.get(function)))
+        pointsPerFunction.put(function, pointsPerFunction.getOrElse(function, Vector.empty) :+ Vector(toSeconds(summary.timestamp.ms), summary.get(function)))
       })
     })
 
