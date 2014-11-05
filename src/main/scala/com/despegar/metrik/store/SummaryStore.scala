@@ -73,7 +73,7 @@ trait SummaryStore[T <: Summary] extends Logging {
         val mutation = Cassandra.keyspace.prepareMutationBatch()
         val columns = mutation.withRow(columnFamilies(windowDuration), getKey(metric, windowDuration))
         summaries.foreach(summary ⇒ {
-          columns.putColumn(summary.getTimestamp, serializeSummary(summary))
+          columns.putColumn(summary.timestamp.ms, serializeSummary(summary))
         })
 
         mutation.execute

@@ -19,7 +19,7 @@ import org.HdrHistogram.Histogram
 
 import scala.concurrent.duration.Duration
 
-class HistogramBucket(override val bucketNumber: Long, override val duration: Duration, val histogram: Histogram) extends Bucket(bucketNumber, duration) {
+class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Histogram) extends Bucket(bucketNumber) {
 
   override def summary: StatisticSummary = {
     val p50 = histogram.getValueAtPercentile(50)

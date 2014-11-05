@@ -9,6 +9,9 @@ import org.scalatest.{FunSuite, Matchers}
 import scala.concurrent.duration._
 import scala.util.Random
 import com.despegar.metrik.model.Metric
+import com.despegar.metrik.model.Timestamp._
+import com.despegar.metrik.model.BucketNumber._
+import com.despegar.metrik.model.Timestamp
 
 class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTest with Matchers {
 
@@ -17,10 +20,10 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
   test("should store and retrieve buckets properly") {
     val histogram = HistogramBucket.newHistogram
     fill(histogram)
-    val histogramBucket = new HistogramBucket(30, 30 seconds, histogram)
+    val histogramBucket = new HistogramBucket((30, 30 seconds), histogram)
     await { CassandraHistogramBucketStore.store(testMetric, 30 seconds, Seq(histogramBucket)) }
 
-    val executionTimestamp = histogramBucket.bucketNumber * histogramBucket.duration.toMillis
+    val executionTimestamp:Timestamp = histogramBucket.bucketNumber.toTimestamp()
     val bucketsFromCassandra = await {CassandraHistogramBucketStore.sliceUntil(testMetric, executionTimestamp, 30 seconds) }
     val bucketFromCassandra = bucketsFromCassandra(0)
 
@@ -30,8 +33,8 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
   test("should not retrieve buckets from the future") {
     val histogram = HistogramBucket.newHistogram
     val futureBucket = System.currentTimeMillis() + 60000 / (30 seconds).toMillis
-    val bucketFromTheFuture = new HistogramBucket(futureBucket, 30 seconds, histogram)
-    val bucketFromThePast = new HistogramBucket(30, 30 seconds, histogram)
+    val bucketFromTheFuture = new HistogramBucket((futureBucket, 30 seconds), histogram)
+    val bucketFromThePast = new HistogramBucket((30, 30 seconds), histogram)
     
     val buckets = Seq(bucketFromThePast, bucketFromTheFuture)
     
@@ -44,8 +47,8 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
   }
   
   test("should remove buckets") {
-    val bucket1 = new HistogramBucket(1, 30 seconds, HistogramBucket.newHistogram)
-    val bucket2 = new HistogramBucket(2, 30 seconds, HistogramBucket.newHistogram)
+    val bucket1 = new HistogramBucket((1, 30 seconds), HistogramBucket.newHistogram)
+    val bucket2 = new HistogramBucket((2, 30 seconds), HistogramBucket.newHistogram)
     
     await { CassandraHistogramBucketStore.store(testMetric, 30 seconds, Seq(bucket1, bucket2)) }
     

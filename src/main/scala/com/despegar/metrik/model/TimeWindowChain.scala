@@ -17,7 +17,7 @@
 package com.despegar.metrik.model
 
 import com.despegar.metrik.store.MetaSupport
-import com.despegar.metrik.util.{ BucketUtils, Logging, Settings }
+import com.despegar.metrik.util.{ Logging, Settings }
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -33,7 +33,7 @@ class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport {
   }
 
   def process(metric: Metric): Future[Seq[Any]] = {
-    val executionTimestamp = System.currentTimeMillis() - Settings().Window.ExecutionDelay
+    val executionTimestamp = Timestamp(System.currentTimeMillis() - Settings().Window.ExecutionDelay)
     log.debug(s"Processing windows for $metric")
 
     val windows: Seq[TimeWindow[_, _]] = metric.mtype match {
@@ -41,14 +41,14 @@ class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport {
       case "counter" ⇒ countersWindows
     }
 
-    val timestampAligned = BucketUtils.getCurrentBucketTimestamp(windows(0).duration, executionTimestamp)
-
-    val sequence = Future.sequence(Seq(processInChain(windows filter (mustExecute(_, metric, timestampAligned)), metric, executionTimestamp, 0)))
+    val sequence = Future.sequence(Seq(processInChain(windows, metric, executionTimestamp, 0)))
     sequence onSuccess {
-      case _ ⇒ metaStore.update(metric, timestampAligned)
+      case _ ⇒ metaStore.update(metric, executionTimestamp.alignedTo(firstDuration(windows)))
     }
     sequence
   }
+
+  private def firstDuration(windows: Seq[TimeWindow[_, _]]) = windows(0).duration
 
   def processInChain(windows: Seq[TimeWindow[_, _]], metric: Metric, executionTimestamp: Long, index: Int): Future[Unit] = {
     if (windows.size > 0 ) {

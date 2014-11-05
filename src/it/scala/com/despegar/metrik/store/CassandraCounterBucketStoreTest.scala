@@ -5,8 +5,10 @@ import com.despegar.metrik.util.BaseIntegrationTest
 import com.netflix.astyanax.connectionpool.OperationResult
 import com.netflix.astyanax.model.ColumnFamily
 import org.scalatest.{FunSuite, Matchers}
-
 import scala.concurrent.duration._
+import com.despegar.metrik.model.Timestamp._
+import com.despegar.metrik.model.BucketNumber._
+import com.despegar.metrik.model.Timestamp
 
 class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest with Matchers {
 
@@ -17,10 +19,10 @@ class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest 
   }
 
   test("should store and retrieve buckets properly") {
-    val counter = new CounterBucket(250L, 30 seconds, 200L)
+    val counter = new CounterBucket((250L, 30 seconds), 200L)
     await { CassandraCounterBucketStore.store(testMetric, 30 seconds, Seq(counter)) }
 
-    val executionTimestamp = counter.bucketNumber * counter.duration.toMillis
+    val executionTimestamp = counter.bucketNumber.toTimestamp()
     val bucketsFromCassandra = await {CassandraCounterBucketStore.sliceUntil(testMetric, executionTimestamp, 30 seconds) }
     val bucketFromCassandra = bucketsFromCassandra(0)
 
@@ -29,8 +31,8 @@ class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest 
 
   test("should not retrieve buckets from the future") {
     val futureBucket = (System.currentTimeMillis() + 60000) / (30 seconds).toMillis
-    val bucketFromTheFuture = new CounterBucket(futureBucket, 30 seconds, 200L)
-    val bucketFromThePast = new CounterBucket(250L, 30 seconds, 200L)
+    val bucketFromTheFuture = new CounterBucket((futureBucket, 30 seconds), 200L)
+    val bucketFromThePast = new CounterBucket((250L, 30 seconds), 200L)
 
     val buckets = Seq(bucketFromThePast, bucketFromTheFuture)
 
@@ -43,8 +45,8 @@ class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest 
   }
 
   test("should remove buckets") {
-    val bucket1 = new CounterBucket(250L, 30 seconds, 200L)
-    val bucket2 = new CounterBucket(250L, 30 seconds, 200L)
+    val bucket1 = new CounterBucket((250L, 30 seconds), 200L)
+    val bucket2 = new CounterBucket((250L, 30 seconds), 200L)
 
     await { CassandraCounterBucketStore.store(testMetric, 30 seconds, Seq(bucket1, bucket2)) }
 

@@ -8,10 +8,11 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Failure
 import com.despegar.metrik.model.Metric
+import com.despegar.metrik.model.Timestamp
 
 trait MetaStore {
-  def update(metric: Metric, lastProcessedTimestamp: Long): Future[Unit]
-  def getLastProcessedTimestamp(metric: Metric): Future[Long]
+  def update(metric: Metric, lastProcessedTimestamp: Timestamp): Future[Unit]
+  def getLastProcessedTimestamp(metric: Metric): Future[Timestamp]
   def insert(metric: Metric): Future[Unit]
   def retrieveMetrics: Future[Seq[Metric]]
 }
@@ -30,17 +31,17 @@ object CassandraMetaStore extends MetaStore with Logging {
   def initialize = Cassandra.createColumnFamily(columnFamily)
 
   def insert(metric: Metric): Future[Unit] = {
-    put(metric, -Long.MaxValue)
+    put(metric, Timestamp(-Long.MaxValue))
   }
 
-  def update(metric: Metric, lastProcessedTimestamp: Long): Future[Unit] = {
+  def update(metric: Metric, lastProcessedTimestamp: Timestamp): Future[Unit] = {
     put(metric, lastProcessedTimestamp)
   }
 
-  private def put(metric: Metric, timestamp: Long): Future[Unit] = {
+  private def put(metric: Metric, timestamp: Timestamp): Future[Unit] = {
     Future {
       val mutationBatch = Cassandra.keyspace.prepareMutationBatch()
-      mutationBatch.withRow(columnFamily, metricsKey).putColumn(asString(metric), timestamp)
+      mutationBatch.withRow(columnFamily, metricsKey).putColumn(asString(metric), timestamp.ms)
       mutationBatch.execute()
       log.debug(s"$metric - Stored meta successfully. Timestamp: $timestamp")
     } andThen {
@@ -58,9 +59,9 @@ object CassandraMetaStore extends MetaStore with Logging {
     }
   }
 
-  def getLastProcessedTimestamp(metric: Metric): Future[Long] = {
+  def getLastProcessedTimestamp(metric: Metric): Future[Timestamp] = {
     Future {
-      Cassandra.keyspace.prepareQuery(columnFamily).getKey(metricsKey).getColumn(asString(metric)).execute().getResult.getLongValue
+      Timestamp(Cassandra.keyspace.prepareQuery(columnFamily).getKey(metricsKey).getColumn(asString(metric)).execute().getResult.getLongValue)
     } andThen {
       case Failure(reason) ⇒ log.error(s"$metric - Failed to retrieve last processed timestamp from meta", reason)
     }
