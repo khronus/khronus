@@ -30,7 +30,7 @@ object CassandraCounterBucketStore extends BucketStore[CounterBucket] {
     new CounterBucket(timestamp / windowDuration.toMillis, windowDuration, counter.counts)
   }
 
-  override def serializeBucket(bucket: CounterBucket): ByteBuffer = {
+  override def serializeBucket(metric: Metric, windowDuration: Duration, bucket: CounterBucket): ByteBuffer = {
     ByteBuffer.wrap(serializer.serialize(bucket))
   }
 }

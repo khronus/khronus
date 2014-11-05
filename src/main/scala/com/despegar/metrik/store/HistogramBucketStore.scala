@@ -24,6 +24,7 @@ import com.netflix.astyanax.model.Column
 import org.HdrHistogram.Histogram
 import scala.concurrent.duration._
 import com.despegar.metrik.util.Settings
+import com.despegar.metrik.model.Metric
 
 trait HistogramBucketSupport extends BucketStoreSupport[HistogramBucket] {
   override def bucketStore: BucketStore[HistogramBucket] = CassandraHistogramBucketStore
@@ -41,10 +42,10 @@ object CassandraHistogramBucketStore extends BucketStore[HistogramBucket] with L
 
   override def getColumnFamilyName(duration: Duration) = s"histogramBucket${duration.length}${duration.unit}"
 
-  def serializeBucket(bucket: HistogramBucket): ByteBuffer = {
+  def serializeBucket(metric: Metric, windowDuration: Duration, bucket: HistogramBucket): ByteBuffer = {
     val buffer = ByteBuffer.allocate(bucket.histogram.getEstimatedFootprintInBytes)
     val bytesEncoded = bucket.histogram.encodeIntoCompressedByteBuffer(buffer) //TODO: Find a better way to do this serialization
-    log.debug(s"Histogram with ${bucket.histogram.getTotalCount()} measures encoded and compressed into $bytesEncoded bytes")
+    log.debug(s"$metric- Histogram of $windowDuration with ${bucket.histogram.getTotalCount()} measures encoded and compressed into $bytesEncoded bytes")
     buffer.limit(bytesEncoded)
     buffer.rewind()
     buffer

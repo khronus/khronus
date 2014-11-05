@@ -22,6 +22,7 @@ import scala.collection.concurrent.TrieMap
 
 case class StatisticSummary(timestamp: Long, p50: Long, p80: Long, p90: Long, p95: Long, p99: Long, p999: Long, min: Long, max: Long, count: Long, avg: Long) extends Summary {
   override def getTimestamp = timestamp
+  override def toString = s"StatisticSummary(timestamp=$timestamp,count=$count,...)"
 }
 
 object StatisticSummary {

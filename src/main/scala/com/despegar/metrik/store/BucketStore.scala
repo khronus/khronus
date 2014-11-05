@@ -43,29 +43,29 @@ trait BucketStore[T <: Bucket] extends Logging {
 
   def store(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit] = {
     doUnit(buckets) {
-      log.debug(s"Storing ${buckets.length} buckets of $windowDuration for $metric")
+      log.debug(s"$metric - Storing ${buckets.length} buckets ($buckets) of $windowDuration")
       mutate(metric, windowDuration, buckets) { (mutation, bucket) ⇒
-        mutation.putColumn(bucket.timestamp, serializeBucket(bucket))
+        mutation.putColumn(bucket.timestamp, serializeBucket(metric, windowDuration, bucket))
       }
     }
   }
 
   def remove(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit] = {
     doUnit(buckets) {
-      log.debug(s"Removing ${buckets.length} buckets of $windowDuration for $metric")
+      log.debug(s"$metric - Removing ${buckets.length} buckets ($buckets) of $windowDuration")
       mutate(metric, windowDuration, buckets) { (mutation, bucket) ⇒
         mutation.deleteColumn(bucket.timestamp)
       }
     }
   }
 
-  def serializeBucket(bucket: T): ByteBuffer
+  def serializeBucket(metric: Metric, windowDuration: Duration, bucket: T): ByteBuffer
 
   private def executeSlice(metric: Metric, until: Long, windowDuration: Duration): Iterable[Column[java.lang.Long]] = {
     val result = Cassandra.keyspace.prepareQuery(columnFamilies(windowDuration)).getKey(metric.name)
       .withColumnRange(INFINITE, until, false, LIMIT).execute().getResult().asScala
 
-    log.debug(s"Found ${result.size} buckets of $windowDuration for $metric")
+    log.debug(s"$metric - Found ${result.size} buckets of $windowDuration")
     result
   }
 
@@ -83,9 +83,9 @@ trait BucketStore[T <: Bucket] extends Logging {
       val mutation = mutationBatch.withRow(columnFamilies(windowDuration), metric.name)
       buckets.foreach(f(mutation, _))
       mutationBatch.execute
-      log.trace("Mutation successful")
+      log.trace(s"$metric - Mutation successful")
     } andThen {
-      case Failure(reason) ⇒ log.error("Mutation failed", reason)
+      case Failure(reason) ⇒ log.error(s"$metric - Mutation failed", reason)
     }
   }
 

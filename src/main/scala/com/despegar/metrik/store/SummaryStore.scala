@@ -69,10 +69,12 @@ trait SummaryStore[T <: Summary] extends Logging {
   def store(metric: Metric, windowDuration: Duration, summaries: Seq[T]): Future[Unit] = {
     doUnit(summaries) {
       Future {
-        log.debug(s"Storing ${summaries.size} summaries of $windowDuration for $metric")
+        log.debug(s"$metric - Storing ${summaries.size} summaries ($summaries) of $windowDuration")
         val mutation = Cassandra.keyspace.prepareMutationBatch()
         val columns = mutation.withRow(columnFamilies(windowDuration), getKey(metric, windowDuration))
-        summaries.foreach(summary ⇒ columns.putColumn(summary.getTimestamp, serializeSummary(summary)))
+        summaries.foreach(summary ⇒ {
+          columns.putColumn(summary.getTimestamp, serializeSummary(summary))
+        })
 
         mutation.execute
 

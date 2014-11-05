@@ -42,9 +42,9 @@ object CassandraMetaStore extends MetaStore with Logging {
       val mutationBatch = Cassandra.keyspace.prepareMutationBatch()
       mutationBatch.withRow(columnFamily, metricsKey).putColumn(asString(metric), timestamp)
       mutationBatch.execute()
-      log.debug(s"Stored meta for $metric successfully. Timestamp: $timestamp")
+      log.debug(s"$metric - Stored meta successfully. Timestamp: $timestamp")
     } andThen {
-      case Failure(reason) ⇒ log.error(s"Failed to store meta for $metric", reason)
+      case Failure(reason) ⇒ log.error(s"$metric - Failed to store meta", reason)
     }
   }
 
@@ -62,7 +62,7 @@ object CassandraMetaStore extends MetaStore with Logging {
     Future {
       Cassandra.keyspace.prepareQuery(columnFamily).getKey(metricsKey).getColumn(asString(metric)).execute().getResult.getLongValue
     } andThen {
-      case Failure(reason) ⇒ log.error(s"Failed to retrieve last processed timestamp of $metric from meta", reason)
+      case Failure(reason) ⇒ log.error(s"$metric - Failed to retrieve last processed timestamp from meta", reason)
     }
   }
 
