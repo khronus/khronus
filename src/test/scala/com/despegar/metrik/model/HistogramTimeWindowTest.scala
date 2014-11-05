@@ -35,10 +35,11 @@ import com.despegar.metrik.model.BucketNumber._
 class HistogramTimeWindowTest extends FunSuite with MockitoSugar {
 
   val metric = Metric("metrickA", "histogram")
-  val windowDuration: FiniteDuration = 30 seconds
-  val previousWindowDuration: FiniteDuration = 1 millis
+
 
   test("with previous buckets should store its buckets and summaries and remove previous buckets") {
+    val windowDuration: FiniteDuration = 30 seconds
+    val previousWindowDuration: FiniteDuration = 1 millis
 
     val window = mockedWindow(windowDuration, previousWindowDuration)
 
@@ -79,7 +80,38 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar {
     verify(window.bucketStore).remove(metric, previousWindowDuration, previousBuckets)
   }
 
+  test("1 minute window should increment last bucket") {
+    val windowDuration: FiniteDuration = 1 minute
+    val previousWindowDuration: FiniteDuration = 30 seconds
+
+    val window = mockedWindow(windowDuration, previousWindowDuration)
+    val executionTime = 1415205230052L + 30000L //The last one
+
+    when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future(1415205210000L))
+
+    val previousBucket1 = new HistogramBucket(47173507L, previousWindowDuration, histogram1)
+    val previousBuckets = Seq(previousBucket1)
+    when(window.bucketStore.sliceUntil(Matchers.eq(metric), any[Long], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousBuckets))
+    when(window.bucketStore.store(Matchers.eq(metric), Matchers.eq(windowDuration), any[Seq[HistogramBucket]])).thenReturn(Future {})
+    when(window.summaryStore.store(Matchers.eq(metric), Matchers.eq(windowDuration), any[Seq[StatisticSummary]])).thenReturn(Future {})
+    when(window.bucketStore.remove(Matchers.eq(metric), Matchers.eq(previousWindowDuration), any[Seq[HistogramBucket]])).thenReturn(Future {})
+
+    //call method to test
+    Await.result(window.process(metric, executionTime), 5 seconds)
+
+    //verify that not store any temporal histogram
+    verify(window.bucketStore).store(metric, windowDuration, Seq())
+
+    //verify that not store any summary
+    verify(window.summaryStore).store(metric, windowDuration, Seq())
+
+    //verify removal of previous undeleted buckets
+    verify(window.bucketStore).remove(metric, previousWindowDuration, previousBuckets)
+  }
+
   test("with already processed buckets should remove them without storing any bucket or summary") {
+    val windowDuration: FiniteDuration = 30 seconds
+    val previousWindowDuration: FiniteDuration = 1 millis
 
     val window = mockedWindow(windowDuration, previousWindowDuration)
 
@@ -108,6 +140,8 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar {
   }
 
   test("without previous buckets should do nothing") {
+    val windowDuration: FiniteDuration = 30 seconds
+    val previousWindowDuration: FiniteDuration = 1 millis
 
     val window = mockedWindow(windowDuration, previousWindowDuration)
 
@@ -132,6 +166,8 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar {
   }
 
   test("should do nothing upon failure of previous buckets slice retrieval") {
+    val windowDuration: FiniteDuration = 30 seconds
+    val previousWindowDuration: FiniteDuration = 1 millis
 
     val window = mockedWindow(windowDuration, previousWindowDuration)
 
@@ -155,6 +191,8 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar {
   }
 
   test("with previous buckets should not remove them upon failure of temporal buckets store") {
+    val windowDuration: FiniteDuration = 30 seconds
+    val previousWindowDuration: FiniteDuration = 1 millis
 
     val window = mockedWindow(windowDuration, previousWindowDuration)
 
@@ -189,6 +227,8 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar {
   }
 
   test("with previous buckets should not remove them upon failure of summaries store") {
+    val windowDuration: FiniteDuration = 30 seconds
+    val previousWindowDuration: FiniteDuration = 1 millis
 
     val window = mockedWindow(windowDuration, previousWindowDuration)
 
