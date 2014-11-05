@@ -27,6 +27,12 @@ class TimeWindowChain extends Logging with MetaSupport {
   val histrogramsWindows = Settings().Histogram.timeWindows
   val countersWindows = Settings().Counter.timeWindows
 
+  def filter(timeWindows: Seq[TimeWindow[_, _]], metric: Metric, alignedTimestamp: Long): Future[Seq[TimeWindow[_, _]]] = {
+    metaStore.getLastProcessedTimestamp(metric) map (lastProcessTS ⇒ {
+      timeWindows filter (timeWindow ⇒ (alignedTimestamp - lastProcessTS) >= timeWindow.duration.toMillis)
+    })
+  }
+
   def process(metric: Metric): Future[Seq[Any]] = {
     val executionTimestamp = System.currentTimeMillis() - Settings().Window.ExecutionDelay
     log.debug(s"Processing windows for $metric")
@@ -36,11 +42,15 @@ class TimeWindowChain extends Logging with MetaSupport {
       case "counter" ⇒ countersWindows
     }
 
-    val sequence = Future.sequence(Seq(processInChain(windows, metric, executionTimestamp, 0)))
-    sequence onSuccess {
-      case _ ⇒ metaStore.update(metric, BucketUtils.getCurrentBucketTimestamp(windows(0).duration, executionTimestamp))
-    }
-    sequence
+    val alignedTimestamp = BucketUtils.getCurrentBucketTimestamp(windows(0).duration, executionTimestamp)
+    
+    filter(windows, metric, alignedTimestamp) flatMap (filteredWindows ⇒ {
+      val sequence = Future.sequence(Seq(processInChain(filteredWindows, metric, executionTimestamp, 0)))
+      sequence onSuccess {
+        case _ ⇒ metaStore.update(metric, alignedTimestamp)
+      }
+      sequence
+    })
   }
 
   def processInChain(windows: Seq[TimeWindow[_, _]], metric: Metric, executionTimestamp: Long, index: Int): Future[Unit] = {

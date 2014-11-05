@@ -1,7 +1,5 @@
 package com.despegar.metrik.util
 
-import java.util.concurrent.TimeUnit
-
 import scala.concurrent.duration._
 
 object BucketUtils {
