@@ -36,7 +36,6 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar {
 
   val metric = Metric("metrickA", "histogram")
 
-
   test("with previous buckets should store its buckets and summaries and remove previous buckets") {
     val windowDuration: FiniteDuration = 30 seconds
     val previousWindowDuration: FiniteDuration = 1 millis
@@ -87,9 +86,9 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar {
     val window = mockedWindow(windowDuration, previousWindowDuration)
     val executionTime = 1415205230052L + 30000L //The last one
 
-    when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future(1415205210000L))
+    when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](1415205210000L))
 
-    val previousBucket1 = new HistogramBucket(47173507L, previousWindowDuration, histogram1)
+    val previousBucket1 = new HistogramBucket((47173507L, previousWindowDuration), histogram1)
     val previousBuckets = Seq(previousBucket1)
     when(window.bucketStore.sliceUntil(Matchers.eq(metric), any[Long], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousBuckets))
     when(window.bucketStore.store(Matchers.eq(metric), Matchers.eq(windowDuration), any[Seq[HistogramBucket]])).thenReturn(Future {})
