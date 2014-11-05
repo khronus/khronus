@@ -43,7 +43,7 @@ trait BucketStore[T <: Bucket] extends Logging {
 
   def store(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit] = {
     doUnit(buckets) {
-      log.debug(s"$metric - Storing ${buckets.length} buckets ($buckets) of $windowDuration")
+      log.debug(s"${p(metric, windowDuration)} - Storing ${buckets.length} buckets ($buckets)")
       mutate(metric, windowDuration, buckets) { (mutation, bucket) ⇒
         mutation.putColumn(bucket.timestamp, serializeBucket(metric, windowDuration, bucket))
       }
@@ -52,7 +52,7 @@ trait BucketStore[T <: Bucket] extends Logging {
 
   def remove(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit] = {
     doUnit(buckets) {
-      log.debug(s"$metric - Removing ${buckets.length} buckets ($buckets) of $windowDuration")
+      log.debug(s"${p(metric, windowDuration)} - Removing ${buckets.length} buckets ($buckets)")
       mutate(metric, windowDuration, buckets) { (mutation, bucket) ⇒
         mutation.deleteColumn(bucket.timestamp)
       }
