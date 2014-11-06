@@ -22,21 +22,32 @@ import com.despegar.metrik.util.{ Logging, Settings }
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-class TimeWindowChain extends Logging with MetaSupport {
+class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport {
 
-  val histrogramsWindows = Settings().Histogram.timeWindows
-  val countersWindows = Settings().Counter.timeWindows
+  def mustExecute(timeWindow: TimeWindow[_, _], metric: Metric, timestamp: Timestamp): Boolean = {
+    if ((timestamp.ms % timeWindow.duration.toMillis) == 0) {
+      true
+    } else {
+      log.debug(s"${p(metric, timeWindow.duration)} Exclude to run")
+      false
+    }
+  }
+
+  def now = System.currentTimeMillis()
 
   def process(metric: Metric): Future[Seq[Any]] = {
-    val executionTimestamp = Timestamp(System.currentTimeMillis() - Settings().Window.ExecutionDelay)
-    log.debug(s"Processing windows for $metric")
+    val executionTimestamp = Timestamp(now - Settings().Window.ExecutionDelay)
+    log.debug(s"Processing windows for $metric on executionTimestamp ${executionTimestamp.ms}")
 
     val windows: Seq[TimeWindow[_, _]] = metric.mtype match {
       case "timer"   ⇒ histrogramsWindows
       case "counter" ⇒ countersWindows
     }
 
-    val sequence = Future.sequence(Seq(processInChain(windows, metric, executionTimestamp, 0)))
+    val timestampAligned = executionTimestamp.alignedTo(firstDuration(windows))
+    log.debug(s"Execution timestamp aligned to $timestampAligned")
+
+    val sequence = Future.sequence(Seq(processInChain( windows filter (mustExecute(_, metric, timestampAligned)), metric, executionTimestamp, 0)))
     sequence onSuccess {
       case _ ⇒ metaStore.update(metric, executionTimestamp.alignedTo(firstDuration(windows)))
     }
@@ -46,12 +57,16 @@ class TimeWindowChain extends Logging with MetaSupport {
   private def firstDuration(windows: Seq[TimeWindow[_, _]]) = windows(0).duration
 
   def processInChain(windows: Seq[TimeWindow[_, _]], metric: Metric, executionTimestamp: Timestamp, index: Int): Future[Unit] = {
-    if (index >= (windows.size - 1)) {
-      windows(index).process(metric, executionTimestamp)
-    } else {
-      windows(index).process(metric, executionTimestamp).flatMap { _ ⇒
-        processInChain(windows, metric, executionTimestamp, index + 1)
+    if (windows.size > 0) {
+      if (index >= (windows.size - 1)) {
+        windows(index).process(metric, executionTimestamp)
+      } else {
+        windows(index).process(metric, executionTimestamp).flatMap { _ ⇒
+          processInChain(windows, metric, executionTimestamp, index + 1)
+        }
       }
+    } else {
+      Future {}
     }
   }
 
