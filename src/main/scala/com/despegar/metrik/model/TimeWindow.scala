@@ -28,7 +28,7 @@ import scala.concurrent.Future
 abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[T] with SummaryStoreSupport[U] with MetaSupport with Logging {
 
   def process(metric: Metric, executionTimestamp: Timestamp): scala.concurrent.Future[Unit] = measureTime(metric) {
-    log.debug(s"${p(metric, duration)} - Processing time window with executionTimestamp: ${executionTimestamp.ms}")
+    log.debug(s"${p(metric, duration)} - Processing time window with executionTimestamp ${executionTimestamp.ms} aligned to ${executionTimestamp.alignedTo(duration).ms}")
     //retrieve the temporal histogram buckets from previous window
     val previousWindowBuckets = retrievePreviousBuckets(metric, executionTimestamp)
 
@@ -105,7 +105,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
   private def filterOutAlreadyProcessedBuckets(groupedHistogramBuckets: Future[Map[BucketNumber, Seq[T]]], metric: Metric) = {
     lastProcessedBucket(metric) flatMap { lastBucket ⇒
       groupedHistogramBuckets map { groups ⇒
-        (groups, groups.filter(_._1 > lastBucket))
+        (groups, groups.filter(_._1.number > lastBucket.number))
       }
     } andThen {
       case Success((groups, filteredBuckets)) ⇒ {
@@ -118,7 +118,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
   }
 
   private def lastProcessedBucket(metric: Metric): Future[BucketNumber] = {
-    metaStore.getLastProcessedTimestamp(metric) map { _.toBucketNumber(duration) } andThen {
+    metaStore.getLastProcessedTimestamp(metric) map { _.alignedTo(duration).toBucketNumber(duration) } andThen {
       case Success(bucket) ⇒
         log.debug(s"${p(metric, duration)} - Last processed bucket: $bucket")
     }

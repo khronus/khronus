@@ -12,7 +12,11 @@ case class Timestamp(ms: Long) {
   def toBucketNumber(duration: Duration): BucketNumber = toBucketNumber(duration, Math.ceil _)
 
   private def toBucketNumber(duration: Duration, f: Double ⇒ Double) = {
-    BucketNumber(f(ms.toDouble / duration.toMillis.toDouble).toLong, duration)
+    if (ms < 0) {
+      BucketNumber(-1, duration)
+    } else {
+      BucketNumber(f(ms.toDouble / duration.toMillis.toDouble).toLong, duration)
+    }
   }
 
   /**
