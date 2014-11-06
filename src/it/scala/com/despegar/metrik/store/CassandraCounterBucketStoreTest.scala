@@ -22,7 +22,7 @@ class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest 
     val counter = new CounterBucket((250L, 30 seconds), 200L)
     await { CassandraCounterBucketStore.store(testMetric, 30 seconds, Seq(counter)) }
 
-    val executionTimestamp = counter.bucketNumber.toTimestamp()
+    val executionTimestamp = counter.bucketNumber.startTimestamp()
     val bucketsFromCassandra = await {CassandraCounterBucketStore.sliceUntil(testMetric, executionTimestamp, 30 seconds) }
     val bucketFromCassandra = bucketsFromCassandra(0)
 

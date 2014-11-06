@@ -3,13 +3,13 @@ package com.despegar.metrik.model
 import scala.concurrent.duration.Duration
 
 abstract case class Bucket(bucketNumber: BucketNumber) {
-  def timestamp = bucketNumber.toTimestamp()
+  def timestamp = bucketNumber.startTimestamp()
 
   def summary: Summary
 }
 
 case class Timestamp(ms: Long) {
-  def toBucketNumber(duration: Duration): BucketNumber = toBucketNumber(duration, Math.ceil _)
+  def toBucketNumber(duration: Duration): BucketNumber = toBucketNumber(duration, Math.floor _)
 
   private def toBucketNumber(duration: Duration, f: Double ⇒ Double) = {
     if (ms < 0) {
@@ -21,9 +21,9 @@ case class Timestamp(ms: Long) {
 
   /**
    * It returns a new timestamp aligned to the end of the last bucket of the given duration.
-   * It is basically a ceil of this timestamp with the given duration.
+   * It is basically a floor of this timestamp with the given duration.
    */
-  def alignedTo(duration: Duration) = toBucketNumber(duration, Math.floor _).toTimestamp()
+  def alignedTo(duration: Duration) = toBucketNumber(duration, Math.floor _).startTimestamp()
 
 }
 
@@ -33,14 +33,17 @@ object Timestamp {
 }
 
 case class BucketNumber(number: Long, duration: Duration) {
-  def toTimestamp(aDuration: Duration): Timestamp = {
-    Timestamp(aDuration.toMillis * number)
+  //  def toTimestamp(aDuration: Duration): Timestamp = {
+  //    Timestamp(aDuration.toMillis * number)
+  //  }
+  def startTimestamp(): Timestamp = {
+    Timestamp(duration.toMillis * number)
   }
-  def toTimestamp(): Timestamp = {
-    toTimestamp(duration)
+  def endTimestamp(): Timestamp = {
+    Timestamp(duration.toMillis * (number + 1))
   }
-  def <(otherBucketNumber: BucketNumber) = number < otherBucketNumber.number
-  def >(otherBucketNumber: BucketNumber) = number > otherBucketNumber.number
+  def <(otherBucketNumber: BucketNumber) = startTimestamp().ms < otherBucketNumber.startTimestamp().ms
+  def >(otherBucketNumber: BucketNumber) = startTimestamp().ms > otherBucketNumber.startTimestamp().ms
 }
 
 object BucketNumber {

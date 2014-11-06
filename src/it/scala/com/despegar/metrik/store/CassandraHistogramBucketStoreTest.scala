@@ -23,7 +23,7 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
     val histogramBucket = new HistogramBucket((30, 30 seconds), histogram)
     await { CassandraHistogramBucketStore.store(testMetric, 30 seconds, Seq(histogramBucket)) }
 
-    val executionTimestamp:Timestamp = histogramBucket.bucketNumber.toTimestamp()
+    val executionTimestamp:Timestamp = histogramBucket.bucketNumber.startTimestamp()
     val bucketsFromCassandra = await {CassandraHistogramBucketStore.sliceUntil(testMetric, executionTimestamp, 30 seconds) }
     val bucketFromCassandra = bucketsFromCassandra(0)
 

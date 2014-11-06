@@ -97,7 +97,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
     previousWindowBuckets map (_.groupBy(_.timestamp.toBucketNumber(duration))) andThen {
       case Success(buckets) ⇒
         if (!buckets.isEmpty) {
-          log.debug(s"${p(metric, duration)} - Grouped ${buckets.size} buckets")
+          log.debug(s"${p(metric, duration)} - Grouped ${buckets.size} ($buckets) buckets")
         }
     }
   }
