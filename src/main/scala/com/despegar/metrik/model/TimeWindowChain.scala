@@ -43,7 +43,7 @@ class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport {
 
     val sequence = Future.sequence(Seq(processInChain(windows filter (mustExecute(_, metric, tick)), metric, tick, 0)))
     sequence onSuccess {
-      case _ ⇒ metaStore.update(metric, tick.startTimestamp)
+      case _ ⇒ metaStore.update(metric, tick.endTimestamp)
     }
     sequence
   }

@@ -118,7 +118,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
   }
 
   private def lastProcessedBucket(metric: Metric): Future[BucketNumber] = {
-    metaStore.getLastProcessedTimestamp(metric) map { _.alignedTo(duration).toBucketNumber(duration) } andThen {
+    metaStore.getLastProcessedTimestamp(metric) map { lastTS ⇒ Timestamp(lastTS.ms - duration.toMillis).alignedTo(duration).toBucketNumber(duration) } andThen {
       case Success(bucket) ⇒
         log.debug(s"${p(metric, duration)} - Last processed bucket: $bucket")
     }

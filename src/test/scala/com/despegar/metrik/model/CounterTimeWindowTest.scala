@@ -21,6 +21,7 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar {
   val metric = Metric("metrickA", "counter")
   val windowDuration: FiniteDuration = 30 seconds
   val previousWindowDuration: FiniteDuration = 1 millis
+  val neverProcessedTimestamp = Timestamp(-1)
 
   test("with previous buckets should store its buckets and summaries and remove previous buckets") {
 
@@ -43,7 +44,7 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar {
 
     when(window.bucketStore.sliceUntil(Matchers.eq(metric), any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousBuckets))
     when(window.bucketStore.store(metric, windowDuration, myBuckets)).thenReturn(Future {})
-    when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](-Long.MaxValue))
+    when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](neverProcessedTimestamp))
     when(window.summaryStore.store(metric, windowDuration, mySummaries)).thenReturn(Future {})
     when(window.bucketStore.remove(metric, previousWindowDuration, previousBuckets)).thenReturn(Future {})
 
@@ -97,7 +98,7 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar {
     when(window.bucketStore.store(metric, windowDuration, Seq())).thenReturn(Future {})
     when(window.summaryStore.store(metric, windowDuration, Seq())).thenReturn(Future {})
     when(window.bucketStore.remove(metric, previousWindowDuration, Seq())).thenReturn(Future {})
-    when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](-Long.MaxValue))
+    when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](neverProcessedTimestamp))
 
     //call method to test
     Await.result(window.process(metric, Tick.current(Seq(window))), 5 seconds)
@@ -118,7 +119,7 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar {
 
     //mock temporal data to be empty
     when(window.bucketStore.sliceUntil(Matchers.eq(metric), Matchers.any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future.failed(new IOException()))
-    when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](-Long.MaxValue))
+    when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](neverProcessedTimestamp))
 
     //call method to test
     intercept[IOException] {
@@ -150,7 +151,7 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar {
     val bucketB = new CounterBucket((1, windowDuration), 1)
     val myBuckets = Seq(bucketA, bucketB)
 
-    when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](-Long.MaxValue))
+    when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](neverProcessedTimestamp))
     when(window.bucketStore.sliceUntil(Matchers.eq(metric), any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousBuckets))
     when(window.bucketStore.store(metric, windowDuration, myBuckets)).thenReturn(Future.failed(new IOException()))
 
@@ -185,7 +186,7 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar {
     val summaryBucketB = CounterSummary(30000, 1)
     val mySummaries = Seq(summaryBucketA, summaryBucketB)
 
-    when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](-Long.MaxValue))
+    when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](neverProcessedTimestamp))
     when(window.bucketStore.sliceUntil(Matchers.eq(metric), any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousBuckets))
     when(window.bucketStore.store(metric, windowDuration, myBuckets)).thenReturn(Future {})
     when(window.summaryStore.store(metric, windowDuration, mySummaries)).thenReturn(Future.failed(new IOException()))
