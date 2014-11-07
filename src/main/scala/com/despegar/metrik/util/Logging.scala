@@ -15,7 +15,10 @@
  */
 package com.despegar.metrik.util
 
+import java.text.SimpleDateFormat
+
 import com.typesafe.scalalogging.Logger
+import org.apache.commons.lang.time.FastDateFormat
 import org.slf4j.LoggerFactory
 import scala.concurrent.duration.Duration
 import com.despegar.metrik.model.Metric
@@ -25,5 +28,13 @@ trait Logging {
   def loggerName = this.getClass().getName()
   val log = Logger(LoggerFactory.getLogger(loggerName))
 
+  val df = FastDateFormat.getInstance("dd/MM/yyyy hh:mm:ss")
+
   def p(metric: Metric, duration: Duration) = s"[$metric-$duration]"
+
+  def p(metric: Metric, ts: Long) = s"[$metric-${
+    df.format(ts)
+  }]"
+
+  def date(ts: Long) = df.format(ts)
 }
