@@ -28,10 +28,9 @@ import scala.concurrent.Future
 abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[T] with SummaryStoreSupport[U] with MetaSupport with Logging {
 
   def process(metric: Metric, tick: Tick): scala.concurrent.Future[Unit] = measureTime(metric) {
-    val executionTimestamp = tick.startTimestamp
     log.debug(s"${p(metric, duration)} - Processing time window for $tick")
     //retrieve the temporal histogram buckets from previous window
-    val previousWindowBuckets = retrievePreviousBuckets(metric, executionTimestamp)
+    val previousWindowBuckets = retrievePreviousBuckets(metric, tick)
 
     //group histograms in buckets of my window duration
     val groupedHistogramBuckets = groupInBucketsOfMyWindow(previousWindowBuckets, metric)
@@ -87,8 +86,8 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
 
   protected def shouldStoreTemporalHistograms: Boolean
 
-  private def retrievePreviousBuckets(metric: Metric, executionTimestamp: Timestamp) = {
-    bucketStore.sliceUntil(metric, executionTimestamp.alignedTo(duration), previousWindowDuration) andThen {
+  private def retrievePreviousBuckets(metric: Metric, tick: Tick) = {
+    bucketStore.sliceUntil(metric, tick.endTimestamp.alignedTo(duration), previousWindowDuration) andThen {
       case Success(previousBuckets) ⇒
         log.debug(s"${p(metric, duration)} - Found ${previousBuckets.size} buckets ($previousBuckets) of $previousWindowDuration")
     }
@@ -121,7 +120,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
   private def lastProcessedBucket(metric: Metric): Future[BucketNumber] = {
     metaStore.getLastProcessedTimestamp(metric) map { _.alignedTo(duration).toBucketNumber(duration) } andThen {
       case Success(bucket) ⇒
-        log.debug(s"${p(metric, duration)} - Last processed bucket: $bucket. Start date of this bucket: ${date(bucket.startTimestamp().ms)}")
+        log.debug(s"${p(metric, duration)} - Last processed bucket: $bucket")
     }
   }
 
