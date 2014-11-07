@@ -43,7 +43,7 @@ object CassandraMetaStore extends MetaStore with Logging {
       val mutationBatch = Cassandra.keyspace.prepareMutationBatch()
       mutationBatch.withRow(columnFamily, metricsKey).putColumn(asString(metric), timestamp.ms)
       mutationBatch.execute()
-      log.debug(s"$metric - Stored meta successfully. Timestamp: $timestamp")
+      log.debug(s"$metric - Stored meta successfully. Timestamp: ${date(timestamp.ms)}")
     } andThen {
       case Failure(reason) ⇒ log.error(s"$metric - Failed to store meta", reason)
     }

@@ -3,15 +3,17 @@ package com.despegar.metrik.model
 import com.despegar.metrik.util.Settings
 import com.despegar.metrik.util.Logging
 
-case class Tick(bucketNumber: BucketNumber) {
+case class Tick(bucketNumber: BucketNumber) extends Logging {
   def startTimestamp = bucketNumber.startTimestamp()
   def endTimestamp = bucketNumber.endTimestamp()
+
+  override def toString = s"Tick[$bucketNumber] from ${date(startTimestamp.ms)} to ${date(endTimestamp.ms)}"
 }
 
 object Tick extends Logging {
   def current(windows: Seq[TimeWindow[_, _]]): Tick = {
     val executionTimestamp = Timestamp(now - Settings().Window.ExecutionDelay)
-    log.debug(s"Building Tick for executionTimestamp ${executionTimestamp.ms}")
+    log.debug(s"Building Tick for executionTimestamp ${date(executionTimestamp.ms)}")
     val bucketNumber = executionTimestamp.alignedTo(firstDurationOf(windows)).toBucketNumber(firstDurationOf(windows))
     val tick = Tick(bucketNumber - 1)
     log.debug(s"$tick")
