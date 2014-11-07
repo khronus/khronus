@@ -27,6 +27,7 @@ case class Timestamp(ms: Long) {
    */
   def alignedTo(duration: Duration) = toBucketNumber(duration, Math.floor _).startTimestamp()
 
+  def -(someMs: Long) = Timestamp(ms - someMs)
 }
 
 object Timestamp {

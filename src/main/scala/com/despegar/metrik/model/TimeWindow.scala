@@ -87,7 +87,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
   protected def shouldStoreTemporalHistograms: Boolean
 
   private def retrievePreviousBuckets(metric: Metric, tick: Tick) = {
-    bucketStore.sliceUntil(metric, tick.endTimestamp.alignedTo(duration), previousWindowDuration) andThen {
+    bucketStore.sliceUntil(metric, tick.endTimestamp.alignedTo(duration) - 1, previousWindowDuration) andThen {
       case Success(previousBuckets) ⇒
         log.debug(s"${p(metric, duration)} - Found ${previousBuckets.size} buckets ($previousBuckets) of $previousWindowDuration")
     }
