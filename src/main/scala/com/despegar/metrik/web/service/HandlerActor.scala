@@ -25,7 +25,7 @@ import spray.httpx.marshalling.ToResponseMarshaller
 
 class HandlerActor extends Actor with MetrikExceptionHandler with MetricsService with VersionService with InfluxService {
   def actorRefFactory = context
-  def receive = runRoute(metricsRoute ~ versionRoute ~ influxRoute)
+  def receive = runRoute(metricsRoute ~ versionRoute ~ influxServiceRoute)
 }
 
 trait MetrikExceptionHandler extends Logging {

@@ -17,6 +17,7 @@
 package com.despegar.metrik.store
 
 import com.despegar.metrik.util.{ Settings, Logging }
+import com.despegar.metrik.web.service.influx.InfluxDashboardResolver
 import com.netflix.astyanax.AstyanaxContext
 import com.netflix.astyanax.connectionpool.NodeDiscoveryType
 import com.netflix.astyanax.connectionpool.impl.{ ConnectionPoolConfigurationImpl, CountingConnectionPoolMonitor }
@@ -55,6 +56,7 @@ object Cassandra extends Logging {
     CassandraStatisticSummaryStore.initialize
     CassandraCounterBucketStore.initialize
     CassandraCounterSummaryStore.initialize
+    InfluxDashboardResolver.initialize
   }
 
   private def initializeKeyspace = {

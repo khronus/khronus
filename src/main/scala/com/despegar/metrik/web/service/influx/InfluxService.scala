@@ -22,31 +22,47 @@ import spray.http.MediaTypes._
 import spray.http.StatusCodes._
 import spray.httpx.encoding.{ NoEncoding, Gzip }
 import spray.routing.HttpService
+import InfluxSeriesProtocol.influxSeriesFormat
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class InfluxActor extends Actor with InfluxService {
   def actorRefFactory = context
 
-  def receive = runRoute(influxRoute)
+  def receive = runRoute(influxServiceRoute)
 }
 
-trait InfluxService extends HttpService with Logging with CORSSupport with InfluxQueryResolver {
+trait InfluxService extends HttpService with Logging with CORSSupport with InfluxQueryResolver with DashboardSupport {
+  import DashboardProtocol._
 
-  import InfluxSeriesProtocol._
-
-  val influxRoute =
+  val influxServiceRoute =
     compressResponse(NoEncoding, Gzip) {
       respondWithCORS {
-        path("metrik" / "influx" / "series") {
-          get {
-            parameters('q.?, 'p, 'u) { (query, password, username) ⇒
-              query.map { q ⇒
-                log.info(s"GET /metrik/influx - Query: [$q]")
-                respondWithMediaType(`application/json`) { complete { search(q) } }
-              } getOrElse { complete { (OK, s"Authenticated with username: $username and password: " + password) } }
+        pathPrefix("metrik" / "influx") {
+          path("series") {
+            get {
+              parameters('q.?, 'p, 'u) { (query, password, username) ⇒
+                query.map { q ⇒
+                  log.info(s"GET /metrik/influx - Query: [$q]")
+                  respondWithMediaType(`application/json`) { complete { search(q) } }
+                } getOrElse { complete { (OK, s"Authenticated with username: $username and password: " + password) } }
+              }
             }
-          }
+          } ~
+            path("dashboards" / "series") {
+              get {
+                parameters('q) { query ⇒
+                  respondWithMediaType(`application/json`) {
+                    complete { (OK, dashboardResolver.lookup(query)) }
+                  }
+                }
+              } ~
+                post {
+                  entity(as[Seq[Dashboard]]) { dashboards ⇒
+                    complete { dashboardResolver.store(dashboards.head) }
+                  }
+                }
+            }
         }
       }
     }

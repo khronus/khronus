@@ -48,7 +48,7 @@ class InfluxServiceSpec extends Specification with Specs2RouteTest with MetrikEx
     "leave GET requests to other paths unhandled" in {
       applying {
         () ⇒
-          Get("/kermit") ~> new MockedInfluxService().influxRoute ~> check {
+          Get("/kermit") ~> new MockedInfluxService().influxServiceRoute ~> check {
             handled must beFalse
           }
       }
@@ -59,7 +59,7 @@ class InfluxServiceSpec extends Specification with Specs2RouteTest with MetrikEx
         () ⇒
           {
             val uri = Uri(influxSeriesURI).withQuery("q" -> "Some query")
-            Put(uri) ~> sealRoute(new MockedInfluxService().influxRoute) ~> check {
+            Put(uri) ~> sealRoute(new MockedInfluxService().influxServiceRoute) ~> check {
               status === MethodNotAllowed
               responseAs[String] === "HTTP method not allowed, supported methods: GET, OPTIONS"
             }
@@ -73,7 +73,7 @@ class InfluxServiceSpec extends Specification with Specs2RouteTest with MetrikEx
         () ⇒
           {
             val uri = Uri(influxSeriesURI).withQuery("q" -> "Unsupported query", "u" -> "aUser", "p" -> "****")
-            Get(uri) ~> sealRoute(new MockedInfluxService().influxRoute) ~> check {
+            Get(uri) ~> sealRoute(new MockedInfluxService().influxServiceRoute) ~> check {
               status === BadRequest
             }
           }
@@ -93,7 +93,7 @@ class InfluxServiceSpec extends Specification with Specs2RouteTest with MetrikEx
 
             Mockito.when(instance.metaStore.retrieveMetrics).thenReturn(Future(Seq()))
 
-            Get(listSeriesURI) ~> instance.influxRoute ~> check {
+            Get(listSeriesURI) ~> instance.influxServiceRoute ~> check {
 
               handled must beTrue
               response.status == OK
@@ -117,7 +117,7 @@ class InfluxServiceSpec extends Specification with Specs2RouteTest with MetrikEx
             val secondMetric = Metric("metric2", "gauge")
             Mockito.when(instance.metaStore.retrieveMetrics).thenReturn(Future(Seq(firstMetric, secondMetric)))
 
-            Get(listSeriesURI) ~> instance.influxRoute ~> check {
+            Get(listSeriesURI) ~> instance.influxServiceRoute ~> check {
               handled must beTrue
               status == OK
 
