@@ -27,7 +27,8 @@ import scala.concurrent.Future
 
 abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[T] with SummaryStoreSupport[U] with MetaSupport with Logging {
 
-  def process(metric: Metric, executionTimestamp: Timestamp): scala.concurrent.Future[Unit] = measureTime(metric) {
+  def process(metric: Metric, tick: Tick): scala.concurrent.Future[Unit] = measureTime(metric) {
+    val executionTimestamp = tick.startTimestamp
     log.debug(s"${p(metric, duration)} - Processing time window with executionTimestamp ${executionTimestamp.ms} aligned to ${executionTimestamp.alignedTo(duration).ms}")
     //retrieve the temporal histogram buckets from previous window
     val previousWindowBuckets = retrievePreviousBuckets(metric, executionTimestamp)

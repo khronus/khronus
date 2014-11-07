@@ -18,56 +18,49 @@ package com.despegar.metrik.model
 
 import com.despegar.metrik.store.MetaSupport
 import com.despegar.metrik.util.{ Logging, Settings }
-
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport {
 
-  def mustExecute(timeWindow: TimeWindow[_, _], metric: Metric, timestamp: Timestamp): Boolean = {
-    if ((timestamp.ms % timeWindow.duration.toMillis) == 0) {
+  def mustExecute(timeWindow: TimeWindow[_, _], metric: Metric, tick: Tick): Boolean = {
+    if ((tick.endTimestamp.ms % timeWindow.duration.toMillis) == 0) {
       true
     } else {
-      log.debug(s"${p(metric, timeWindow.duration)} Exclude to run")
+      log.debug(s"${p(metric, timeWindow.duration)} Excluded to run")
       false
     }
   }
 
-  def now = System.currentTimeMillis()
-
   def process(metric: Metric): Future[Seq[Any]] = {
-    val executionTimestamp = Timestamp(now - Settings().Window.ExecutionDelay)
-    log.debug(s"Processing windows for $metric on executionTimestamp ${executionTimestamp.ms}")
 
     val windows: Seq[TimeWindow[_, _]] = metric.mtype match {
       case "timer"   ⇒ histrogramsWindows
       case "counter" ⇒ countersWindows
     }
 
-    val timestampAligned = executionTimestamp.alignedTo(firstDuration(windows))
-    log.debug(s"Execution timestamp aligned to $timestampAligned")
+    val tick = currentTick(windows)
 
-    val sequence = Future.sequence(Seq(processInChain(windows filter (mustExecute(_, metric, timestampAligned)), metric, executionTimestamp, 0)))
+    val sequence = Future.sequence(Seq(processInChain(windows filter (mustExecute(_, metric, tick)), metric, tick, 0)))
     sequence onSuccess {
-      case _ ⇒ metaStore.update(metric, executionTimestamp.alignedTo(firstDuration(windows)))
+      case _ ⇒ metaStore.update(metric, tick.startTimestamp)
     }
     sequence
   }
 
-  private def firstDuration(windows: Seq[TimeWindow[_, _]]) = windows(0).duration
+  protected def currentTick(windows: Seq[TimeWindow[_, _]]) = Tick.current(windows)
 
-  def processInChain(windows: Seq[TimeWindow[_, _]], metric: Metric, executionTimestamp: Timestamp, index: Int): Future[Unit] = {
+  def processInChain(windows: Seq[TimeWindow[_, _]], metric: Metric, tick: Tick, index: Int): Future[Unit] = {
     if (windows.size > 0) {
       if (index >= (windows.size - 1)) {
-        windows(index).process(metric, executionTimestamp)
+        windows(index).process(metric, tick)
       } else {
-        windows(index).process(metric, executionTimestamp).flatMap { _ ⇒
-          processInChain(windows, metric, executionTimestamp, index + 1)
+        windows(index).process(metric, tick).flatMap { _ ⇒
+          processInChain(windows, metric, tick, index + 1)
         }
       }
     } else {
       Future {}
     }
   }
-
 }

@@ -33,17 +33,18 @@ object Timestamp {
 }
 
 case class BucketNumber(number: Long, duration: Duration) {
-  //  def toTimestamp(aDuration: Duration): Timestamp = {
-  //    Timestamp(aDuration.toMillis * number)
-  //  }
+
   def startTimestamp(): Timestamp = {
     Timestamp(duration.toMillis * number)
   }
   def endTimestamp(): Timestamp = {
     Timestamp(duration.toMillis * (number + 1))
   }
+  def ~(duration: Duration) = startTimestamp().toBucketNumber(duration)
   def <(otherBucketNumber: BucketNumber) = startTimestamp().ms < otherBucketNumber.startTimestamp().ms
   def >(otherBucketNumber: BucketNumber) = startTimestamp().ms > otherBucketNumber.startTimestamp().ms
+  def -(aNumber: Int): BucketNumber = BucketNumber(number - aNumber, duration)
+
 }
 
 object BucketNumber {

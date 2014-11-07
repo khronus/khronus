@@ -22,27 +22,15 @@ class TimeWindowChainTest extends FunSuite with MockitoSugar {
       override val histrogramsWindows = mockedWindows
       override val metaStore = mock[MetaStore]
 
-      override val now = {
-        val ts = Timestamp(System.currentTimeMillis())
-
-        val msAligned = ts.alignedTo(30 seconds).ms
-
-        var moved = 0L
-        if ((msAligned % (1 minute).toMillis) == 0) {
-          moved = ts.ms + (30 seconds).toMillis
-          println(s"MOVED from ${ts.ms} TO $moved")
-        } else {
-          moved = ts.ms
-        }
-
-        moved + Settings().Window.ExecutionDelay
+      override def currentTick(windows: Seq[TimeWindow[_, _]]) = {
+        Tick(BucketNumber(47178956, 30 seconds)) //this tick corresponds to the interval from 07/11/2014 08:58:00 to 07/11/2014 08:58:30
       }
     }
 
     when(window30s.duration).thenReturn(30 seconds)
     when(window1m.duration).thenReturn(1 minute)
-    when(window30s.process(any[Metric], any[Timestamp])).thenReturn(Future {})
-    when(window1m.process(any[Metric], any[Timestamp])).thenReturn(Future {})
+    when(window30s.process(any[Metric], any[Tick])).thenReturn(Future {})
+    when(window1m.process(any[Metric], any[Tick])).thenReturn(Future {})
 
     when(chain.metaStore.update(any[Metric], any[Long])).thenReturn(Future {})
 
@@ -51,7 +39,7 @@ class TimeWindowChainTest extends FunSuite with MockitoSugar {
 
     Await.result(result, 5 seconds)
 
-    verify(window30s).process(any[Metric], any[Timestamp])
-    verify(window1m, never()).process(any[Metric], any[Timestamp])
+    verify(window30s).process(any[Metric], any[Tick])
+    verify(window1m, never()).process(any[Metric], any[Tick])
   }
 }
