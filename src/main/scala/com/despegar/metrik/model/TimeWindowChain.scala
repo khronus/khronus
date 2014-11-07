@@ -37,7 +37,7 @@ class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport {
 
   def process(metric: Metric): Future[Seq[Any]] = {
     val executionTimestamp = Timestamp(now - Settings().Window.ExecutionDelay)
-    log.debug(s"Processing windows for $metric on executionTimestamp ${executionTimestamp.ms}")
+    log.debug(s"${p(metric, executionTimestamp.ms)} Processing windows for $metric")
 
     val windows: Seq[TimeWindow[_, _]] = metric.mtype match {
       case "timer"   ⇒ histrogramsWindows
@@ -45,7 +45,7 @@ class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport {
     }
 
     val timestampAligned = executionTimestamp.alignedTo(firstDuration(windows))
-    log.debug(s"Execution timestamp aligned to $timestampAligned")
+    log.debug(s"Execution timestamp aligned to ${date(timestampAligned.ms)}")
 
     val sequence = Future.sequence(Seq(processInChain(windows filter (mustExecute(_, metric, timestampAligned)), metric, executionTimestamp, 0)))
     sequence onSuccess {

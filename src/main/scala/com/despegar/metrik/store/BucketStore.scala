@@ -64,7 +64,7 @@ trait BucketStore[T <: Bucket] extends Logging {
     val result = Cassandra.keyspace.prepareQuery(columnFamilies(windowDuration)).getKey(metric.name)
       .withColumnRange(INFINITE, until.ms, false, LIMIT).execute().getResult().asScala
 
-    log.debug(s"$metric - Found ${result.size} buckets of $windowDuration")
+    log.debug(s"${p(metric, windowDuration)} Found ${result.size} buckets slicing from $INFINITE to ${date(until.ms)}")
     result
   }
 
