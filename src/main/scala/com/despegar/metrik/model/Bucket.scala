@@ -1,5 +1,7 @@
 package com.despegar.metrik.model
 
+import com.despegar.metrik.util.Logging
+
 import scala.concurrent.duration.Duration
 
 abstract case class Bucket(bucketNumber: BucketNumber) {
@@ -32,7 +34,7 @@ object Timestamp {
   implicit def fromInt(ms: Int) = Timestamp(ms.toLong)
 }
 
-case class BucketNumber(number: Long, duration: Duration) {
+case class BucketNumber(number: Long, duration: Duration) extends Logging {
 
   def startTimestamp(): Timestamp = {
     Timestamp(duration.toMillis * number)
@@ -44,6 +46,8 @@ case class BucketNumber(number: Long, duration: Duration) {
   def <(otherBucketNumber: BucketNumber) = startTimestamp().ms < otherBucketNumber.startTimestamp().ms
   def >(otherBucketNumber: BucketNumber) = startTimestamp().ms > otherBucketNumber.startTimestamp().ms
   def -(aNumber: Int): BucketNumber = BucketNumber(number - aNumber, duration)
+
+  override def toString() = s"BucketNumber($number, $duration) from ${date(startTimestamp().ms)} to ${date(endTimestamp().ms)}}"
 
 }
 
