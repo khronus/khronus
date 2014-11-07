@@ -2,7 +2,7 @@ package com.despegar.metrik.web.service.influx.parser
 
 import java.util.concurrent.TimeUnit
 
-import com.despegar.metrik.util.Logging
+import com.despegar.metrik.util.{ Settings, Logging }
 
 import scala.concurrent.duration.FiniteDuration
 import scala.util.parsing.combinator.lexical._
@@ -135,16 +135,21 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
     "group_by_time" ~> "(" ~> timeWindowParser <~ ")" ^^ (GroupBy(_))
 
   private def timeWindowParser: Parser[FiniteDuration] =
-    ((numberEqualTo(30) ~ TimeSuffixes.Seconds) | (numberEqualTo(1) ~ TimeSuffixes.Minutes) | (numberEqualTo(5) ~ TimeSuffixes.Minutes) |
-      (numberEqualTo(10) ~ TimeSuffixes.Minutes) | (numberEqualTo(30) ~ TimeSuffixes.Minutes) | (numberEqualTo(1) ~ TimeSuffixes.Hours)) ^^ {
-        case number ~ timeUnit ⇒ {
-          timeUnit match {
-            case TimeSuffixes.Seconds ⇒ new FiniteDuration(number.toLong, TimeUnit.SECONDS)
-            case TimeSuffixes.Minutes ⇒ new FiniteDuration(number.toLong, TimeUnit.MINUTES)
-            case TimeSuffixes.Hours   ⇒ new FiniteDuration(number.toLong, TimeUnit.HOURS)
-          }
+    (numericLit ~ (TimeSuffixes.Seconds | TimeSuffixes.Minutes | TimeSuffixes.Hours)) ^^ {
+      case number ~ timeSuffix ⇒ {
+        val window = timeSuffix match {
+          case TimeSuffixes.Seconds ⇒ new FiniteDuration(number.toLong, TimeUnit.SECONDS)
+          case TimeSuffixes.Minutes ⇒ new FiniteDuration(number.toLong, TimeUnit.MINUTES)
+          case TimeSuffixes.Hours   ⇒ new FiniteDuration(number.toLong, TimeUnit.HOURS)
         }
+
+        if (!getConfiguredWindows.contains(window)) {
+          throw new UnsupportedOperationException(s"Unknown time window [$number$timeSuffix]")
+        }
+
+        window
       }
+    }
 
   private def limitParser: Parser[Int] = "limit" ~> numericLit ^^ (_.toInt)
 
@@ -152,8 +157,9 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
 
   protected def now: Long = System.currentTimeMillis()
 
-  private def numberEqualTo(n: Int): Parser[Int] =
-    elem(s"Expected number $n", _.toString == n.toString) ^^ (_.toString.toInt)
+  protected def getConfiguredWindows: Seq[FiniteDuration] = {
+    Settings().Histogram.configuredWindows.toSeq
+  }
 
   private def stringParser: Parser[String] = stringLit ^^ {
     case s ⇒ s
