@@ -16,8 +16,6 @@
 
 package com.despegar.metrik.web.service.influx
 
-import java.util.Base64
-import java.util.Base64.Decoder
 import java.util.concurrent.Executors
 
 import com.despegar.metrik.store.Cassandra
@@ -29,6 +27,7 @@ import com.netflix.astyanax.serializers.StringSerializer
 import scala.collection.JavaConverters._
 import scala.concurrent.{ Promise, ExecutionContext, Future }
 import scala.util.control.NonFatal
+import org.apache.commons.codec.binary.Base64
 
 trait DashboardResolver {
   def lookup(expression: String): Future[Seq[Dashboard]]
@@ -47,7 +46,6 @@ object InfluxDashboardResolver extends DashboardResolver with Logging {
   //extract Z3JhZmFuYTIy from (select dashboard from "grafana.dashboard_Z3JhZmFuYTIy"&time_precision=s)
   private val ListDashboardsPattern = ".*/(.*)/..*".r
   private val Dispatcher = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(10))
-  private val decoder = Base64.getDecoder
 
   val Row = "dashboards"
   val Column = ColumnFamily.newColumnFamily("dashboards", StringSerializer.get(), StringSerializer.get())
@@ -56,7 +54,7 @@ object InfluxDashboardResolver extends DashboardResolver with Logging {
   def initialize = Cassandra.createColumnFamily(Column)
 
   def dashboardExpression(expression: String): String = expression match {
-    case GetDashboardPattern(group)   ⇒ new String(decoder.decode(group))
+    case GetDashboardPattern(group)   ⇒ new String(Base64.decodeBase64(group.toString))
     case ListDashboardsPattern(group) ⇒ s"(?i)$group"
     case anythingElse                 ⇒ ""
   }
@@ -71,7 +69,7 @@ object InfluxDashboardResolver extends DashboardResolver with Logging {
   }(Dispatcher)
 
   def store(dashboard: Dashboard): Future[String] = {
-    val name = new String(decoder.decode(dashboard.name.split("_").last))
+    val name = new String(Base64.decodeBase64(dashboard.name.split("_").last))
     log.debug(s"Storing dashboard with name: ${name}")
 
     executeWithFuture {
