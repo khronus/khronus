@@ -13,14 +13,13 @@ object Metrik extends Build {
   import Packager._
 
   lazy val root = Project("root", file("."))
-    .aggregate(metrikCore)
+    .aggregate(metrikCore, metrikStress, metrikInflux)
     .settings(basicSettings: _*)
     .settings(formatSettings: _*)
     .settings(eclipseSettings:_*)
     .settings(noPublishing: _*)
 
-  lazy val metrikCore =
-    Project("metrik-core", file("metrik-core"))
+  lazy val metrikCore = Project("metrik-core", file("metrik-core"))
       .settings(basicSettings: _*)
       .settings(formatSettings: _*)
       .configs(IntegrationTest)
@@ -30,15 +29,29 @@ object Metrik extends Build {
       .settings(multiJvmSettings: _*)
       .settings(Revolver.settings:_*)
       .settings(assemblySettings: _*)
-  	  .settings(packagerSettings: _*)
+	  .settings(packagerSettings: _*)
       .settings(
         libraryDependencies ++=
-          compile(sprayClient, sprayCan, sprayRouting, sprayTestKit, sprayJson, akkaActor, akkaTestKit, akkaRemote, akkaCluster, akkaContrib, multiNodeTestKit, scalaTest, akkaQuartz,
-            hdrHistogram, specs2, mockito, astyanaxCore, astyanaxThrift, astyanaxCassandra, kryo, scalaLogging, slf4j, logbackClassic, commonsLang, akkaSlf4j) ++
-          test(sprayTestKit, akkaTestKit, multiNodeTestKit, scalaTest, specs2, mockito) ++
+          compile(parserConbinators,sprayClient, sprayCan, sprayRouting, sprayJson, akkaActor,  akkaRemote, akkaCluster, akkaContrib, akkaQuartz, hdrHistogram, astyanaxCore, astyanaxThrift, astyanaxCassandra, kryo, scalaLogging, slf4j, logbackClassic, commonsLang, akkaSlf4j) ++
+          test(sprayTestKit, mockito, akkaTestKit, multiNodeTestKit, scalaTest, specs2, mockito) ++
           it(scalaTest)
       )
+      
+  lazy val metrikStress = Project("metrik-stress", file("metrik-stress"))
+      .dependsOn(metrikCore)
+      .settings(basicSettings: _*)
+      .settings(formatSettings: _*)
+      .settings(libraryDependencies ++= compile(sprayClient, sprayCan, sprayJson, akkaActor))
+      
+  
+  lazy val metrikInflux = Project("metrik-influx-api", file("metrik-influx-api"))
+      .dependsOn(metrikCore)
+      .settings(basicSettings: _*)
+      .settings(formatSettings: _*)
+      .settings(libraryDependencies ++= 
+                compile(sprayClient, sprayCan, sprayJson, akkaActor) ++
+                test (sprayTestKit, mockito, akkaTestKit, scalaTest, specs2, mockito))  
+    
 
   val noPublishing = Seq(publish := (), publishLocal := (), publishArtifact := false)
-
 }
