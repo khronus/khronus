@@ -124,7 +124,8 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar {
     when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](neverProcessedTimestamp))
 
     //call method to test
-    Await.result(window.process(metric, Tick.current(Seq(window))), 5 seconds)
+    val tick = Tick(BucketNumber(15000, windowDuration))
+    Await.result(window.process(metric, tick), 5 seconds)
 
     //verify that not store any temporal bucket
     verify(window.bucketStore).store(metric, windowDuration, Seq())
@@ -147,8 +148,9 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar {
     when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](neverProcessedTimestamp))
 
     //call method to test
+    val tick = Tick(BucketNumber(15000, windowDuration))
     intercept[IOException] {
-      Await.result(window.process(metric, Tick.current(Seq(window))), 5 seconds)
+      Await.result(window.process(metric, tick), 5 seconds)
     }
 
     //verify that not store any temporal bucket

@@ -26,13 +26,23 @@ import org.scalatest.mock.MockitoSugar
 import org.mockito.Mockito
 import com.despegar.metrik.web.service.influx.InfluxSeriesProtocol._
 import org.scalatest.BeforeAndAfter
-import akka.actor.ActorRefFactory
+import akka.actor.{ ActorSystem, ActorRefFactory }
 import org.specs2.matcher.{ MatchResult, Expectable }
 import spray.routing.HttpService
 import com.despegar.metrik.model.Metric
+import com.typesafe.config.ConfigFactory
 
 class InfluxServiceSpec extends Specification with Specs2RouteTest with MetrikExceptionHandler with MockitoSugar with HttpService {
-  override val actorRefFactory = system
+  def actorRefFactory = ActorSystem("TestSystem", ConfigFactory.parseString(
+    """
+      |akka {
+      |  loggers = ["akka.event.slf4j.Slf4jLogger"]
+      |  loglevel = INFO
+      |  stdout-loglevel = DEBUG
+      | }
+    """.stripMargin))
+
+  override def createActorSystem(): ActorSystem = actorRefFactory
 
   val influxSeriesURI = "/metrik/influx/series"
 

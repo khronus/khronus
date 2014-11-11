@@ -24,6 +24,11 @@ class SettingTest extends FunSuite with MockitoSugar with Matchers {
       |    windows = [30 seconds]
       |  }
       |}
+      |akka {
+      |  loggers = ["akka.event.slf4j.Slf4jLogger"]
+      |  loglevel = INFO
+      |  stdout-loglevel = DEBUG
+      |  }
     """.stripMargin))
 
   test("should configure histogram time windows properly") {
