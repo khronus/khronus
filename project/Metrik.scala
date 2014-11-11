@@ -12,19 +12,25 @@ object Metrik extends Build {
   import Settings._
   import Packager._
 
-  lazy val root =
-    Project("metrik", file("."))
+  lazy val root = Project("root", file("."))
+    .aggregate(metrikCore)
+    .settings(basicSettings: _*)
+    .settings(formatSettings: _*)
+    .settings(eclipseSettings:_*)
+    .settings(noPublishing: _*)
+
+  lazy val metrikCore =
+    Project("metrik-core", file("metrik-core"))
+      .settings(basicSettings: _*)
+      .settings(formatSettings: _*)
       .configs(IntegrationTest)
       .configs(MultiJvm)
       .settings(itSettings: _*)
       .settings(itExtraSettings: _*)
-      .settings(basicSettings: _*)
-      .settings(formatSettings: _*)
       .settings(multiJvmSettings: _*)
-      .settings(eclipseSettings:_*)
       .settings(Revolver.settings:_*)
       .settings(assemblySettings: _*)
-      .settings(packagerSettings: _*)
+  	  .settings(packagerSettings: _*)
       .settings(
         libraryDependencies ++=
           compile(sprayClient, sprayCan, sprayRouting, sprayTestKit, sprayJson, akkaActor, akkaTestKit, akkaRemote, akkaCluster, akkaContrib, multiNodeTestKit, scalaTest, akkaQuartz,
@@ -32,4 +38,7 @@ object Metrik extends Build {
           test(sprayTestKit, akkaTestKit, multiNodeTestKit, scalaTest, specs2, mockito) ++
           it(scalaTest)
       )
+
+  val noPublishing = Seq(publish := (), publishLocal := (), publishArtifact := false)
+
 }
