@@ -14,31 +14,9 @@
  * =========================================================================================
  */
 
-package com.despegar.metrik.web.service
+package com.despegar.metrik.util
 
-import akka.actor.Props
-import com.despegar.metrik.model.MyJsonProtocol._
-import com.despegar.metrik.model.Version
-import spray.http.MediaTypes._
-import spray.httpx.SprayJsonSupport._
-import spray.routing._
+import com.despegar.metrik.cluster.ClusterSupport
+import com.despegar.metrik.service.MetrikService
 
-class VersionActor extends HttpServiceActor with VersionEndpoint {
-  def receive = runRoute(versionRoute)
-}
-
-object VersionActor {
-  def props = Props[VersionActor]
-}
-
-trait VersionEndpoint extends HttpService {
-  val versionRoute: Route =
-    get {
-      respondWithMediaType(`application/json`) {
-        // XML is marshalled to `text/xml` by default, so we simply override here
-        complete {
-          Version("Metrik", "0.0.1-ALPHA")
-        }
-      }
-    }
-}
+object Metrik extends App with ActorSystemSupport with MetrikService with ClusterSupport

@@ -16,15 +16,11 @@
 
 package com.despegar.metrik.web.service
 
-import akka.actor.{ ActorLogging, ActorRef }
-import com.despegar.metrik.web.service.MetrikHandler.Register
-import spray.routing._
+import akka.actor.ActorRef
+import com.despegar.metrik.util.{ CORSSupport, Logging, Register }
 import spray.http.StatusCodes._
-import com.despegar.metrik.web.service.influx.{ CORSSupport }
-import com.despegar.metrik.util.Logging
 import spray.httpx.marshalling.ToResponseMarshaller
-import scala.collection.concurrent.TrieMap
-import scala.collection.mutable.ArrayBuffer
+import spray.routing._
 
 class MetrikHandler extends HttpServiceActor with MetrikExceptionHandler {
   var endpoints = Map[String, ActorRef]()
@@ -32,7 +28,7 @@ class MetrikHandler extends HttpServiceActor with MetrikExceptionHandler {
   def createEndpointRoute(path: String, target: ActorRef): Route =
     pathPrefix(separateOnSlashes(path)) {
       ctx ⇒ target ! ctx
-  }
+    }
 
   def composeRoute: Route = {
     endpoints.foldLeft[Route](reject) { (acc, next) ⇒
@@ -50,7 +46,7 @@ class MetrikHandler extends HttpServiceActor with MetrikExceptionHandler {
 }
 
 object MetrikHandler {
-  case class Register(path: String, actor: ActorRef)
+  //  case class Register(path: String, actor: ActorRef)
 }
 
 trait MetrikExceptionHandler extends Logging {

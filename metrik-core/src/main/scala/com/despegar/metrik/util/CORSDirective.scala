@@ -14,7 +14,7 @@
  * =========================================================================================
  */
 
-package com.despegar.metrik.web.service.influx
+package com.despegar.metrik.util
 
 import spray.http.HttpHeaders._
 import spray.http.HttpMethods._
@@ -24,22 +24,19 @@ import spray.routing._
 trait CORSSupport extends Directives {
   this: HttpService ⇒
 
-  import CORSSupport._
+  import com.despegar.metrik.util.CORSSupport._
 
   def respondWithCORS(routes: ⇒ Route) = {
     respondWithHeaders(headers) {
       routes ~ options { complete(StatusCodes.OK) }
     }
   }
-
 }
 
 object CORSSupport {
-
   val headers: List[HttpHeader] = List(
     `Access-Control-Allow-Methods`(GET, POST, PUT, DELETE, OPTIONS),
     `Access-Control-Allow-Headers`("Origin, X-Requested-With, Content-Type, Accept, Accept-Encoding, Accept-Language, Host, Referer, User-Agent"),
     `Access-Control-Allow-Credentials`(true),
     `Access-Control-Allow-Origin`(AllOrigins))
-
 }

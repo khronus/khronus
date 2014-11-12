@@ -1,4 +1,4 @@
-package com.despegar.metrik.web.service.influx
+package com.despegar.metrik.influx
 
 import spray.json._
 import spray.httpx.SprayJsonSupport

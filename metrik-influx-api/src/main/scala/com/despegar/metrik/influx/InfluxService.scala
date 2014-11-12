@@ -14,10 +14,12 @@
  * =========================================================================================
  */
 
-package com.despegar.metrik.web.service.influx
+package com.despegar.metrik.influx
 
 import akka.actor.Props
+import com.despegar.metrik.influx.InfluxQueryResolver
 import com.despegar.metrik.util.Logging
+import com.despegar.metrik.util.CORSSupport
 import spray.http.MediaTypes._
 import spray.http.StatusCodes._
 import spray.httpx.encoding.{ NoEncoding, Gzip }
@@ -32,6 +34,8 @@ class InfluxActor extends HttpServiceActor with InfluxEndpoint {
 
 object InfluxActor {
   def props = Props[InfluxActor]
+  val Name = "influx-actor"
+  val Path = "metrik/influx"
 }
 
 trait InfluxEndpoint extends HttpService with Logging with CORSSupport with InfluxQueryResolver with DashboardSupport {

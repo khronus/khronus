@@ -1,24 +1,16 @@
-package com.despegar.metrik.web.service
+package com.despegar.metrik.influx
 
 import com.despegar.metrik.model.Functions
-import org.scalatest.{ ShouldMatchers, FunSuite }
-import org.scalatest.mock.MockitoSugar
-import com.despegar.metrik.web.service.influx.parser.{ InfluxCriteria, InfluxQueryParser }
-import org.specs2.Specification
-import org.scalatest.Matchers._
-import com.despegar.metrik.web.service.influx.parser._
+import org.scalatest.FunSuite
+import  org.scalatest.Matchers
+import com.despegar.metrik.influx.parser._
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._
-import com.despegar.metrik.web.service.influx.parser.TimeFilter
-import com.despegar.metrik.web.service.influx.parser.StringFilter
-import scala.Some
-import com.despegar.metrik.web.service.influx.parser.AllField
-import com.despegar.metrik.web.service.influx.parser.Field
 
 /**
  * Created by aholman on 23/10/14.
  */
-class InfluxQueryParserSpec extends FunSuite with ShouldMatchers {
+class InfluxQueryParserSpec extends FunSuite with Matchers {
   // TODO - Where con soporte para expresiones regulares: =~ matches against, !~ doesn’t match against
 
   val parser = new InfluxQueryParser() {

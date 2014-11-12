@@ -23,7 +23,7 @@ trait BaseIntegrationTest extends FunSuite with BeforeAndAfterAll with BeforeAnd
   }
 
   override protected def afterAll() = {
-    Metrik.system.shutdown()
+    //Metrik.system.shutdown()
   }
 
   def await[T](f: => Future[T]):T = Await.result(f, 10 seconds)

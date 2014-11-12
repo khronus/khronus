@@ -14,7 +14,7 @@
  * =========================================================================================
  */
 
-package com.despegar.metrik.web.service.influx.parser
+package com.despegar.metrik.influx.parser
 
 import com.despegar.metrik.model.Functions
 import scala.concurrent.duration.FiniteDuration

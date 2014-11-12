@@ -13,28 +13,27 @@
  * and limitations under the License.
  * =========================================================================================
  */
-package com.despegar.metrik.web.service
+package com.despegar.metrik.influx
 
+//import com.despegar.metrik.web.service.MetrikExceptionHandler
 import org.specs2.mutable.Specification
 import spray.testkit.Specs2RouteTest
-import com.despegar.metrik.web.service.influx.{ InfluxEndpoint, InfluxSeries }
 import spray.http.StatusCodes._
 import spray.http.Uri
 import scala.concurrent.Future
 import com.despegar.metrik.store.MetaStore
 import org.scalatest.mock.MockitoSugar
 import org.mockito.Mockito
-import com.despegar.metrik.web.service.influx.InfluxSeriesProtocol._
+import com.despegar.metrik.influx.InfluxSeriesProtocol._
 import akka.actor.{ ActorSystem }
 import org.specs2.matcher.{ MatchResult }
 import spray.routing.HttpService
 import com.despegar.metrik.model.Metric
 import com.typesafe.config.ConfigFactory
 
-class InfluxServiceSpec extends Specification with Specs2RouteTest with MetrikExceptionHandler with MockitoSugar with HttpService {
+class InfluxServiceSpec extends Specification with Specs2RouteTest  with MockitoSugar with HttpService {
   def actorRefFactory = ActorSystem("TestSystem", ConfigFactory.parseString(
     """
-      |akka {
       |  loggers = ["akka.event.slf4j.Slf4jLogger"]
       |  loglevel = INFO
       |  stdout-loglevel = DEBUG

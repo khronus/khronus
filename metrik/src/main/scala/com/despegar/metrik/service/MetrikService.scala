@@ -14,28 +14,29 @@
  * =========================================================================================
  */
 
-package com.despegar.metrik.web.service
+package com.despegar.metrik.service
 
-import akka.actor.{ ActorRefFactory, Props }
+import akka.actor.Props
 import akka.io.IO
-import com.despegar.metrik.util.{ Settings, ActorSystemSupport }
-import com.despegar.metrik.web.service.MetrikHandler.Register
-import com.despegar.metrik.web.service.influx.{ InfluxEndpoint, InfluxActor }
+import com.despegar.metrik.store.Cassandra
+import com.despegar.metrik.util.{ MetrikStarted, Register, ActorSystemSupport, Settings }
+import com.despegar.metrik.web.service.{ VersionActor, MetrikActor, MetrikHandler }
 import spray.can.Http
 
 trait MetrikService {
   this: ActorSystemSupport ⇒
 
-  val master = system.actorOf(Props[MetrikHandler], "metrik-handler")
+  val handlerActor = system.actorOf(Props[MetrikHandler], "handler-actor")
 
-  IO(Http) ! Http.Bind(master, Settings(system).Http.Interface, Settings(system).Http.Port)
+  IO(Http) ! Http.Bind(handlerActor, Settings(system).Http.Interface, Settings(system).Http.Port)
 
-  val metrikActor = system.actorOf(MetrikActor.props, "metrik-actor")
-  master ! Register("metrik/metrics", metrikActor)
+  val metrikActor = system.actorOf(MetrikActor.props, MetrikActor.Name)
+  val versionActor = system.actorOf(VersionActor.props, VersionActor.Name)
 
-  val versionActor = system.actorOf(VersionActor.props, "version-actor")
-  master ! Register("metrik/version", versionActor)
+  handlerActor ! Register(MetrikActor.Path, metrikActor)
+  handlerActor ! Register(VersionActor.Path, versionActor)
 
-  val influxActor = system.actorOf(InfluxActor.props, "influx-actor")
-  master ! Register("metrik/influx", influxActor)
+  Cassandra initialize
+
+  system.eventStream.publish(MetrikStarted(handlerActor))
 }

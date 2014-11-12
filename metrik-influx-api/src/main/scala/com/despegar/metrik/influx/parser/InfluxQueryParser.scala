@@ -1,10 +1,11 @@
-package com.despegar.metrik.web.service.influx.parser
+package com.despegar.metrik.influx.parser
 
 import java.util.concurrent.TimeUnit
 
 import com.despegar.metrik.util.{ Settings, Logging }
 
 import scala.concurrent.duration.FiniteDuration
+import scala.util.Success
 import scala.util.parsing.combinator.lexical._
 import scala.util.parsing.combinator.syntactical._
 import com.despegar.metrik.model.Functions

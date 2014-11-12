@@ -20,6 +20,8 @@ class MetrikActor extends HttpServiceActor with MetricsEnpoint {
 }
 
 object MetrikActor {
+  val Name = "metrik-actor"
+  val Path = "metrik/metrics"
   def props = Props[MetrikActor]
 }
 

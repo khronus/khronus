@@ -13,11 +13,19 @@ object Metrik extends Build {
   import Packager._
 
   lazy val root = Project("root", file("."))
-    .aggregate(metrikCore, metrikStress, metrikInflux)
+    .aggregate(metrik,metrikCore, metrikStress, metrikInflux)
     .settings(basicSettings: _*)
     .settings(formatSettings: _*)
     .settings(eclipseSettings: _*)
     .settings(noPublishing: _*)
+
+  lazy val metrik = Project("metrik", file("metrik"))
+    .dependsOn(metrikCore, metrikInflux, metrikStress)
+    .settings(basicSettings: _*)
+    .settings(formatSettings: _*)
+    .settings(libraryDependencies ++=
+              compile(sprayCan, sprayJson, akkaActor))
+
 
   lazy val metrikCore = Project("metrik-core", file("metrik-core"))
     .settings(basicSettings: _*)

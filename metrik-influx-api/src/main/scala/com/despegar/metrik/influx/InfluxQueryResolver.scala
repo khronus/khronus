@@ -14,11 +14,12 @@
  * =========================================================================================
  */
 
-package com.despegar.metrik.web.service.influx
+package com.despegar.metrik.influx
 
+import com.despegar.metrik.influx.parser.Projection
 import com.despegar.metrik.model.{ Functions, StatisticSummary }
-import com.despegar.metrik.store.{ StatisticSummarySupport, MetaSupport }
-import com.despegar.metrik.web.service.influx.parser._
+import com.despegar.metrik.store.{ Slice, StatisticSummarySupport, MetaSupport }
+import com.despegar.metrik.influx.parser._
 import scala.concurrent.ExecutionContext.Implicits.global
 
 import scala.concurrent.Future
@@ -109,7 +110,4 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
 object InfluxQueryResolver {
   val ListSeries = "list series"
   val influxTimeKey = "time"
-
-  case class Slice(from: Long, to: Long, reverseOrder: Boolean = false)
-
 }

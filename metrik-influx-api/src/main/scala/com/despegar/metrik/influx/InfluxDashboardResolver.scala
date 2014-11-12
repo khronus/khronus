@@ -14,7 +14,7 @@
  * =========================================================================================
  */
 
-package com.despegar.metrik.web.service.influx
+package com.despegar.metrik.influx
 
 import java.util.concurrent.Executors
 

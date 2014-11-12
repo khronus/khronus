@@ -14,19 +14,33 @@
  * =========================================================================================
  */
 
-package com.despegar.metrik.util
+package com.despegar.metrik.web.service
 
-import akka.actor._
-import com.despegar.metrik.cluster.ClusterSupport
-import com.despegar.metrik.web.service.MetrikService
-import com.despegar.metrik.store.Cassandra
+import akka.actor.Props
+import com.despegar.metrik.model.MyJsonProtocol._
+import com.despegar.metrik.model.Version
+import spray.http.MediaTypes._
+import spray.httpx.SprayJsonSupport._
+import spray.routing._
 
-trait ActorSystemSupport {
-  implicit def system: ActorSystem
+class VersionActor extends HttpServiceActor with VersionEndpoint {
+  def receive = runRoute(versionRoute)
 }
 
-object Metrik extends App with ActorSystemSupport with MetrikService with ClusterSupport {
-  implicit lazy val system = ActorSystem("metrik-system")
+object VersionActor {
+  def props = Props[VersionActor]
+  val Name = "version-actor"
+  val Path = "metrik/version"
+}
 
-  Cassandra initialize
+trait VersionEndpoint extends HttpService {
+  val versionRoute: Route =
+    get {
+      respondWithMediaType(`application/json`) {
+        // XML is marshalled to `text/xml` by default, so we simply override here
+        complete {
+          Version("Metrik", "0.0.1-ALPHA")
+        }
+      }
+    }
 }

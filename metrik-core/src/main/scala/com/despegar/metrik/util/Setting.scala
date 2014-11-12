@@ -80,9 +80,9 @@ class Settings(config: com.typesafe.config.Config, extendedSystem: ExtendedActor
 
 }
 
-object Settings extends ExtensionId[Settings] with ExtensionIdProvider {
+object Settings extends ExtensionId[Settings] with ExtensionIdProvider with ActorSystemSupport {
 
-  def apply() = super.apply(Metrik.system)
+  def apply() = super.apply(system)
 
   override def lookup = Settings
   override def createExtension(system: ExtendedActorSystem) = new Settings(system.settings.config, system)

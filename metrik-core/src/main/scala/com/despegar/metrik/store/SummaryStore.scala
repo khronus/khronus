@@ -31,7 +31,8 @@ import java.lang
 import scala.annotation.tailrec
 import scala.collection.mutable
 import com.netflix.astyanax.connectionpool.OperationResult
-import com.despegar.metrik.web.service.influx.InfluxQueryResolver.Slice
+
+case class Slice(from: Long, to: Long, reverseOrder: Boolean = false)
 
 trait SummaryStoreSupport[T <: Summary] {
   def summaryStore: SummaryStore[T]
