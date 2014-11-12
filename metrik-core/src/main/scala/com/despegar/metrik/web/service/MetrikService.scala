@@ -16,15 +16,26 @@
 
 package com.despegar.metrik.web.service
 
-import akka.actor.Props
+import akka.actor.{ ActorRefFactory, Props }
 import akka.io.IO
 import com.despegar.metrik.util.{ Settings, ActorSystemSupport }
+import com.despegar.metrik.web.service.MetrikHandler.Register
+import com.despegar.metrik.web.service.influx.{ InfluxEndpoint, InfluxActor }
 import spray.can.Http
 
 trait MetrikService {
   this: ActorSystemSupport ⇒
 
-  val service = system.actorOf(Props[HandlerActor], "version-service")
+  val master = system.actorOf(Props[MetrikHandler], "metrik-handler")
 
-  IO(Http) ! Http.Bind(service, Settings(system).Http.Interface, Settings(system).Http.Port)
+  IO(Http) ! Http.Bind(master, Settings(system).Http.Interface, Settings(system).Http.Port)
+
+  val metrikActor = system.actorOf(MetrikActor.props, "metrik-actor")
+  master ! Register("metrik/metrics", metrikActor)
+
+  val versionActor = system.actorOf(VersionActor.props, "version-actor")
+  master ! Register("metrik/version", versionActor)
+
+  val influxActor = system.actorOf(InfluxActor.props, "influx-actor")
+  master ! Register("metrik/influx", influxActor)
 }

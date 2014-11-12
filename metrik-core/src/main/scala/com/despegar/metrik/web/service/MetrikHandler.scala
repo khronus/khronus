@@ -16,20 +16,44 @@
 
 package com.despegar.metrik.web.service
 
-import akka.actor.Actor
+import akka.actor.{ ActorLogging, ActorRef }
+import com.despegar.metrik.web.service.MetrikHandler.Register
 import spray.routing._
 import spray.http.StatusCodes._
-import com.despegar.metrik.web.service.influx.{ CORSSupport, InfluxService }
+import com.despegar.metrik.web.service.influx.{ CORSSupport }
 import com.despegar.metrik.util.Logging
 import spray.httpx.marshalling.ToResponseMarshaller
+import scala.collection.concurrent.TrieMap
+import scala.collection.mutable.ArrayBuffer
 
-class HandlerActor extends Actor with MetrikExceptionHandler with MetricsService with VersionService with InfluxService {
-  def actorRefFactory = context
-  def receive = runRoute(metricsRoute ~ versionRoute ~ influxServiceRoute)
+class MetrikHandler extends HttpServiceActor with MetrikExceptionHandler {
+  var endpoints = Map[String, ActorRef]()
+
+  def createEndpointRoute(path: String, target: ActorRef): Route =
+    pathPrefix(separateOnSlashes(path)) {
+      ctx ⇒ target ! ctx
+  }
+
+  def composeRoute: Route = {
+    endpoints.foldLeft[Route](reject) { (acc, next) ⇒
+      val (path, actorRef) = next
+      acc ~ createEndpointRoute(path, actorRef)
+    }
+  }
+
+  val registerReceive: Receive = {
+    case Register(path, actor) ⇒
+      endpoints = endpoints.updated(path, actor)
+      context become receive
+  }
+  def receive = registerReceive orElse runRoute(composeRoute)
+}
+
+object MetrikHandler {
+  case class Register(path: String, actor: ActorRef)
 }
 
 trait MetrikExceptionHandler extends Logging {
-
   implicit def myExceptionHandler: ExceptionHandler =
     ExceptionHandler.apply {
       case e: UnsupportedOperationException ⇒ ctx ⇒ {
@@ -45,5 +69,4 @@ trait MetrikExceptionHandler extends Logging {
   private def responseWithCORSHeaders[T](ctx: RequestContext, response: T)(implicit marshaller: ToResponseMarshaller[T]) = {
     ctx.withHttpResponseHeadersMapped(_ ⇒ CORSSupport.headers).complete(response)(marshaller)
   }
-
 }

@@ -16,54 +16,54 @@
 
 package com.despegar.metrik.web.service.influx
 
-import akka.actor.Actor
+import akka.actor.Props
 import com.despegar.metrik.util.Logging
 import spray.http.MediaTypes._
 import spray.http.StatusCodes._
 import spray.httpx.encoding.{ NoEncoding, Gzip }
-import spray.routing.HttpService
+import spray.routing.{ Route, HttpServiceActor, HttpService }
 import InfluxSeriesProtocol.influxSeriesFormat
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class InfluxActor extends Actor with InfluxService {
-  def actorRefFactory = context
-
+class InfluxActor extends HttpServiceActor with InfluxEndpoint {
   def receive = runRoute(influxServiceRoute)
 }
 
-trait InfluxService extends HttpService with Logging with CORSSupport with InfluxQueryResolver with DashboardSupport {
+object InfluxActor {
+  def props = Props[InfluxActor]
+}
+
+trait InfluxEndpoint extends HttpService with Logging with CORSSupport with InfluxQueryResolver with DashboardSupport {
   import DashboardProtocol._
 
-  val influxServiceRoute =
+  val influxServiceRoute: Route =
     compressResponse(NoEncoding, Gzip) {
       respondWithCORS {
-        pathPrefix("metrik" / "influx") {
-          path("series") {
+        path("series") {
+          get {
+            parameters('q.?, 'p, 'u) { (query, password, username) ⇒
+              query.map { q ⇒
+                log.info(s"GET /metrik/influx - Query: [$q]")
+                respondWithMediaType(`application/json`) { complete { search(q) } }
+              } getOrElse { complete { (OK, s"Authenticated with username: $username and password: " + password) } }
+            }
+          }
+        } ~
+          path("dashboards" / "series") {
             get {
-              parameters('q.?, 'p, 'u) { (query, password, username) ⇒
-                query.map { q ⇒
-                  log.info(s"GET /metrik/influx - Query: [$q]")
-                  respondWithMediaType(`application/json`) { complete { search(q) } }
-                } getOrElse { complete { (OK, s"Authenticated with username: $username and password: " + password) } }
+              parameters('q) { query ⇒
+                respondWithMediaType(`application/json`) {
+                  complete { (OK, dashboardResolver.lookup(query)) }
+                }
               }
-            }
-          } ~
-            path("dashboards" / "series") {
-              get {
-                parameters('q) { query ⇒
-                  respondWithMediaType(`application/json`) {
-                    complete { (OK, dashboardResolver.lookup(query)) }
-                  }
+            } ~
+              post {
+                entity(as[Seq[Dashboard]]) { dashboards ⇒
+                  complete { dashboardResolver.store(dashboards.head) }
                 }
-              } ~
-                post {
-                  entity(as[Seq[Dashboard]]) { dashboards ⇒
-                    complete { dashboardResolver.store(dashboards.head) }
-                  }
-                }
-            }
-        }
+              }
+          }
       }
     }
 }

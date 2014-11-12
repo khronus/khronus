@@ -1,16 +1,10 @@
 package com.despegar.metrik.web.service
 
-import spray.routing.HttpService
+import akka.actor.Props
 import spray.routing._
-import spray.http.MediaTypes._
 import spray.httpx.unmarshalling._
-import spray.json.DefaultJsonProtocol
 import com.despegar.metrik.model.MetricBatchProtocol._
-import org.HdrHistogram.Histogram
-import com.despegar.metrik.store.CassandraHistogramBucketStore
-import com.despegar.metrik.model.HistogramBucket
 import scala.concurrent.duration._
-import com.despegar.metrik.store.HistogramBucketSupport
 import spray.http.StatusCodes._
 import com.despegar.metrik.model.MetricBatch
 import com.despegar.metrik.model.MetricMeasurement
@@ -21,19 +15,25 @@ import com.despegar.metrik.model.Metric
 import com.despegar.metrik.store.BucketSupport
 import com.despegar.metrik.model.Bucket
 
-trait MetricsService extends HttpService with BucketSupport with MetaSupport with Logging {
+class MetrikActor extends HttpServiceActor with MetricsEnpoint {
+  def receive = runRoute(metricsRoute)
+}
 
-  override def loggerName = classOf[MetricsService].getName()
+object MetrikActor {
+  def props = Props[MetrikActor]
+}
 
-  val metricsRoute =
-    path("metrik" / "metrics") {
-      post {
-        entity(as[MetricBatch]) { metricBatch ⇒
-          respondWithStatus(OK) {
-            complete {
-              store(metricBatch.metrics)
-              metricBatch
-            }
+trait MetricsEnpoint extends HttpService with BucketSupport with MetaSupport with Logging {
+
+  override def loggerName = classOf[MetricsEnpoint].getName()
+
+  val metricsRoute: Route =
+    post {
+      entity(as[MetricBatch]) { metricBatch ⇒
+        respondWithStatus(OK) {
+          complete {
+            store(metricBatch.metrics)
+            metricBatch
           }
         }
       }

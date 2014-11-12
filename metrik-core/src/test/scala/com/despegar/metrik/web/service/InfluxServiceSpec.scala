@@ -17,7 +17,7 @@ package com.despegar.metrik.web.service
 
 import org.specs2.mutable.Specification
 import spray.testkit.Specs2RouteTest
-import com.despegar.metrik.web.service.influx.{ InfluxService, InfluxSeries }
+import com.despegar.metrik.web.service.influx.{ InfluxEndpoint, InfluxSeries }
 import spray.http.StatusCodes._
 import spray.http.Uri
 import scala.concurrent.Future
@@ -25,9 +25,8 @@ import com.despegar.metrik.store.MetaStore
 import org.scalatest.mock.MockitoSugar
 import org.mockito.Mockito
 import com.despegar.metrik.web.service.influx.InfluxSeriesProtocol._
-import org.scalatest.BeforeAndAfter
-import akka.actor.{ ActorSystem, ActorRefFactory }
-import org.specs2.matcher.{ MatchResult, Expectable }
+import akka.actor.{ ActorSystem }
+import org.specs2.matcher.{ MatchResult }
 import spray.routing.HttpService
 import com.despegar.metrik.model.Metric
 import com.typesafe.config.ConfigFactory
@@ -46,7 +45,7 @@ class InfluxServiceSpec extends Specification with Specs2RouteTest with MetrikEx
 
   val influxSeriesURI = "/metrik/influx/series"
 
-  class MockedInfluxService extends InfluxService {
+  class MockedInfluxService extends InfluxEndpoint {
     override val actorRefFactory = system
 
     override val metaStore: MetaStore = mock[MetaStore]

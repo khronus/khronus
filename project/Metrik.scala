@@ -16,42 +16,40 @@ object Metrik extends Build {
     .aggregate(metrikCore, metrikStress, metrikInflux)
     .settings(basicSettings: _*)
     .settings(formatSettings: _*)
-    .settings(eclipseSettings:_*)
+    .settings(eclipseSettings: _*)
     .settings(noPublishing: _*)
 
   lazy val metrikCore = Project("metrik-core", file("metrik-core"))
-      .settings(basicSettings: _*)
-      .settings(formatSettings: _*)
-      .configs(IntegrationTest)
-      .configs(MultiJvm)
-      .settings(itSettings: _*)
-      .settings(itExtraSettings: _*)
-      .settings(multiJvmSettings: _*)
-      .settings(Revolver.settings:_*)
-      .settings(assemblySettings: _*)
-	  .settings(packagerSettings: _*)
-      .settings(
-        libraryDependencies ++=
-          compile(parserConbinators,sprayClient, sprayCan, sprayRouting, sprayJson, akkaActor,  akkaRemote, akkaCluster, akkaContrib, akkaQuartz, hdrHistogram, astyanaxCore, astyanaxThrift, astyanaxCassandra, kryo, scalaLogging, slf4j, logbackClassic, commonsLang, akkaSlf4j) ++
-          test(sprayTestKit, mockito, akkaTestKit, multiNodeTestKit, scalaTest, specs2, mockito) ++
-          it(scalaTest)
-      )
-      
-  lazy val metrikStress = Project("metrik-stress", file("metrik-stress"))
-      .dependsOn(metrikCore)
-      .settings(basicSettings: _*)
-      .settings(formatSettings: _*)
-      .settings(libraryDependencies ++= compile(sprayClient, sprayCan, sprayJson, akkaActor))
-      
-  
-  lazy val metrikInflux = Project("metrik-influx-api", file("metrik-influx-api"))
-      .dependsOn(metrikCore)
-      .settings(basicSettings: _*)
-      .settings(formatSettings: _*)
-      .settings(libraryDependencies ++= 
-                compile(sprayClient, sprayCan, sprayJson, akkaActor) ++
-                test (sprayTestKit, mockito, akkaTestKit, scalaTest, specs2, mockito))  
-    
+    .settings(basicSettings: _*)
+    .settings(formatSettings: _*)
+    .configs(IntegrationTest)
+    .configs(MultiJvm)
+    .settings(itSettings: _*)
+    .settings(itExtraSettings: _*)
+    .settings(multiJvmSettings: _*)
+    .settings(Revolver.settings: _*)
+    .settings(assemblySettings: _*)
+ 	.settings(packagerSettings: _*)
+    .settings(libraryDependencies ++=
+    compile(parserConbinators, sprayClient, sprayCan, sprayRouting, sprayJson, akkaActor, akkaRemote, akkaCluster, akkaContrib, akkaQuartz, hdrHistogram, astyanaxCore, astyanaxThrift, astyanaxCassandra, kryo, scalaLogging, slf4j, logbackClassic, commonsLang, akkaSlf4j) ++
+      test(sprayTestKit, mockito, akkaTestKit, multiNodeTestKit, scalaTest, specs2, mockito) ++
+      it(scalaTest))
 
-  val noPublishing = Seq(publish := (), publishLocal := (), publishArtifact := false)
+  lazy val metrikStress = Project("metrik-stress", file("metrik-stress"))
+    .dependsOn(metrikCore)
+    .settings(basicSettings: _*)
+    .settings(formatSettings: _*)
+    .settings(libraryDependencies ++=
+      compile(sprayClient, sprayCan, sprayJson, akkaActor))
+
+
+  lazy val metrikInflux = Project("metrik-influx-api", file("metrik-influx-api"))
+    .dependsOn(metrikCore)
+    .settings(basicSettings: _*)
+    .settings(formatSettings: _*)
+    .settings(libraryDependencies ++=
+      compile(parserConbinators, sprayClient, sprayCan, sprayJson, akkaActor) ++
+      test(sprayTestKit, mockito, akkaTestKit, scalaTest, specs2, mockito))
+
+  val noPublishing = Seq(publish :=(), publishLocal :=(), publishArtifact := false)
 }

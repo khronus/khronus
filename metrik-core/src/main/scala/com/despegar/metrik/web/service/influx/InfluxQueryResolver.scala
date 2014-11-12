@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit
 import scala.collection.concurrent.TrieMap
 
 trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
-  this: InfluxService ⇒
+  this: InfluxEndpoint ⇒
 
   import InfluxQueryResolver._
 
