@@ -77,8 +77,8 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
     elem(s"Expected some valid percentile", { e ⇒ e.chars.forall(_.isDigit) && Functions.allPercentilesValues.contains(e.chars.toInt) }) ^^ (_.chars.toInt)
 
   private def tableParser: Parser[Table] =
-    "from" ~> ident ~ opt("as") ~ opt(ident) ^^ {
-      case ident ~ _ ~ alias ⇒ Table(ident, alias)
+    "from" ~> stringLit ~ opt("as") ~ opt(ident) ^^ {
+      case metricName ~ _ ~ alias ⇒ Table(metricName, alias)
     }
 
   private def filterParser: Parser[List[Filter]] = "where" ~> filterExpression
