@@ -16,8 +16,8 @@
 
 package com.despegar.metrik.web.service.influx
 
-import com.despegar.metrik.model.{ Functions, StatisticSummary }
-import com.despegar.metrik.store.{ StatisticSummarySupport, MetaSupport }
+import com.despegar.metrik.model.{ Summary, Functions, StatisticSummary }
+import com.despegar.metrik.store._
 import com.despegar.metrik.web.service.influx.parser._
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -26,7 +26,7 @@ import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.TimeUnit
 import scala.collection.concurrent.TrieMap
 
-trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
+trait InfluxQueryResolver extends MetaSupport {
   this: InfluxService ⇒
 
   import InfluxQueryResolver._
@@ -49,14 +49,22 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
       val metricName: String = influxCriteria.table.name
       val maxResults: Int = influxCriteria.limit.getOrElse(Int.MaxValue)
 
-      summaryStore.readAll(timeWindow, metricName, slice, maxResults) map {
+      getStore(metricName).readAll(timeWindow, metricName, slice, maxResults) map {
         results ⇒ toInfluxSeries(results, influxCriteria.projections, metricName)
       }
-
     }
   }
 
-  private def toInfluxSeries(summaries: Seq[StatisticSummary], projections: Seq[Projection], metricName: String): Seq[InfluxSeries] = {
+  private def getStore(metricName: String) = {
+    val metric = metaStore.getFromSnapshot find (metric ⇒ metric.name.equalsIgnoreCase(metricName)) getOrElse (throw new UnsupportedOperationException(s"Metric name not found: $metricName"))
+
+    metric.mtype match {
+      case "timer"   ⇒ CassandraStatisticSummaryStore
+      case "counter" ⇒ CassandraCounterSummaryStore
+    }
+  }
+
+  private def toInfluxSeries(summaries: Seq[Summary], projections: Seq[Projection], metricName: String): Seq[InfluxSeries] = {
     log.info(s"Building Influx series: Metric $metricName - Projections: $projections - Summaries count: ${summaries.size}")
     val functions = projections.collect({
       case Field(name, _) ⇒ Seq(name)
@@ -66,7 +74,7 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
     buildInfluxSeries(summaries, metricName, functions)
   }
 
-  def buildInfluxSeries(summaries: Seq[StatisticSummary], metricName: String, functions: Iterable[String]): Seq[InfluxSeries] = {
+  def buildInfluxSeries(summaries: Seq[Summary], metricName: String, functions: Iterable[String]): Seq[InfluxSeries] = {
     val pointsPerFunction = TrieMap[String, Vector[Vector[Long]]]()
 
     summaries.foreach(summary ⇒ {

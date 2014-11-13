@@ -24,17 +24,6 @@ case class StatisticSummary(timestamp: Timestamp, p50: Long, p80: Long, p90: Lon
   override def toString = s"StatisticSummary(timestamp=${timestamp.ms},count=$count,...)"
 }
 
-object StatisticSummary {
-  implicit class PimpedStatisticSummary(summary: StatisticSummary) {
-    private val cache = TrieMap.empty[String, Method]
-
-    def get(name: String): Long = {
-      val method = cache.getOrElseUpdate(name, summary.getClass.getDeclaredMethod(name))
-      method.invoke(summary).asInstanceOf[Long]
-    }
-  }
-}
-
 object Functions {
   sealed trait Function {
     def name: String

@@ -64,13 +64,11 @@ trait MetricsService extends HttpService with BucketSupport with MetaSupport wit
   }
 
   private def track(metric: Metric) = {
-    isNew(metric) map { isNew ⇒
-      if (isNew) {
-        log.info(s"Got a new metric: $metric. Will store metadata for it")
-        storeMetadata(metric)
-      } else {
-        log.info(s"$metric is already known. No need to store meta for it")
-      }
+    if (isNew(metric)) {
+      log.info(s"Got a new metric: $metric. Will store metadata for it")
+      storeMetadata(metric)
+    } else {
+      log.info(s"$metric is already known. No need to store meta for it")
     }
   }
 
@@ -87,6 +85,6 @@ trait MetricsService extends HttpService with BucketSupport with MetaSupport wit
   private def alreadyProcessed[T <: Bucket](bucket: T) = false //how?
 
   //ok, this has to be improved. maybe scheduling a reload at some interval and only going to meta if not found
-  private def isNew(metric: Metric) = metaStore.retrieveMetrics map { !_.contains(metric) }
+  private def isNew(metric: Metric) = metaStore.getFromSnapshot contains metric
 
 }
