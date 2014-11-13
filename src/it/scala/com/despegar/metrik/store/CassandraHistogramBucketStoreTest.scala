@@ -24,7 +24,7 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
     await { CassandraHistogramBucketStore.store(testMetric, 30 seconds, Seq(histogramBucket)) }
 
     val executionTimestamp:Timestamp = histogramBucket.bucketNumber.startTimestamp()
-    val bucketsFromCassandra = await {CassandraHistogramBucketStore.sliceUntil(testMetric, executionTimestamp, 30 seconds) }
+    val bucketsFromCassandra = await {CassandraHistogramBucketStore.slice(testMetric, 1, executionTimestamp, 30 seconds) }
     val bucketFromCassandra = bucketsFromCassandra(0)
 
     histogram shouldEqual bucketFromCassandra.histogram
@@ -40,7 +40,7 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
     
     await { CassandraHistogramBucketStore.store(testMetric, 30 seconds, buckets) }
     
-    val bucketsFromCassandra = await { CassandraHistogramBucketStore.sliceUntil(testMetric, System.currentTimeMillis(), 30 seconds) }
+    val bucketsFromCassandra = await { CassandraHistogramBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds) }
     
     bucketsFromCassandra should have length 1
     bucketsFromCassandra(0) shouldEqual bucketFromThePast
@@ -54,7 +54,7 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
     
     await { CassandraHistogramBucketStore.remove(testMetric, 30 seconds, Seq(bucket1, bucket2)) }
 
-    val bucketsFromCassandra = await { CassandraHistogramBucketStore.sliceUntil(testMetric, System.currentTimeMillis(), 30 seconds) }
+    val bucketsFromCassandra = await { CassandraHistogramBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds) }
     
     bucketsFromCassandra should be ('empty)
   }

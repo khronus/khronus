@@ -20,7 +20,6 @@ trait BucketStoreSupport[T <: Bucket] {
 
 trait BucketStore[T <: Bucket] extends Logging {
   private val LIMIT = 30000
-  private val INFINITE = 1L
 
   def windowDurations: Seq[Duration]
 
@@ -34,9 +33,9 @@ trait BucketStore[T <: Bucket] extends Logging {
 
   implicit val asyncExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(50))
 
-  def sliceUntil(metric: Metric, until: Timestamp, sourceWindow: Duration): Future[Seq[T]] = {
+  def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[Seq[T]] = {
     Future {
-      executeSlice(metric, until, sourceWindow)
+      executeSlice(metric, from, to, sourceWindow)
     } map { _.map { toBucket(sourceWindow) _ }.toSeq }
   }
 
@@ -60,11 +59,11 @@ trait BucketStore[T <: Bucket] extends Logging {
 
   def serializeBucket(metric: Metric, windowDuration: Duration, bucket: T): ByteBuffer
 
-  private def executeSlice(metric: Metric, until: Timestamp, windowDuration: Duration): Iterable[Column[java.lang.Long]] = {
+  private def executeSlice(metric: Metric, from: Timestamp, to: Timestamp, windowDuration: Duration): Iterable[Column[java.lang.Long]] = {
     val result = Cassandra.keyspace.prepareQuery(columnFamilies(windowDuration)).getKey(metric.name)
-      .withColumnRange(until.ms, INFINITE, true, LIMIT).execute().getResult().asScala
+      .withColumnRange(from.ms, to.ms, false, LIMIT).execute().getResult().asScala
 
-    log.debug(s"${p(metric, windowDuration)} Found ${result.size} buckets slicing from $INFINITE to ${date(until.ms)}")
+    log.debug(s"${p(metric, windowDuration)} Found ${result.size} buckets slicing from ${date(from.ms)} to ${date(to.ms)}")
     result
   }
 
