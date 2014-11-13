@@ -19,7 +19,7 @@ trait BucketStoreSupport[T <: Bucket] {
 }
 
 trait BucketStore[T <: Bucket] extends Logging {
-  private val LIMIT = 1000
+  private val LIMIT = 30000
   private val INFINITE = 1L
 
   def windowDurations: Seq[Duration]
@@ -62,7 +62,7 @@ trait BucketStore[T <: Bucket] extends Logging {
 
   private def executeSlice(metric: Metric, until: Timestamp, windowDuration: Duration): Iterable[Column[java.lang.Long]] = {
     val result = Cassandra.keyspace.prepareQuery(columnFamilies(windowDuration)).getKey(metric.name)
-      .withColumnRange(INFINITE, until.ms, false, LIMIT).execute().getResult().asScala
+      .withColumnRange(INFINITE, until.ms, true, LIMIT).execute().getResult().asScala
 
     log.debug(s"${p(metric, windowDuration)} Found ${result.size} buckets slicing from $INFINITE to ${date(until.ms)}")
     result
