@@ -14,16 +14,15 @@
  * =========================================================================================
  */
 
-package com.despegar.metrik.influx
+package com.despegar.metrik.influx.service
 
 import akka.actor.Props
-import com.despegar.metrik.influx.InfluxQueryResolver
-import com.despegar.metrik.util.Logging
-import com.despegar.metrik.util.CORSSupport
+import com.despegar.metrik.influx.finder.{ DashboardSupport, InfluxQueryResolver }
+import com.despegar.metrik.util.{ CORSSupport, Logging }
 import spray.http.MediaTypes._
 import spray.http.StatusCodes._
-import spray.httpx.encoding.{ NoEncoding, Gzip }
-import spray.routing.{ Route, HttpServiceActor, HttpService }
+import spray.httpx.encoding.{ Gzip, NoEncoding }
+import spray.routing.{ HttpService, HttpServiceActor, Route }
 import InfluxSeriesProtocol.influxSeriesFormat
 
 import scala.concurrent.ExecutionContext.Implicits.global

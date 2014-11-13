@@ -16,7 +16,6 @@
 
 package com.despegar.metrik.influx.parser
 
-import com.despegar.metrik.model.Functions
 import scala.concurrent.duration.FiniteDuration
 
 case class InfluxCriteria(projections: Seq[Projection],

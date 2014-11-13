@@ -14,11 +14,14 @@
  * =========================================================================================
  */
 
-package com.despegar.metrik.store
+package com.despegar.metrik.service
 
-trait BucketSupport {
+import akka.actor.ActorSystem
 
-  val histogramBucketStore = CassandraHistogramBucketStore
-  val counterBucketStore = CassandraCounterBucketStore
+trait ActorSystemSupport {
+  implicit def system = ActorSystemSupport.system
+}
 
+object ActorSystemSupport {
+  val system = ActorSystem("metrik-system")
 }

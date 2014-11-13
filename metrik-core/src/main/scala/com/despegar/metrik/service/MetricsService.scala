@@ -1,4 +1,4 @@
-package com.despegar.metrik.web.service
+package com.despegar.metrik.service
 
 import akka.actor.Props
 import spray.routing._

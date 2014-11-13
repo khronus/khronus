@@ -5,7 +5,7 @@ import sbtassembly.Plugin._
 import sbt.Keys._
 import sbt._
 
-object Metrik extends Build {
+object Projects extends Build {
 
   import Dependencies._
   import MultiJVM._

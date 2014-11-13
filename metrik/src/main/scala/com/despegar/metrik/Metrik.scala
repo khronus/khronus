@@ -14,9 +14,10 @@
  * =========================================================================================
  */
 
-package com.despegar.metrik.util
+package com.despegar.metrik
 
 import com.despegar.metrik.cluster.ClusterSupport
+import com.despegar.metrik.service.ActorSystemSupport
 import com.despegar.metrik.service.MetrikService
 
 object Metrik extends App with ActorSystemSupport with MetrikService with ClusterSupport

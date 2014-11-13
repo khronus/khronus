@@ -17,7 +17,7 @@
 
 
 
-package com.despegar.metrik.com.despegar.metrik
+package com.despegar.metrik.com.despegar.cluster
 
 import akka.actor.{ActorRef, Actor, PoisonPill, Props}
 import akka.cluster.Cluster

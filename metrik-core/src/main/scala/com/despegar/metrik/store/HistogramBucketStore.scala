@@ -17,15 +17,13 @@
 package com.despegar.metrik.store
 
 import java.nio.ByteBuffer
-import java.util.concurrent.{ TimeUnit, Executors }
-import com.despegar.metrik.model.HistogramBucket
-import com.despegar.metrik.util.Logging
+
+import com.despegar.metrik.model.{ HistogramBucket, Metric, Timestamp }
+import com.despegar.metrik.util.{ Logging, Settings }
 import com.netflix.astyanax.model.Column
 import org.HdrHistogram.Histogram
+
 import scala.concurrent.duration._
-import com.despegar.metrik.util.Settings
-import com.despegar.metrik.model.Metric
-import com.despegar.metrik.model.Timestamp
 
 trait HistogramBucketSupport extends BucketStoreSupport[HistogramBucket] {
   override def bucketStore: BucketStore[HistogramBucket] = CassandraHistogramBucketStore

@@ -16,6 +16,8 @@
 package com.despegar.metrik.influx
 
 //import com.despegar.metrik.web.service.MetrikExceptionHandler
+
+import com.despegar.metrik.influx.service.InfluxEndpoint
 import org.specs2.mutable.Specification
 import spray.testkit.Specs2RouteTest
 import spray.http.StatusCodes._

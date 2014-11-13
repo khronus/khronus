@@ -14,23 +14,24 @@
  * =========================================================================================
  */
 
-package com.despegar.metrik.influx
+package com.despegar.metrik.influx.finder
 
-import com.despegar.metrik.influx.parser.Projection
+import java.util.concurrent.TimeUnit
+
+import com.despegar.metrik.influx.parser.{ Projection, _ }
+import com.despegar.metrik.influx.service.{ InfluxSeries, InfluxEndpoint }
 import com.despegar.metrik.model.{ Functions, StatisticSummary }
-import com.despegar.metrik.store.{ Slice, StatisticSummarySupport, MetaSupport }
-import com.despegar.metrik.influx.parser._
-import scala.concurrent.ExecutionContext.Implicits.global
+import com.despegar.metrik.store.{ MetaSupport, Slice, StatisticSummarySupport }
 
+import scala.collection.concurrent.TrieMap
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-import java.util.concurrent.TimeUnit
-import scala.collection.concurrent.TrieMap
 
 trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
   this: InfluxEndpoint ⇒
 
-  import InfluxQueryResolver._
+  import com.despegar.metrik.influx.finder.InfluxQueryResolver._
 
   lazy val parser = new InfluxQueryParser
 

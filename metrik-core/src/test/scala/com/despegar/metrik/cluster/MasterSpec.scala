@@ -15,19 +15,18 @@
  * =========================================================================================
  */
 
-package com.despegar.metrik.com.despegar.metrik
+package com.despegar.metrik.cluster
 
 import akka.actor._
 import akka.routing.RoundRobinGroup
 import akka.testkit._
-import com.despegar.metrik.cluster.Master.{ PendingMetrics, Tick }
-import com.despegar.metrik.cluster.{ Work, WorkDone, _ }
-import com.typesafe.config.ConfigFactory
-import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpecLike }
-import scala.concurrent.Await
-import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext.Implicits.global
+import com.despegar.metrik.cluster.Master.PendingMetrics
 import com.despegar.metrik.model.Metric
+import com.typesafe.config.ConfigFactory
+import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 
 class MasterSpec extends TestKitBase with ImplicitSender
     with Matchers

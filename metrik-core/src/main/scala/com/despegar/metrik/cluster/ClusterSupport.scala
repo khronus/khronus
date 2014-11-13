@@ -18,7 +18,7 @@ package com.despegar.metrik.cluster
 
 import akka.actor.PoisonPill
 import akka.contrib.pattern.ClusterSingletonManager
-import com.despegar.metrik.util.ActorSystemSupport
+import com.despegar.metrik.service.ActorSystemSupport
 
 trait ClusterSupport {
   this: ActorSystemSupport ⇒

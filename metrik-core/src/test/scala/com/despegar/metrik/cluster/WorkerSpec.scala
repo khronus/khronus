@@ -1,4 +1,3 @@
-
 /*
  * =========================================================================================
  * Copyright © 2014 the metrik project <https://github.com/hotels-tech/metrik>
@@ -15,20 +14,19 @@
  * =========================================================================================
  */
 
-package com.despegar.metrik.com.despegar.metrik
+package com.despegar.metrik.cluster
 
-import akka.actor.{ Props, ActorSystem }
-import akka.testkit.{ ImplicitSender, TestActorRef, TestKit, TestKitBase }
-import com.despegar.metrik.cluster._
-import com.despegar.metrik.model.TimeWindowChain
+import akka.actor.{ActorSystem, Props}
+import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestKitBase}
+import com.despegar.metrik.model.{Metric, TimeWindowChain}
 import com.typesafe.config.ConfigFactory
 import org.mockito.Matchers.any
 import org.mockito.Mockito.when
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpecLike }
+import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import com.despegar.metrik.model.Metric
 
 class WorkerSpec extends TestKitBase with ImplicitSender
     with Matchers

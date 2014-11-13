@@ -17,10 +17,10 @@
 package com.despegar.metrik.util
 
 import akka.actor._
+import com.despegar.metrik.service.ActorSystemSupport
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration._
 import scala.collection.JavaConverters._
-import com.despegar.metrik.model.TimeWindow
 import com.despegar.metrik.model.HistogramTimeWindow
 import com.despegar.metrik.model.CounterTimeWindow
 
@@ -80,9 +80,9 @@ class Settings(config: com.typesafe.config.Config, extendedSystem: ExtendedActor
 
 }
 
-object Settings extends ExtensionId[Settings] with ExtensionIdProvider with ActorSystemSupport {
+object Settings extends ExtensionId[Settings] with ExtensionIdProvider {
 
-  def apply() = super.apply(system)
+  def apply() = super.apply(ActorSystemSupport.system)
 
   override def lookup = Settings
   override def createExtension(system: ExtendedActorSystem) = new Settings(system.settings.config, system)

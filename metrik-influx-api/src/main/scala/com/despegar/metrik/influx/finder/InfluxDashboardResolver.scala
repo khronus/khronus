@@ -14,20 +14,21 @@
  * =========================================================================================
  */
 
-package com.despegar.metrik.influx
+package com.despegar.metrik.influx.finder
 
 import java.util.concurrent.Executors
 
+import com.despegar.metrik.influx.service.Dashboard
 import com.despegar.metrik.store.Cassandra
 import com.despegar.metrik.util.{ KryoSerializer, Logging }
 import com.netflix.astyanax.connectionpool.OperationResult
 import com.netflix.astyanax.model.{ ColumnFamily, ColumnList }
 import com.netflix.astyanax.serializers.StringSerializer
+import org.apache.commons.codec.binary.Base64
 
 import scala.collection.JavaConverters._
-import scala.concurrent.{ Promise, ExecutionContext, Future }
+import scala.concurrent.{ ExecutionContext, Future, Promise }
 import scala.util.control.NonFatal
-import org.apache.commons.codec.binary.Base64
 
 trait DashboardResolver {
   def lookup(expression: String): Future[Seq[Dashboard]]
@@ -72,7 +73,7 @@ object InfluxDashboardResolver extends DashboardResolver with Logging {
     val name = new String(Base64.decodeBase64(dashboard.name.split("_").last))
     log.debug(s"Storing dashboard with name: ${name}")
 
-    executeWithFuture {
+    executeWithinFuture {
       val mutation = Cassandra.keyspace.prepareMutationBatch()
       mutation.withRow(Column, Row).putColumn(name, Serializer.serialize(dashboard))
       mutation.execute
@@ -80,7 +81,7 @@ object InfluxDashboardResolver extends DashboardResolver with Logging {
     }
   }
 
-  private def executeWithFuture[T](thunk: ⇒ T): Future[T] = {
+  private def executeWithinFuture[T](thunk: ⇒ T): Future[T] = {
     val p = Promise[T]()
     try {
       p.completeWith(Future(thunk)(Dispatcher))

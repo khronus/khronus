@@ -14,16 +14,19 @@
  * =========================================================================================
  */
 
-package com.despegar.metrik.web.service
+package com.despegar.metrik.service
 
-import akka.actor.ActorRef
-import com.despegar.metrik.util.{ CORSSupport, Logging, Register }
+import akka.actor.{ ActorRef, Props }
+import com.despegar.metrik.service.HandShakeProtocol.Register
+import com.despegar.metrik.util.{ CORSSupport, Logging }
 import spray.http.StatusCodes._
 import spray.httpx.marshalling.ToResponseMarshaller
 import spray.routing._
 
+import scala.collection.concurrent.TrieMap
+
 class MetrikHandler extends HttpServiceActor with MetrikExceptionHandler {
-  var endpoints = Map[String, ActorRef]()
+  val endpoints = TrieMap[String, ActorRef]()
 
   def createEndpointRoute(path: String, target: ActorRef): Route =
     pathPrefix(separateOnSlashes(path)) {
@@ -39,25 +42,33 @@ class MetrikHandler extends HttpServiceActor with MetrikExceptionHandler {
 
   val registerReceive: Receive = {
     case Register(path, actor) ⇒
-      endpoints = endpoints.updated(path, actor)
+      log.info(s"Registering endpoint: $path")
+      endpoints.update(path, actor)
       context become receive
   }
+
   def receive = registerReceive orElse runRoute(composeRoute)
 }
 
 object MetrikHandler {
-  //  case class Register(path: String, actor: ActorRef)
+  val Name = "handler-actor"
+  def props: Props = Props[MetrikHandler]
+}
+
+object HandShakeProtocol {
+  case class Register(path: String, actor: ActorRef)
+  case class MetrikStarted(handler: ActorRef)
 }
 
 trait MetrikExceptionHandler extends Logging {
   implicit def myExceptionHandler: ExceptionHandler =
     ExceptionHandler.apply {
       case e: UnsupportedOperationException ⇒ ctx ⇒ {
-        log.error(s"Handling UnsupportedOperationException ${e.getMessage()}", e)
-        responseWithCORSHeaders(ctx, (BadRequest, s"${e.getMessage()}"))
+        log.error(s"Handling UnsupportedOperationException ${e.getMessage}", e)
+        responseWithCORSHeaders(ctx, (BadRequest, s"${e.getMessage}"))
       }
       case e: Exception ⇒ ctx ⇒ {
-        log.error(s"Handling Exception ${e.getMessage()}", e)
+        log.error(s"Handling Exception ${e.getMessage}", e)
         responseWithCORSHeaders(ctx, InternalServerError)
       }
     }

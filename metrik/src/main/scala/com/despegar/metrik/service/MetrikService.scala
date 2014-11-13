@@ -16,17 +16,16 @@
 
 package com.despegar.metrik.service
 
-import akka.actor.Props
 import akka.io.IO
+import com.despegar.metrik.service.HandShakeProtocol.{ MetrikStarted, Register }
 import com.despegar.metrik.store.Cassandra
-import com.despegar.metrik.util.{ MetrikStarted, Register, ActorSystemSupport, Settings }
-import com.despegar.metrik.web.service.{ VersionActor, MetrikActor, MetrikHandler }
+import com.despegar.metrik.util.Settings
 import spray.can.Http
 
 trait MetrikService {
   this: ActorSystemSupport ⇒
 
-  val handlerActor = system.actorOf(Props[MetrikHandler], "handler-actor")
+  val handlerActor = system.actorOf(MetrikHandler.props, MetrikHandler.Name)
 
   IO(Http) ! Http.Bind(handlerActor, Settings(system).Http.Interface, Settings(system).Http.Port)
 
