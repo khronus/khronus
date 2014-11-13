@@ -3,7 +3,7 @@ package com.despegar.metrik.store
 import java.nio.ByteBuffer
 import java.util.concurrent.Executors
 import com.despegar.metrik.model.{ Bucket, Metric }
-import com.despegar.metrik.util.Logging
+import com.despegar.metrik.util.{ Measurable, Logging }
 import com.netflix.astyanax.ColumnListMutation
 import com.netflix.astyanax.model.{ Column, ColumnFamily }
 import com.netflix.astyanax.serializers.{ LongSerializer, StringSerializer }
@@ -18,7 +18,7 @@ trait BucketStoreSupport[T <: Bucket] {
   def bucketStore: BucketStore[T]
 }
 
-trait BucketStore[T <: Bucket] extends Logging {
+trait BucketStore[T <: Bucket] extends Logging with Measurable {
   private val LIMIT = 30000
 
   def windowDurations: Seq[Duration]
@@ -33,7 +33,7 @@ trait BucketStore[T <: Bucket] extends Logging {
 
   implicit val asyncExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(50))
 
-  def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[Seq[T]] = {
+  def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[Seq[T]] = measureTime("Slice", metric, sourceWindow) {
     Future {
       executeSlice(metric, from, to, sourceWindow)
     } map { _.map { toBucket(sourceWindow) _ }.toSeq }

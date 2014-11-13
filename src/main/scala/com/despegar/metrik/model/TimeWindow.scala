@@ -19,15 +19,15 @@ package com.despegar.metrik.model
 import com.despegar.metrik.model.CounterBucket._
 import com.despegar.metrik.model.HistogramBucket._
 import com.despegar.metrik.store._
-import com.despegar.metrik.util.Logging
+import com.despegar.metrik.util.{ Measurable, Logging }
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.util.{ Failure, Success }
 import scala.concurrent.Future
 
-abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[T] with SummaryStoreSupport[U] with MetaSupport with Logging {
+abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[T] with SummaryStoreSupport[U] with MetaSupport with Logging with Measurable {
 
-  def process(metric: Metric, tick: Tick): scala.concurrent.Future[Unit] = measureTime(metric) {
+  def process(metric: Metric, tick: Tick): scala.concurrent.Future[Unit] = measureTime("Process window", metric, duration) {
     log.debug(s"${p(metric, duration)} - Processing time window for ${Tick(tick.bucketNumber ~ duration)}")
     //retrieve the temporal histogram buckets from previous window
     val previousWindowBuckets = retrievePreviousBuckets(metric, tick)
@@ -51,13 +51,6 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
 
     //remove previous histogram buckets
     storeFuture flatMap { _ ⇒ previousWindowBuckets flatMap (windows ⇒ bucketStore.remove(metric, previousWindowDuration, windows)) }
-  }
-
-  private def measureTime[T](metric: Metric)(block: ⇒ Future[T]): Future[T] = {
-    val start = System.currentTimeMillis()
-    block andThen {
-      case Success(_) ⇒ log.info(s"${p(metric, duration)} - Time window processed in ${System.currentTimeMillis() - start}ms")
-    }
   }
 
   protected def getSummary(bucket: T): U
