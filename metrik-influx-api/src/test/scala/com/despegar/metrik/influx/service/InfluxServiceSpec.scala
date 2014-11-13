@@ -61,7 +61,7 @@ class InfluxServiceSpec extends Specification with Specs2RouteTest  with Mockito
           }
       }
     }
-/*
+
     "return a MethodNotAllowed error for PUT requests to the path" in {
       applying {
         () ⇒
@@ -144,7 +144,7 @@ class InfluxServiceSpec extends Specification with Specs2RouteTest  with Mockito
             }
           }
       }
-    }*/
+    }
 
   }
 
