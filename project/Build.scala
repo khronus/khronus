@@ -10,6 +10,7 @@ object Metrik extends Build {
   import Dependencies._
   import MultiJVM._
   import Settings._
+  import Packager._
 
   lazy val root =
     Project("metrik", file("."))
@@ -23,6 +24,7 @@ object Metrik extends Build {
       .settings(eclipseSettings:_*)
       .settings(Revolver.settings:_*)
       .settings(assemblySettings: _*)
+      .settings(packagerSettings: _*)
       .settings(
         libraryDependencies ++=
           compile(sprayClient, sprayCan, sprayRouting, sprayTestKit, sprayJson, akkaActor, akkaTestKit, akkaRemote, akkaCluster, akkaContrib, multiNodeTestKit, scalaTest, akkaQuartz,
