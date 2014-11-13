@@ -99,19 +99,19 @@ trait SummaryStore[T <: Summary] extends Logging {
     }
   }
 
-  def readAll(cf: Duration, key: String, slice: Slice, count: Int): Future[Seq[StatisticSummary]] = Future {
-    log.info(s"Reading from Cassandra: Cf: $cf - Key: $key - From: ${slice.from} - To: ${slice.to} - Reverse: ${slice.reverseOrder} - Max results: $count")
+  def readAll(windowDuration: Duration, key: String, slice: Slice, count: Int): Future[Seq[T]] = Future {
+    log.info(s"Reading from Cassandra: Cf: $windowDuration - Key: $key - From: ${slice.from} - To: ${slice.to} - Reverse: ${slice.reverseOrder} - Max results: $count")
 
-    val query: RowQuery[String, lang.Long] = Cassandra.keyspace.prepareQuery(columnFamilies(cf))
+    val query: RowQuery[String, lang.Long] = Cassandra.keyspace.prepareQuery(columnFamilies(windowDuration))
       .getKey(key)
       .withColumnRange(slice.from, slice.to, slice.reverseOrder, count)
       .autoPaginate(true)
 
-    readRecursive(Vector.newBuilder[StatisticSummary])(() ⇒ query.execute())
+    readRecursive(Vector.newBuilder[T])(() ⇒ query.execute())
   }
 
   @tailrec
-  private def readRecursive(resultBuilder: mutable.Builder[StatisticSummary, Vector[StatisticSummary]])(operationResult: () ⇒ OperationResult[ColumnList[lang.Long]]): Seq[StatisticSummary] = {
+  private def readRecursive(resultBuilder: mutable.Builder[T, Vector[T]])(operationResult: () ⇒ OperationResult[ColumnList[lang.Long]]): Seq[T] = {
     val result = operationResult().getResult.asScala
 
     if (result.isEmpty) {
@@ -119,7 +119,7 @@ trait SummaryStore[T <: Summary] extends Logging {
     } else {
       result.foldLeft(resultBuilder) {
         (builder, column) ⇒
-          builder += CassandraStatisticSummaryStore.deserialize(column.getByteArrayValue)
+          builder += deserialize(column.getByteArrayValue)
       }
       readRecursive(resultBuilder)(operationResult)
     }

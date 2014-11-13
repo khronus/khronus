@@ -26,7 +26,7 @@ import scala.util.Failure
 import com.despegar.metrik.model.Metric
 import com.despegar.metrik.model.Timestamp
 
-trait MetaStore {
+trait MetaStore extends Snapshot[Seq[Metric]] {
   def update(metric: Metric, lastProcessedTimestamp: Timestamp): Future[Unit]
   def getLastProcessedTimestamp(metric: Metric): Future[Timestamp]
   def insert(metric: Metric): Future[Unit]
@@ -90,4 +90,9 @@ object CassandraMetaStore extends MetaStore with Logging {
     Metric(tokens(0), tokens(1))
   }
 
+  override def getFreshData(): Future[Seq[Metric]] = {
+    retrieveMetrics
+  }
+
+  override def context = asyncExecutionContext
 }
