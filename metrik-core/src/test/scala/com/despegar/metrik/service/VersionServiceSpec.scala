@@ -24,6 +24,7 @@ import com.despegar.metrik.model.Version
 import spray.httpx.SprayJsonSupport._
 import akka.actor.ActorSystem
 import com.typesafe.config.ConfigFactory
+import com.despegar.metrik.service.VersionEndpoint
 
 class VersionServiceSpec extends Specification with Specs2RouteTest with VersionEndpoint {
   def actorRefFactory = ActorSystem("TestSystem", ConfigFactory.parseString(

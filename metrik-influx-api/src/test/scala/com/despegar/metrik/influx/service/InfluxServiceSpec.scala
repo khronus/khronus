@@ -13,11 +13,10 @@
  * and limitations under the License.
  * =========================================================================================
  */
-package com.despegar.metrik.influx
+package com.despegar.metrik.influx.service
 
 //import com.despegar.metrik.web.service.MetrikExceptionHandler
 
-import com.despegar.metrik.influx.service.InfluxEndpoint
 import org.specs2.mutable.Specification
 import spray.testkit.Specs2RouteTest
 import spray.http.StatusCodes._
@@ -26,9 +25,8 @@ import scala.concurrent.Future
 import com.despegar.metrik.store.MetaStore
 import org.scalatest.mock.MockitoSugar
 import org.mockito.Mockito
-import com.despegar.metrik.influx.InfluxSeriesProtocol._
-import akka.actor.{ ActorSystem }
-import org.specs2.matcher.{ MatchResult }
+import akka.actor.ActorSystem
+import org.specs2.matcher.MatchResult
 import spray.routing.HttpService
 import com.despegar.metrik.model.Metric
 import com.typesafe.config.ConfigFactory
