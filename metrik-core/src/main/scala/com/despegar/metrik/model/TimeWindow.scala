@@ -38,7 +38,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
     //filter out buckets already processed. we don't want to override our precious buckets with late data
     val filteredGroupedHistogramBuckets = filterOutAlreadyProcessedBuckets(groupedHistogramBuckets, metric)
 
-    val resultingBuckets = aggregateBuckets(filteredGroupedHistogramBuckets)
+    val resultingBuckets = aggregateBuckets(filteredGroupedHistogramBuckets, metric)
 
     //store temporal histogram buckets for next window if needed
     val storeTemporalFuture = storeTemporalBuckets(resultingBuckets, metric)
@@ -67,7 +67,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
     }
   }
 
-  protected def aggregateBuckets(buckets: Future[Map[BucketNumber, Seq[T]]]): Future[Seq[T]] = {
+  protected def aggregateBuckets(buckets: Future[Map[BucketNumber, Seq[T]]], metric: Metric): Future[Seq[T]] = measureTime("Aggregate", metric, duration) {
     buckets map (buckets ⇒ buckets.collect { case (bucketNumber, buckets) ⇒ aggregate(bucketNumber, buckets) }.toSeq)
   }
 
