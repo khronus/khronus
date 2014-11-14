@@ -25,7 +25,7 @@ class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest 
     val bucketsFromCassandra = await {CassandraCounterBucketStore.slice(testMetric, 1, executionTimestamp, 30 seconds) }
     val bucketFromCassandra = bucketsFromCassandra(0)
 
-    counter shouldEqual bucketFromCassandra
+    counter shouldEqual bucketFromCassandra._2()
   }
 
   test("should not retrieve buckets from the future") {
@@ -40,7 +40,7 @@ class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest 
     val bucketsFromCassandra = await { CassandraCounterBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds) }
 
     bucketsFromCassandra should have length 1
-    bucketsFromCassandra(0) shouldEqual bucketFromThePast
+    bucketsFromCassandra(0)._2() shouldEqual bucketFromThePast
   }
 
   test("should remove buckets") {

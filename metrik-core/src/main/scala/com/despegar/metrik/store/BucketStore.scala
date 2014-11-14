@@ -44,7 +44,7 @@ trait BucketStore[T <: Bucket] extends Logging with Measurable {
 
   def toBucket(windowDuration: Duration)(column: Column[UniqueTimestamp]): T
 
-  def initialize = columnFamilies.foreach(cf ⇒ Cassandra.createColumnFamily(cf._2))
+  def initialize = columnFamilies.foreach(cf ⇒ Cassandra.createColumnFamily(cf._2, Map("comparator_type" -> "CompositeType(LongType, TimeUUIDType)")))
 
   implicit val asyncExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(50))
 
