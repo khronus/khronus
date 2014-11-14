@@ -32,6 +32,7 @@ case class Timestamp(ms: Long) {
 
 object Timestamp {
   implicit def fromLong(ms: Long) = Timestamp(ms)
+
   implicit def fromInt(ms: Int) = Timestamp(ms.toLong)
 }
 
@@ -40,12 +41,17 @@ case class BucketNumber(number: Long, duration: Duration) extends Logging {
   def startTimestamp(): Timestamp = {
     Timestamp(duration.toMillis * number)
   }
+
   def endTimestamp(): Timestamp = {
     Timestamp(duration.toMillis * (number + 1))
   }
+
   def ~(duration: Duration) = startTimestamp().toBucketNumber(duration)
+
   def <(otherBucketNumber: BucketNumber) = startTimestamp().ms < otherBucketNumber.startTimestamp().ms
+
   def >(otherBucketNumber: BucketNumber) = startTimestamp().ms > otherBucketNumber.startTimestamp().ms
+
   def -(aNumber: Int): BucketNumber = BucketNumber(number - aNumber, duration)
 
   override def toString() = s"BucketNumber($number, $duration) from ${date(startTimestamp().ms)} to ${date(endTimestamp().ms)}}"
@@ -54,5 +60,6 @@ case class BucketNumber(number: Long, duration: Duration) extends Logging {
 
 object BucketNumber {
   implicit def fromIntTuple(tuple: (Int, Duration)) = BucketNumber(tuple._1, tuple._2)
+
   implicit def fromLongTuple(tuple: (Long, Duration)) = BucketNumber(tuple._1, tuple._2)
 }

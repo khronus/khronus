@@ -1,6 +1,6 @@
 package com.despegar.metrik.store
 
-import com.despegar.metrik.model.{CounterBucket, Metric}
+import com.despegar.metrik.model.{UniqueTimestamp, CounterBucket, Metric}
 import com.despegar.metrik.util.BaseIntegrationTest
 import com.netflix.astyanax.connectionpool.OperationResult
 import com.netflix.astyanax.model.ColumnFamily
@@ -8,13 +8,12 @@ import org.scalatest.{FunSuite, Matchers}
 import scala.concurrent.duration._
 import com.despegar.metrik.model.Timestamp._
 import com.despegar.metrik.model.BucketNumber._
-import com.despegar.metrik.model.Timestamp
 
 class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest with Matchers {
 
   val testMetric = Metric("testMetric","counter")
 
-  override def foreachColumnFamily(f: ColumnFamily[String,java.lang.Long] => OperationResult[_]) = {
+  override def foreachColumnFamily(f: ColumnFamily[String,_] => OperationResult[_]) = {
     CassandraCounterBucketStore.columnFamilies.values.foreach{ cf => val or = f(cf); or.getResult }
   }
 
@@ -50,7 +49,9 @@ class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest 
 
     await { CassandraCounterBucketStore.store(testMetric, 30 seconds, Seq(bucket1, bucket2)) }
 
-    await { CassandraCounterBucketStore.remove(testMetric, 30 seconds, Seq(bucket1, bucket2)) }
+    val storedBuckets = await { CassandraCounterBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds) }
+
+    await { CassandraCounterBucketStore.remove(testMetric, 30 seconds, storedBuckets.map(_._1)   ) }
 
     val bucketsFromCassandra = await { CassandraCounterBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds) }
 

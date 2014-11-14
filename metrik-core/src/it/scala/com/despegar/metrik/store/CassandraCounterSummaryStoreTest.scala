@@ -19,7 +19,7 @@ class CassandraCounterSummaryStoreTest extends FunSuite with BaseIntegrationTest
     summary shouldEqual summaryFromCassandra
   }
 
-  override def foreachColumnFamily(f: ColumnFamily[String,java.lang.Long] => OperationResult[_]) = {
+  override def foreachColumnFamily(f: ColumnFamily[String,_] => OperationResult[_]) = {
     CassandraCounterSummaryStore.columnFamilies.values.foreach{ cf => val or = f(cf); or.getResult }
   }
 }

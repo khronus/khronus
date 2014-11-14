@@ -16,12 +16,9 @@ import java.io.IOException
 import com.despegar.metrik.model.Timestamp._
 import com.despegar.metrik.model.BucketNumber._
 
-class CounterTimeWindowTest extends FunSuite with MockitoSugar {
+class CounterTimeWindowTest extends FunSuite with MockitoSugar with TimeWindowTest[CounterBucket] {
 
   val metric = Metric("metrickA", "counter")
-  val windowDuration: FiniteDuration = 30 seconds
-  val previousWindowDuration: FiniteDuration = 1 millis
-  val neverProcessedTimestamp = Timestamp(-1)
 
   test("with previous buckets should store its buckets and summaries and remove previous buckets") {
 
@@ -30,7 +27,9 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar {
     val previousBucket1 = new CounterBucket((1, previousWindowDuration), 1)
     val previousBucket2 = new CounterBucket((2, previousWindowDuration), 1)
     val previousBucket3 = new CounterBucket((30001, previousWindowDuration), 1)
-    val previousBuckets = Seq(previousBucket1, previousBucket2, previousBucket3)
+    val previousBuckets = lazyBuckets(Seq(previousBucket1, previousBucket2, previousBucket3))
+    val uniqueTimestampsPreviousBuckets = uniqueTimestamps(Seq(previousBucket1, previousBucket2, previousBucket3))
+    val previousBucketsMap = uniqueTimestampsPreviousBuckets.zip(previousBuckets)
 
     val tick = Tick(previousBucket3.bucketNumber ~ windowDuration) //The last one
 
@@ -42,11 +41,11 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar {
     val summaryBucketB = CounterSummary(30000, 1)
     val mySummaries = Seq(summaryBucketA, summaryBucketB)
 
-    when(window.bucketStore.slice(Matchers.eq(metric), any[Timestamp], any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousBuckets))
+    when(window.bucketStore.slice(Matchers.eq(metric), any[Timestamp], any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousBucketsMap))
     when(window.bucketStore.store(metric, windowDuration, myBuckets)).thenReturn(Future {})
     when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](neverProcessedTimestamp))
     when(window.summaryStore.store(metric, windowDuration, mySummaries)).thenReturn(Future {})
-    when(window.bucketStore.remove(metric, previousWindowDuration, previousBuckets)).thenReturn(Future {})
+    when(window.bucketStore.remove(metric, previousWindowDuration, uniqueTimestampsPreviousBuckets)).thenReturn(Future {})
 
     //call method to test
     Await.result(window.process(metric, tick), 5 seconds)
@@ -58,7 +57,7 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar {
     verify(window.summaryStore).store(metric, windowDuration, mySummaries)
 
     //verify previous buckets removal
-    verify(window.bucketStore).remove(metric, previousWindowDuration, previousBuckets)
+    verify(window.bucketStore).remove(metric, previousWindowDuration, uniqueTimestampsPreviousBuckets)
   }
 
   test("with already processed buckets should remove them without storing any bucket or summary") {
@@ -67,14 +66,17 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar {
 
     //mock temporal data that for any reason was not deleted! (already processed)
     val somePreviousBucket = new CounterBucket((15000, previousWindowDuration), 1)
-    val previousUndeletedBuckets = Seq(somePreviousBucket)
+    val previousUndeletedBuckets = lazyBuckets(Seq(somePreviousBucket))
+    val previousUndeletedBucketsUniqueTimestamps = uniqueTimestamps(Seq(somePreviousBucket))
+    val previousUndeletedBucketsMap = previousUndeletedBucketsUniqueTimestamps.zip(previousUndeletedBuckets)
+
     val tick = Tick(somePreviousBucket.bucketNumber ~ windowDuration)
 
-    when(window.bucketStore.slice(Matchers.eq(metric), any[Timestamp], Matchers.any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousUndeletedBuckets))
+    when(window.bucketStore.slice(Matchers.eq(metric), any[Timestamp], Matchers.any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousUndeletedBucketsMap))
     when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](60000L))
     when(window.bucketStore.store(metric, windowDuration, Seq())).thenReturn(Future {})
     when(window.summaryStore.store(metric, windowDuration, Seq())).thenReturn(Future {})
-    when(window.bucketStore.remove(metric, previousWindowDuration, previousUndeletedBuckets)).thenReturn(Future {})
+    when(window.bucketStore.remove(metric, previousWindowDuration, previousUndeletedBucketsUniqueTimestamps)).thenReturn(Future {})
 
     //call method to test
     Await.result(window.process(metric, tick), 5 seconds)
@@ -86,7 +88,7 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar {
     verify(window.summaryStore).store(metric, windowDuration, Seq())
 
     //verify removal of previous undeleted buckets
-    verify(window.bucketStore).remove(metric, previousWindowDuration, previousUndeletedBuckets)
+    verify(window.bucketStore).remove(metric, previousWindowDuration, previousUndeletedBucketsUniqueTimestamps)
   }
 
   test("without previous buckets should do nothing") {
@@ -135,7 +137,7 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar {
     verify(window.summaryStore, never()).store(any[Metric], any[FiniteDuration], any[Seq[CounterSummary]])
 
     //verify that not remove anything
-    verify(window.bucketStore, never()).remove(any[Metric], any[FiniteDuration], any[Seq[CounterBucket]])
+    verify(window.bucketStore, never()).remove(any[Metric], any[FiniteDuration], any[Seq[UniqueTimestamp]])
   }
 
   test("with previous buckets should not remove them upon failure of temporal buckets store") {
@@ -145,7 +147,9 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar {
     val previousBucket1 = new CounterBucket((1, previousWindowDuration), 1)
     val previousBucket2 = new CounterBucket((2, previousWindowDuration), 1)
     val previousBucket3 = new CounterBucket((30001, previousWindowDuration), 1)
-    val previousBuckets = Seq(previousBucket1, previousBucket2, previousBucket3)
+    val previousBuckets = lazyBuckets(Seq(previousBucket1, previousBucket2, previousBucket3))
+    val uniqueTimestampsPreviousBuckets = uniqueTimestamps(Seq(previousBucket1, previousBucket2, previousBucket3))
+    val previousBucketsMap = uniqueTimestampsPreviousBuckets.zip(previousBuckets)
 
     val tick = Tick(previousBucket3.bucketNumber ~ windowDuration) //The last one
 
@@ -154,7 +158,7 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar {
     val myBuckets = Seq(bucketA, bucketB)
 
     when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](neverProcessedTimestamp))
-    when(window.bucketStore.slice(Matchers.eq(metric), any[Timestamp], any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousBuckets))
+    when(window.bucketStore.slice(Matchers.eq(metric), any[Timestamp], any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousBucketsMap))
     when(window.bucketStore.store(metric, windowDuration, myBuckets)).thenReturn(Future.failed(new IOException()))
 
     //call method to test
@@ -166,7 +170,7 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar {
     verify(window.bucketStore).store(metric, windowDuration, myBuckets)
 
     //verify previous buckets were not removed
-    verify(window.bucketStore, never()).remove(metric, previousWindowDuration, previousBuckets)
+    verify(window.bucketStore, never()).remove(metric, previousWindowDuration, uniqueTimestampsPreviousBuckets)
   }
 
   test("with previous buckets should not remove them upon failure of summaries store") {
@@ -176,7 +180,9 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar {
     val previousBucket1 = new CounterBucket((1, previousWindowDuration), 1)
     val previousBucket2 = new CounterBucket((2, previousWindowDuration), 1)
     val previousBucket3 = new CounterBucket((30001, previousWindowDuration), 1)
-    val previousBuckets = Seq(previousBucket1, previousBucket2, previousBucket3)
+    val previousBuckets = lazyBuckets(Seq(previousBucket1, previousBucket2, previousBucket3))
+    val uniqueTimestampsPreviousBuckets = uniqueTimestamps(Seq(previousBucket1, previousBucket2, previousBucket3))
+    val previousBucketsMap = uniqueTimestampsPreviousBuckets.zip(previousBuckets)
 
     val tick = Tick(previousBucket3.bucketNumber ~ windowDuration) //The last one
 
@@ -189,7 +195,7 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar {
     val mySummaries = Seq(summaryBucketA, summaryBucketB)
 
     when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](neverProcessedTimestamp))
-    when(window.bucketStore.slice(Matchers.eq(metric), any[Timestamp], any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousBuckets))
+    when(window.bucketStore.slice(Matchers.eq(metric), any[Timestamp], any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousBucketsMap))
     when(window.bucketStore.store(metric, windowDuration, myBuckets)).thenReturn(Future {})
     when(window.summaryStore.store(metric, windowDuration, mySummaries)).thenReturn(Future.failed(new IOException()))
 
@@ -202,7 +208,7 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar {
     verify(window.summaryStore).store(metric, windowDuration, mySummaries)
 
     //verify previous buckets were not removed
-    verify(window.bucketStore, never()).remove(metric, previousWindowDuration, previousBuckets)
+    verify(window.bucketStore, never()).remove(metric, previousWindowDuration, uniqueTimestampsPreviousBuckets)
   }
 
   private def mockedWindow(windowDuration: FiniteDuration, previousWindowDuration: FiniteDuration) = {

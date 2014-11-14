@@ -17,13 +17,16 @@
 package com.despegar.metrik.store
 
 import java.nio.ByteBuffer
-
-import com.despegar.metrik.model.{ HistogramBucket, Metric, Timestamp }
-import com.despegar.metrik.util.{ Logging, Settings }
+import java.util.concurrent.{ TimeUnit, Executors }
+import com.despegar.metrik.model.{ UniqueTimestamp, HistogramBucket, Metric, Timestamp }
+import com.despegar.metrik.util.Logging
 import com.netflix.astyanax.model.Column
 import org.HdrHistogram.Histogram
 
 import scala.concurrent.duration._
+import com.despegar.metrik.util.Settings
+import com.despegar.metrik.model.Metric
+import com.despegar.metrik.model.Timestamp
 
 trait HistogramBucketSupport extends BucketStoreSupport[HistogramBucket] {
   override def bucketStore: BucketStore[HistogramBucket] = CassandraHistogramBucketStore
@@ -33,10 +36,10 @@ object CassandraHistogramBucketStore extends BucketStore[HistogramBucket] with L
 
   val windowDurations: Seq[Duration] = Settings().Histogram.windowDurations
 
-  override def toBucket(windowDuration: Duration)(column: Column[java.lang.Long]) = {
-    val timestamp = column.getName()
+  override def toBucket(windowDuration: Duration)(column: Column[UniqueTimestamp]) = {
+    val uniqueTimestamp = column.getName()
     val histogram = deserializeHistogram(column.getByteBufferValue)
-    new HistogramBucket(Timestamp(timestamp).toBucketNumber(windowDuration), histogram)
+    new HistogramBucket(Timestamp(uniqueTimestamp.measurementTimestamp).toBucketNumber(windowDuration), histogram)
   }
 
   override def getColumnFamilyName(duration: Duration) = s"histogramBucket${duration.length}${duration.unit}"

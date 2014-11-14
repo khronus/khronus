@@ -1,8 +1,6 @@
 package com.despegar.metrik.model
 
-import scala.concurrent.duration.Duration
-
-class CounterBucket(override val bucketNumber: BucketNumber, val counts: Long) extends Bucket(bucketNumber) {
+class CounterBucket(bucketNumber: BucketNumber, val counts: Long) extends Bucket(bucketNumber) {
 
   override def summary = CounterSummary(timestamp, counts)
 

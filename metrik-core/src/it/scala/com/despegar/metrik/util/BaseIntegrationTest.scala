@@ -1,14 +1,14 @@
 package com.despegar.metrik.util
 
-import com.despegar.metrik.store.{CassandraStatisticSummaryStore, Cassandra}
+import com.despegar.metrik.model.UniqueTimestamp
+import com.despegar.metrik.store.Cassandra
 import com.netflix.astyanax.connectionpool.OperationResult
 import com.netflix.astyanax.model.ColumnFamily
-import org.scalatest.{BeforeAndAfter, FunSuite, BeforeAndAfterAll}
-import scala.collection.JavaConverters._
-import scala.util.Try
-import scala.concurrent.Future
-import scala.concurrent.Await
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FunSuite}
+
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
+import scala.util.Try
 
 trait BaseIntegrationTest extends FunSuite with BeforeAndAfterAll with BeforeAndAfter {
 
@@ -23,14 +23,13 @@ trait BaseIntegrationTest extends FunSuite with BeforeAndAfterAll with BeforeAnd
   }
 
   override protected def afterAll() = {
-    //Metrik.system.shutdown()
   }
 
-  def await[T](f: => Future[T]):T = Await.result(f, 10 seconds)
-  
+  def await[T](f: => Future[T]): T = Await.result(f, 10 seconds)
+
   def truncateColumnFamilies = Try {
-    foreachColumnFamily( cf => Cassandra.keyspace.truncateColumnFamily(cf))
+    foreachColumnFamily(cf => Cassandra.keyspace.truncateColumnFamily(cf))
   }
 
-  def foreachColumnFamily(f: ColumnFamily[String, java.lang.Long] => OperationResult[_]) = {}
+  def foreachColumnFamily(f: ColumnFamily[String, _] => OperationResult[_]) = {}
 }
