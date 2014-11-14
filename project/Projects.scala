@@ -23,6 +23,7 @@ object Projects extends Build {
     .dependsOn(metrikCore, metrikInflux, metrikStress)
     .settings(basicSettings: _*)
     .settings(formatSettings: _*)
+    .settings(packagerSettings: _*)
     .settings(libraryDependencies ++=
               compile(sprayCan, sprayJson, akkaActor))
 
@@ -37,7 +38,6 @@ object Projects extends Build {
     .settings(multiJvmSettings: _*)
     .settings(Revolver.settings: _*)
     .settings(assemblySettings: _*)
- 	  .settings(packagerSettings: _*)
     .settings(libraryDependencies ++=
     compile(sprayClient, sprayCan, sprayRouting, sprayJson, akkaActor, akkaRemote, akkaCluster, akkaContrib, akkaQuartz, hdrHistogram, astyanaxCore, astyanaxThrift, astyanaxCassandra, kryo, scalaLogging, slf4j, logbackClassic, commonsLang, akkaSlf4j) ++
       test(sprayTestKit, mockito, akkaTestKit, multiNodeTestKit, scalaTest, specs2, mockito) ++
@@ -47,6 +47,7 @@ object Projects extends Build {
     .dependsOn(metrikCore)
     .settings(basicSettings: _*)
     .settings(formatSettings: _*)
+    .settings(noPublishing: _*)
     .settings(libraryDependencies ++=
       compile(sprayClient, sprayCan, sprayJson, akkaActor))
 
