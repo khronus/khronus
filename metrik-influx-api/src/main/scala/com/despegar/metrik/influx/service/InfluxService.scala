@@ -58,7 +58,7 @@ trait InfluxEndpoint extends HttpService with Logging with CORSSupport with Infl
             get {
               parameters('q) { query ⇒
                 respondWithMediaType(`application/json`) {
-                  complete { (OK, dashboardResolver.lookup(query)) }
+                  complete { (OK, dashboardResolver.dashboardOperation(query)) }
                 }
               }
             } ~

@@ -31,7 +31,8 @@ import scala.concurrent.{ ExecutionContext, Future, Promise }
 import scala.util.control.NonFatal
 
 trait DashboardResolver {
-  def lookup(expression: String): Future[Seq[Dashboard]]
+  def dashboardOperation(expression: String): Future[Seq[Dashboard]]
+
   def store(dashboard: Dashboard): Future[String]
 }
 
@@ -41,11 +42,15 @@ trait DashboardSupport {
 
 object InfluxDashboardResolver extends DashboardResolver with Logging {
 
-  //extract .*grafana.* from (select * from /grafana.dashboard_.*/ where  title =~ /.*grafana.*/i&time_precision=s)
-  private val GetDashboardPattern = ".*_(.*)\".*".r
-
   //extract Z3JhZmFuYTIy from (select dashboard from "grafana.dashboard_Z3JhZmFuYTIy"&time_precision=s)
-  private val ListDashboardsPattern = ".*/(.*)/..*".r
+  private val GetDashboardPattern = "select.*_(.*)\".*".r
+
+  //extract .*grafana.* from (select * from /grafana.dashboard_.*/ where  title =~ /.*grafana.*/i&time_precision=s)
+  private val ListDashboardsPattern = "select.*/(.*)/..*".r
+
+  // extract Z3JhZmFuYTI= from (drop+series+"grafana.dashboard_Z3JhZmFuYTI=")
+  private val DropDashboardPattern = "drop.*_(.*)\".*".r
+
   private val Dispatcher = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(10))
 
   val Row = "dashboards"
@@ -54,20 +59,35 @@ object InfluxDashboardResolver extends DashboardResolver with Logging {
 
   def initialize = Cassandra.createColumnFamily(Column)
 
-  def dashboardExpression(expression: String): String = expression match {
-    case GetDashboardPattern(group)   ⇒ new String(Base64.decodeBase64(group.toString))
-    case ListDashboardsPattern(group) ⇒ s"(?i)$group"
-    case anythingElse                 ⇒ ""
+  def dashboardOperation(expression: String): Future[Seq[Dashboard]] = expression match {
+    case GetDashboardPattern(group) ⇒ {
+      val dashboardName = new String(Base64.decodeBase64(group.toString))
+      lookup(dashboardName)
+    }
+    case ListDashboardsPattern(group) ⇒ {
+      val dashboardsExpression = s"(?i)$group"
+      lookup(dashboardsExpression)
+    }
+    case DropDashboardPattern(group) ⇒ {
+      val dashboardName = new String(Base64.decodeBase64(group.toString))
+      drop(dashboardName)
+    }
   }
 
-  def lookup(query: String): Future[Seq[Dashboard]] = Future {
-    val expression = dashboardExpression(query)
+  def lookup(expression: String): Future[Seq[Dashboard]] = executeWithinFuture {
     log.debug(s"Looking for Dashboard with expression: $expression}")
 
     val columns: OperationResult[ColumnList[String]] = Cassandra.keyspace.prepareQuery(Column).getKey(Row).execute()
     columns.getResult.asScala.filter(_.getName.matches(expression))
       .map(column ⇒ Serializer.deserialize(column.getByteArrayValue))(collection.breakOut)
-  }(Dispatcher)
+  }
+
+  def drop(dashboard: String): Future[Seq[Dashboard]] = executeWithinFuture {
+    log.info(s"Deleting dashboard: $dashboard")
+
+    Cassandra.keyspace.prepareColumnMutation(Column, Row, dashboard).deleteColumn().execute()
+    Seq.empty
+  }
 
   def store(dashboard: Dashboard): Future[String] = {
     val name = new String(Base64.decodeBase64(dashboard.name.split("_").last))
