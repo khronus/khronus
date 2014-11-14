@@ -18,7 +18,8 @@ package com.despegar.metrik.influx.parser
 
 import com.despegar.metrik.model.Functions
 import org.scalatest.FunSuite
-import  org.scalatest.Matchers
+import org.scalatest.Matchers
+import com.despegar.metrik.influx.parser._
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._
 

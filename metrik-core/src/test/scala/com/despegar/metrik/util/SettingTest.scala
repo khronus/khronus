@@ -17,10 +17,10 @@
 package com.despegar.metrik.util
 
 import akka.actor.ActorSystem
-import com.despegar.metrik.model.{CounterTimeWindow, HistogramTimeWindow}
+import com.despegar.metrik.model.{ CounterTimeWindow, HistogramTimeWindow }
 import com.typesafe.config.ConfigFactory
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.{ FunSuite, Matchers }
 
 import scala.concurrent.duration._
 

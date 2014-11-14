@@ -62,7 +62,7 @@ object Cassandra extends Logging {
       log.info("Initializing metrik keyspace...")
       keyspace.createKeyspaceIfNotExists(
         Map("strategy_options" -> Map("replication_factor" -> "1").asJava, "strategy_class" -> "SimpleStrategy").asJava)
-        .getResult();
+        .getResult
     }
   }
 

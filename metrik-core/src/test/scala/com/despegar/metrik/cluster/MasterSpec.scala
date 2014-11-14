@@ -23,7 +23,7 @@ import akka.testkit._
 import com.despegar.metrik.cluster.Master.PendingMetrics
 import com.despegar.metrik.model.Metric
 import com.typesafe.config.ConfigFactory
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpecLike }
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._

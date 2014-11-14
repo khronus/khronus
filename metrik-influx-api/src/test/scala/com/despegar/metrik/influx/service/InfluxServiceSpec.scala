@@ -19,7 +19,7 @@ import org.specs2.mutable.Specification
 import spray.testkit.Specs2RouteTest
 import spray.http.StatusCodes._
 import spray.http.Uri
-import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.Future
 import com.despegar.metrik.store.MetaStore
 import org.scalatest.mock.MockitoSugar
 import org.mockito.Mockito
@@ -30,7 +30,7 @@ import com.despegar.metrik.model.Metric
 import com.typesafe.config.ConfigFactory
 import InfluxSeriesProtocol._
 
-class InfluxServiceSpec extends Specification with Specs2RouteTest  with MockitoSugar with HttpService {
+class InfluxServiceSpec extends Specification with Specs2RouteTest with MockitoSugar with HttpService {
   def actorRefFactory = ActorSystem("TestSystem", ConfigFactory.parseString(
     """
       |  loggers = ["akka.event.slf4j.Slf4jLogger"]
@@ -41,13 +41,12 @@ class InfluxServiceSpec extends Specification with Specs2RouteTest  with Mockito
 
   override def createActorSystem(): ActorSystem = actorRefFactory
 
-
   val influxSeriesURI = "/metrik/influx/series"
 
   class MockedInfluxEndpoint extends InfluxEndpoint {
-    override val actorRefFactory = system
+    override lazy val actorRefFactory = system
 
-    override val metaStore: MetaStore = mock[MetaStore]
+    override lazy val metaStore: MetaStore = mock[MetaStore]
   }
 
   def applying[T](f: () ⇒ MatchResult[_]) = f()

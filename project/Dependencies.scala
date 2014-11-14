@@ -37,7 +37,7 @@ object Dependencies {
   val slf4j             =       "org.slf4j"                       %   "slf4j-api"                   % "1.7.7"
   val logbackClassic    =       "ch.qos.logback"                  %   "logback-classic"             % "1.1.2"
   val commonsLang       =       "commons-lang"                    %   "commons-lang"                % "2.6"
-  val parserConbinators =       "org.scala-lang.modules"          %%  "scala-parser-combinators"    % "1.0.2"
+  val parserCombinators =       "org.scala-lang.modules"          %%  "scala-parser-combinators"    % "1.0.2"
 
   def compile(deps: ModuleID*): Seq[ModuleID]   = deps map (_ % "compile")
   def provided(deps: ModuleID*): Seq[ModuleID]  = deps map (_ % "provided")

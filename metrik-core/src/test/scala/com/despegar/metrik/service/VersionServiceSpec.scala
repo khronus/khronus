@@ -13,7 +13,7 @@
  * and limitations under the License.
  * =========================================================================================
  */
-package com.despegar.metrik.web.service
+package com.despegar.metrik.service
 
 import org.specs2.mutable.Specification
 import spray.testkit.Specs2RouteTest
@@ -24,7 +24,6 @@ import com.despegar.metrik.model.Version
 import spray.httpx.SprayJsonSupport._
 import akka.actor.ActorSystem
 import com.typesafe.config.ConfigFactory
-import com.despegar.metrik.service.VersionEndpoint
 
 class VersionServiceSpec extends Specification with Specs2RouteTest with VersionEndpoint {
   def actorRefFactory = ActorSystem("TestSystem", ConfigFactory.parseString(
@@ -42,13 +41,7 @@ class VersionServiceSpec extends Specification with Specs2RouteTest with Version
     "return version for GET requests to the version path" in {
       Get("/metrik/version") ~> versionRoute ~> check {
         val version = responseAs[Version]
-        version.nombreApp mustEqual ("Metrik")
-      }
-    }
-
-    "leave GET requests to other paths unhandled" in {
-      Get("/kermit") ~> versionRoute ~> check {
-        handled must beFalse
+        version.nombreApp mustEqual "Metrik"
       }
     }
 

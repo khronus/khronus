@@ -16,14 +16,14 @@
 
 package com.despegar.metrik.cluster
 
-import akka.actor.{ActorSystem, Props}
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestKitBase}
-import com.despegar.metrik.model.{Metric, TimeWindowChain}
+import akka.actor.{ ActorSystem, Props }
+import akka.testkit.{ ImplicitSender, TestActorRef, TestKit, TestKitBase }
+import com.despegar.metrik.model.{ Metric, TimeWindowChain }
 import com.typesafe.config.ConfigFactory
 import org.mockito.Matchers.any
 import org.mockito.Mockito.when
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpecLike }
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future

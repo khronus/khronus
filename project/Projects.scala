@@ -39,7 +39,7 @@ object Projects extends Build {
     .settings(assemblySettings: _*)
  	.settings(packagerSettings: _*)
     .settings(libraryDependencies ++=
-    compile(parserConbinators, sprayClient, sprayCan, sprayRouting, sprayJson, akkaActor, akkaRemote, akkaCluster, akkaContrib, akkaQuartz, hdrHistogram, astyanaxCore, astyanaxThrift, astyanaxCassandra, kryo, scalaLogging, slf4j, logbackClassic, commonsLang, akkaSlf4j) ++
+    compile(sprayClient, sprayCan, sprayRouting, sprayJson, akkaActor, akkaRemote, akkaCluster, akkaContrib, akkaQuartz, hdrHistogram, astyanaxCore, astyanaxThrift, astyanaxCassandra, kryo, scalaLogging, slf4j, logbackClassic, commonsLang, akkaSlf4j) ++
       test(sprayTestKit, mockito, akkaTestKit, multiNodeTestKit, scalaTest, specs2, mockito) ++
       it(scalaTest))
 
@@ -56,7 +56,7 @@ object Projects extends Build {
     .settings(basicSettings: _*)
     .settings(formatSettings: _*)
     .settings(libraryDependencies ++=
-      compile(parserConbinators, sprayClient, sprayCan, sprayJson, akkaActor) ++
+      compile(parserCombinators, sprayClient, sprayCan, sprayJson, akkaActor) ++
       test(sprayTestKit, mockito, akkaTestKit, scalaTest, specs2, mockito))
 
   val noPublishing = Seq(publish :=(), publishLocal :=(), publishArtifact := false)
