@@ -54,7 +54,7 @@ object HandShakeProtocol {
 }
 
 trait MetrikHandlerException {
-  implicit def myExceptionHandler(implicit settings: RoutingSettings, log: LoggingContext): ExceptionHandler =
+  implicit def metrikExceptionHandler(implicit settings: RoutingSettings, log: LoggingContext): ExceptionHandler =
     ExceptionHandler.apply {
       case e: UnsupportedOperationException ⇒ ctx ⇒ {
         log.error(s"Handling UnsupportedOperationException ${e.getMessage}", e)
