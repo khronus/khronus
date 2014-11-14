@@ -1,8 +1,7 @@
 package com.despegar.metrik.store
 
-import java.util.concurrent.{ TimeUnit, Executors }
+import java.util.concurrent.{ Executors, TimeUnit }
 
-import com.despegar.metrik.model.Metric
 import com.despegar.metrik.util.Logging
 
 import scala.concurrent.{ ExecutionContext, Future }

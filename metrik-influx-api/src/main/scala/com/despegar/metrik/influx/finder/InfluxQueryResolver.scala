@@ -16,13 +16,10 @@
 
 package com.despegar.metrik.influx.finder
 
-import java.util.concurrent.TimeUnit
-
-import com.despegar.metrik.influx.parser.{ Projection, _ }
+import com.despegar.metrik.influx.parser._
 import com.despegar.metrik.influx.service.{ InfluxSeries, InfluxEndpoint }
-import com.despegar.metrik.model.{ Functions, StatisticSummary }
-import com.despegar.metrik.store.{ StatisticSummarySupport, MetaSupport }
-import com.despegar.metrik.web.service.influx.parser._
+import com.despegar.metrik.model.{ Summary, Functions }
+import com.despegar.metrik.store._
 import scala.concurrent.ExecutionContext.Implicits.global
 
 import scala.concurrent.Future
@@ -33,7 +30,7 @@ import scala.collection.concurrent.TrieMap
 trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
   this: InfluxEndpoint ⇒
 
-  import com.despegar.metrik.influx.finder.InfluxQueryResolver._
+  import InfluxQueryResolver._
 
   lazy val parser = new InfluxQueryParser
 
