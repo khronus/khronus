@@ -1,47 +1,35 @@
-/*
- * =========================================================================================
- * Copyright © 2014 the metrik project <https://github.com/hotels-tech/metrik>
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
- * except in compliance with the License. You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under the
- * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
- * either express or implied. See the License for the specific language governing permissions
- * and limitations under the License.
- * =========================================================================================
- */
 package com.despegar.metrik.influx.service
 
 import org.specs2.mutable.Specification
 import spray.testkit.Specs2RouteTest
-import spray.http.StatusCodes._
-import spray.http.Uri
-import scala.concurrent.Future
-import com.despegar.metrik.store.MetaStore
-import org.scalatest.mock.MockitoSugar
-import org.mockito.Mockito
+import spray.http._
+import StatusCodes._
+import com.despegar.metrik.model.MyJsonProtocol._
+import com.despegar.metrik.model.{ Metric, Version }
+import spray.httpx.SprayJsonSupport._
 import akka.actor.ActorSystem
-import org.specs2.matcher.MatchResult
-import spray.routing.HttpService
-import com.despegar.metrik.model.Metric
 import com.typesafe.config.ConfigFactory
+import com.despegar.metrik.service.VersionEndpoint
+import org.scalatest.mock.MockitoSugar
+import spray.routing.HttpService
+import com.despegar.metrik.store.MetaStore
+import org.specs2.matcher.MatchResult
+import org.mockito.Mockito
+import scala.concurrent.Future
 import InfluxSeriesProtocol._
 
-class InfluxServiceSpec extends Specification with Specs2RouteTest with MockitoSugar with HttpService {
+class InfluxServiceSpec extends Specification with MockitoSugar with HttpService with Specs2RouteTest {
   def actorRefFactory = ActorSystem("TestSystem", ConfigFactory.parseString(
     """
+      |akka {
       |  loggers = ["akka.event.slf4j.Slf4jLogger"]
       |  loglevel = INFO
       |  stdout-loglevel = DEBUG
       | }
     """.stripMargin))
-
   override def createActorSystem(): ActorSystem = actorRefFactory
 
-  val influxSeriesURI = "/metrik/influx/series"
+  val influxSeriesURI = "/series"
 
   class MockedInfluxEndpoint extends InfluxEndpoint {
     override lazy val actorRefFactory = system
@@ -75,18 +63,6 @@ class InfluxServiceSpec extends Specification with Specs2RouteTest with MockitoS
       }
     }
 
-    "return BadRequest for GET with an unsupported influx query" in {
-      applying {
-        () ⇒
-          {
-            val uri = Uri(influxSeriesURI).withQuery("q" -> "Unsupported query", "u" -> "aUser", "p" -> "****")
-            Get(uri) ~> sealRoute(new MockedInfluxEndpoint().influxServiceRoute) ~> check {
-              status === BadRequest
-            }
-          }
-      }
-    }
-
   }
 
   "InfluxService for listing series" should {
@@ -107,6 +83,7 @@ class InfluxServiceSpec extends Specification with Specs2RouteTest with MockitoS
 
               Mockito.verify(instance.metaStore).retrieveMetrics
 
+              import InfluxSeriesProtocol._
               val results = responseAs[Seq[InfluxSeries]]
               results must beEmpty
             }
@@ -130,6 +107,7 @@ class InfluxServiceSpec extends Specification with Specs2RouteTest with MockitoS
 
               Mockito.verify(instance.metaStore).retrieveMetrics
 
+              import InfluxSeriesProtocol._
               val results = responseAs[Seq[InfluxSeries]]
               results.size must beEqualTo(2)
 

@@ -15,7 +15,7 @@ import com.despegar.metrik.model.Metric
 import com.despegar.metrik.store.BucketSupport
 import com.despegar.metrik.model.Bucket
 
-class MetrikActor extends HttpServiceActor with MetricsEnpoint {
+class MetrikActor extends HttpServiceActor with MetricsEnpoint with MetrikHandlerException {
   def receive = runRoute(metricsRoute)
 }
 

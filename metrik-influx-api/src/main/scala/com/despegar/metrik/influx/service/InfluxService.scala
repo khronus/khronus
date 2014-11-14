@@ -26,8 +26,9 @@ import spray.routing.{ HttpService, HttpServiceActor, Route }
 import InfluxSeriesProtocol.influxSeriesFormat
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import com.despegar.metrik.service.MetrikHandlerException
 
-class InfluxActor extends HttpServiceActor with InfluxEndpoint {
+class InfluxActor extends HttpServiceActor with InfluxEndpoint with MetrikHandlerException {
   def receive = runRoute(influxServiceRoute)
 }
 

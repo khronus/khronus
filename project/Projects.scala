@@ -56,7 +56,7 @@ object Projects extends Build {
     .settings(basicSettings: _*)
     .settings(formatSettings: _*)
     .settings(libraryDependencies ++=
-      compile(parserCombinators, sprayClient, sprayCan, sprayJson, akkaActor) ++
+      compile(parserCombinators, sprayClient, sprayCan, sprayRouting, sprayJson, akkaActor) ++
       test(sprayTestKit, mockito, akkaTestKit, scalaTest, specs2, mockito))
 
   val noPublishing = Seq(publish :=(), publishLocal :=(), publishArtifact := false)

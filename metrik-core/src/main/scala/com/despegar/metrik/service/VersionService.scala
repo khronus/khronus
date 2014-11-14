@@ -23,12 +23,14 @@ import spray.http.MediaTypes._
 import spray.httpx.SprayJsonSupport._
 import spray.routing._
 
-class VersionActor extends HttpServiceActor with VersionEndpoint {
-  def receive = runRoute(versionRoute)
+class VersionActor extends HttpServiceActor with VersionEndpoint with MetrikHandlerException {
+  def receive =
+    runRoute(versionRoute)
 }
 
 object VersionActor {
   def props = Props[VersionActor]
+
   val Name = "version-actor"
   val Path = "metrik/version"
 }

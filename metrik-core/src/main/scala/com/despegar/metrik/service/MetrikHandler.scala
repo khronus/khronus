@@ -16,7 +16,7 @@
 
 package com.despegar.metrik.service
 
-import akka.actor.{ ActorRef, Props }
+import akka.actor._
 import com.despegar.metrik.service.HandShakeProtocol.Register
 import com.despegar.metrik.util.{ CORSSupport, Logging }
 import spray.http.StatusCodes._
@@ -24,44 +24,48 @@ import spray.httpx.marshalling.ToResponseMarshaller
 import spray.routing._
 
 import scala.collection.concurrent.TrieMap
+import spray.util.LoggingContext
+import spray.routing.RequestContext
+import com.despegar.metrik.service.HandShakeProtocol.Register
+import spray.routing.RequestContext
+import com.despegar.metrik.service.HandShakeProtocol.Register
 
-class MetrikHandler extends HttpServiceActor with MetrikExceptionHandler {
-  val endpoints = TrieMap[String, ActorRef]()
+class MetrikHandler extends HttpServiceActor with ActorLogging with MetrikHandlerException {
+  var composedRoute: Route = reject
 
-  def createEndpointRoute(path: String, target: ActorRef): Route =
+  def createEndpointRoute(path: String, actor: ActorRef): Route =
     pathPrefix(separateOnSlashes(path)) {
-      ctx ⇒ target ! ctx
+      requestContext ⇒ actor ! requestContext
     }
-
-  def composeRoute: Route = {
-    endpoints.foldLeft[Route](reject) { (acc, next) ⇒
-      val (path, actorRef) = next
-      acc ~ createEndpointRoute(path, actorRef)
-    }
-  }
 
   val registerReceive: Receive = {
     case Register(path, actor) ⇒
       log.info(s"Registering endpoint: $path")
-      endpoints.update(path, actor)
+      composedRoute = composedRoute ~ createEndpointRoute(path, actor)
       context become receive
   }
 
-  def receive = registerReceive orElse runRoute(composeRoute)
+  def receive = registerReceive orElse runRoute(composedRoute)
+
 }
 
 object MetrikHandler {
   val Name = "handler-actor"
+
   def props: Props = Props[MetrikHandler]
+
 }
 
 object HandShakeProtocol {
+
   case class Register(path: String, actor: ActorRef)
+
   case class MetrikStarted(handler: ActorRef)
+
 }
 
-trait MetrikExceptionHandler extends Logging {
-  implicit def myExceptionHandler: ExceptionHandler =
+trait MetrikHandlerException {
+  implicit def myExceptionHandler(implicit settings: RoutingSettings, log: LoggingContext): ExceptionHandler =
     ExceptionHandler.apply {
       case e: UnsupportedOperationException ⇒ ctx ⇒ {
         log.error(s"Handling UnsupportedOperationException ${e.getMessage}", e)
@@ -76,4 +80,5 @@ trait MetrikExceptionHandler extends Logging {
   private def responseWithCORSHeaders[T](ctx: RequestContext, response: T)(implicit marshaller: ToResponseMarshaller[T]) = {
     ctx.withHttpResponseHeadersMapped(_ ⇒ CORSSupport.headers).complete(response)(marshaller)
   }
+
 }
