@@ -3,10 +3,10 @@ package com.despegar.metrik.service
 import akka.actor.Props
 import com.despegar.metrik.model.MetricBatchProtocol._
 import com.despegar.metrik.model._
-import com.despegar.metrik.store.{BucketSupport, MetaSupport}
+import com.despegar.metrik.store.{ BucketSupport, MetaSupport }
 import com.despegar.metrik.util.Logging
 import spray.http.StatusCodes._
-import spray.routing.{HttpService, _}
+import spray.routing.{ HttpService, _ }
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -54,7 +54,7 @@ trait MetricsEnpoint extends HttpService with BucketSupport with MetaSupport wit
     log.debug(s"Storing metric $metric")
     metric.mtype match {
       case ("timer" | "gauge") ⇒ storeHistogramMetric(metric, metricMeasurement)
-      case "counter" ⇒ storeCounterMetric(metric, metricMeasurement)
+      case "counter"           ⇒ storeCounterMetric(metric, metricMeasurement)
       case _ ⇒ {
         val msg = s"Discarding $metric. Unknown metric type: ${metric.mtype}"
         log.warn(msg)
@@ -77,14 +77,14 @@ trait MetricsEnpoint extends HttpService with BucketSupport with MetaSupport wit
   private def storeMetadata(metric: Metric) = metaStore.insert(metric)
 
   private def storeHistogramMetric(metric: Metric, metricMeasurement: MetricMeasurement) = {
-    val groupedMeasurements = metricMeasurement.measurements.groupBy(measurement => Timestamp(measurement.ts).alignedTo(5 seconds))
-    groupedMeasurements.foldLeft(Future.successful()) { (acc, measurementsGroup) =>
-      acc.flatMap{ _ =>
+    val groupedMeasurements = metricMeasurement.measurements.groupBy(measurement ⇒ Timestamp(measurement.ts).alignedTo(5 seconds))
+    groupedMeasurements.foldLeft(Future.successful()) { (acc, measurementsGroup) ⇒
+      acc.flatMap { _ ⇒
         val timestamp = measurementsGroup._1
         val bucketNumber = timestamp.toBucketNumber(1 millis)
         if (!alreadyProcessed(bucketNumber)) {
           val histogram = HistogramBucket.newHistogram
-          measurementsGroup._2.foreach(measurement => measurement.values.foreach(value => histogram.recordValue(value)))
+          measurementsGroup._2.foreach(measurement ⇒ measurement.values.foreach(value ⇒ histogram.recordValue(value)))
           histogramBucketStore.store(metric, 1 millis, Seq(new HistogramBucket(bucketNumber, histogram)))
         } else {
           Future.successful()
@@ -96,6 +96,7 @@ trait MetricsEnpoint extends HttpService with BucketSupport with MetaSupport wit
   private def storeCounterMetric(metric: Metric, metricMeasurement: MetricMeasurement) = {
     counterBucketStore.store(metric, 1 millis, metricMeasurement.asCounterBuckets.filter(!alreadyProcessed(_)))
   }
+  private def alreadyProcessed(bucketNumber: BucketNumber) = false //how?
 
   private def alreadyProcessed[T <: Bucket](bucket: T) = false //how?
 
