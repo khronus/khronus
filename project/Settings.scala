@@ -13,6 +13,7 @@ object Settings {
     scalaVersion  := ScalaVersion,
     organization := "com.despegar",
     version := "0.1",
+    exportJars := true,
     resolvers    ++= Dependencies.resolutionRepos,
     fork in run   := true,
     javacOptions  := Seq(

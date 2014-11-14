@@ -4,7 +4,5 @@ import NativePackagerKeys._
 
 
 object Packager {
-
-	lazy val packagerSettings = packageArchetype.java_application ++ Seq(Keys.mainClass in (Compile) := Some("com.despegar.metrik.util.Metrik")) ++ Seq(bashScriptConfigLocation := Some("${app_home}/../conf/jvmopts"))
-
+	lazy val packagerSettings = packageArchetype.java_application ++ Seq(Keys.mainClass in (Compile) := Some("com.despegar.metrik.Metrik")) ++ Seq(bashScriptConfigLocation := Some("${app_home}/../conf/jvmopts"))
 }
