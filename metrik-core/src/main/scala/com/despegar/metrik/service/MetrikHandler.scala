@@ -18,17 +18,11 @@ package com.despegar.metrik.service
 
 import akka.actor._
 import com.despegar.metrik.service.HandShakeProtocol.Register
-import com.despegar.metrik.util.{ CORSSupport, Logging }
+import com.despegar.metrik.util.CORSSupport
 import spray.http.StatusCodes._
 import spray.httpx.marshalling.ToResponseMarshaller
-import spray.routing._
-
-import scala.collection.concurrent.TrieMap
+import spray.routing.{ RequestContext, _ }
 import spray.util.LoggingContext
-import spray.routing.RequestContext
-import com.despegar.metrik.service.HandShakeProtocol.Register
-import spray.routing.RequestContext
-import com.despegar.metrik.service.HandShakeProtocol.Register
 
 class MetrikHandler extends HttpServiceActor with ActorLogging with MetrikHandlerException {
   var composedRoute: Route = reject
@@ -51,17 +45,12 @@ class MetrikHandler extends HttpServiceActor with ActorLogging with MetrikHandle
 
 object MetrikHandler {
   val Name = "handler-actor"
-
   def props: Props = Props[MetrikHandler]
-
 }
 
 object HandShakeProtocol {
-
   case class Register(path: String, actor: ActorRef)
-
   case class MetrikStarted(handler: ActorRef)
-
 }
 
 trait MetrikHandlerException {
@@ -80,5 +69,4 @@ trait MetrikHandlerException {
   private def responseWithCORSHeaders[T](ctx: RequestContext, response: T)(implicit marshaller: ToResponseMarshaller[T]) = {
     ctx.withHttpResponseHeadersMapped(_ ⇒ CORSSupport.headers).complete(response)(marshaller)
   }
-
 }

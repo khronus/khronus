@@ -87,6 +87,6 @@ trait MetricsEnpoint extends HttpService with BucketSupport with MetaSupport wit
   private def alreadyProcessed[T <: Bucket](bucket: T) = false //how?
 
   //ok, this has to be improved. maybe scheduling a reload at some interval and only going to meta if not found
-  private def isNew(metric: Metric) = metaStore.getFromSnapshot contains metric
+  private def isNew(metric: Metric) = !metaStore.getFromSnapshot.contains(metric)
 
 }
