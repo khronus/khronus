@@ -56,7 +56,7 @@ trait BucketStore[T <: Bucket] extends Logging with Measurable {
 
   def store(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit] = {
     ifNotEmpty(buckets) {
-      log.debug(s"${p(metric, windowDuration)} - Storing ${buckets.length} buckets")
+      log.debug(s"${p(metric, windowDuration)} - Storing ${buckets.length} buckets ${buckets map (_.bucketNumber.number)}")
       mutate(metric, windowDuration, buckets) { (mutation, bucket) ⇒
         mutation.putColumn(UniqueTimestamp(bucket.timestamp), serializeBucket(metric, windowDuration, bucket))
       }
