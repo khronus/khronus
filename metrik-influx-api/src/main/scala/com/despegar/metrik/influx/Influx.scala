@@ -23,8 +23,8 @@ import com.despegar.metrik.influx.finder.InfluxDashboardResolver
 import com.despegar.metrik.influx.service.InfluxActor
 import com.despegar.metrik.service.HandShakeProtocol.{ Register, MetrikStarted }
 
-class InfluxExtension(system: ExtendedActorSystem) extends Extension {
-  val log = Logging(system, classOf[InfluxExtension])
+class Influx(system: ExtendedActorSystem) extends Extension {
+  val log = Logging(system, classOf[Influx])
   log.info(s"Starting the Metrik(Influx) extension")
 
   val influxActor = system.actorOf(InfluxActor.props, InfluxActor.Name)
@@ -35,9 +35,9 @@ class InfluxExtension(system: ExtendedActorSystem) extends Extension {
   system.eventStream.subscribe(influxSubscriber, classOf[MetrikStarted])
 }
 
-object Influx extends ExtensionId[InfluxExtension] with ExtensionIdProvider {
+object Influx extends ExtensionId[Influx] with ExtensionIdProvider {
   override def lookup: ExtensionId[_ <: actor.Extension] = Influx
-  override def createExtension(system: ExtendedActorSystem): InfluxExtension = new InfluxExtension(system)
+  override def createExtension(system: ExtendedActorSystem): Influx = new Influx(system)
 }
 
 class InfluxSubscriber(influxActor: ActorRef) extends Actor {
