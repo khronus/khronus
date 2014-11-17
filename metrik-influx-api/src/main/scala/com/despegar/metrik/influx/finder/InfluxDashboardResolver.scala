@@ -72,6 +72,10 @@ object InfluxDashboardResolver extends DashboardResolver with Logging {
       val dashboardName = new String(Base64.decodeBase64(group.toString))
       drop(dashboardName)
     }
+    case _ ⇒ {
+      log.error(s"Unsupported grafana expression [$expression]")
+      throw new UnsupportedOperationException(s"Unsupported grafana expression [$expression]")
+    };
   }
 
   def lookup(expression: String): Future[Seq[Dashboard]] = executeWithinFuture {

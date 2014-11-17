@@ -17,4 +17,7 @@ class CassandraMetaStoreTest extends FunSuite with BaseIntegrationTest with Matc
   override def truncateColumnFamilies = Try {
     Cassandra.keyspace.truncateColumnFamily(CassandraMetaStore.columnFamily)
   }
+
+
+
 }
