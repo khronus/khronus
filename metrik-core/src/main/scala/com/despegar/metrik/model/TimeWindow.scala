@@ -95,7 +95,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
       seq ⇒ seq.view.map(t ⇒ t._2()))) andThen {
       case Success(buckets) ⇒
         if (!buckets.isEmpty) {
-          log.debug(s"${p(metric, duration)} - Grouped ${buckets.size} buckets")
+          log.debug(s"${p(metric, duration)} - Grouped ${buckets.size} buckets ${buckets.keys}")
         }
     }
   }
