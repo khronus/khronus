@@ -18,7 +18,7 @@ package com.despegar.metrik.influx.finder
 
 import com.despegar.metrik.influx.parser._
 import com.despegar.metrik.influx.service.{ InfluxSeries, InfluxEndpoint }
-import com.despegar.metrik.model.{ Summary, Functions }
+import com.despegar.metrik.model.{ CounterSummary, StatisticSummary, Summary, Functions }
 import com.despegar.metrik.store._
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -27,7 +27,7 @@ import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.TimeUnit
 import scala.collection.concurrent.TrieMap
 
-trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
+trait InfluxQueryResolver extends MetaSupport {
   this: InfluxEndpoint ⇒
 
   import InfluxQueryResolver._
@@ -39,7 +39,10 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
 
     if (ListSeries.equalsIgnoreCase(query)) {
       log.info("Listing series...")
-      metaStore.retrieveMetrics.map(results ⇒ results.map(x ⇒ new InfluxSeries(x.name)))
+
+      metaStore.retrieveMetrics.map(results ⇒ {
+        results.map(x ⇒ new InfluxSeries(x.name))
+      })
     } else {
       log.info(s"Executing query [$query]")
 
@@ -50,7 +53,7 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
       val metricName: String = influxCriteria.table.name
       val maxResults: Int = influxCriteria.limit.getOrElse(Int.MaxValue)
 
-      getStore(metricName).readAll(timeWindow, metricName, slice, maxResults) map {
+      getStore(metricName).readAll(timeWindow, metricName, slice, maxResults).map {
         results ⇒ toInfluxSeries(results, influxCriteria.projections, metricName)
       }
     }
@@ -60,10 +63,14 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
     val metric = metaStore.getFromSnapshot find (metric ⇒ metric.name.equalsIgnoreCase(metricName)) getOrElse (throw new UnsupportedOperationException(s"Metric name not found: $metricName"))
 
     metric.mtype match {
-      case "timer"   ⇒ CassandraStatisticSummaryStore
-      case "counter" ⇒ CassandraCounterSummaryStore
+      case "timer"   ⇒ getStatisticSummaryStore
+      case "counter" ⇒ getCounterSummaryStore
+      case _         ⇒ throw new UnsupportedOperationException(s"Metric type not found: ${metric.mtype}")
     }
   }
+
+  protected def getStatisticSummaryStore: SummaryStore[StatisticSummary] = CassandraStatisticSummaryStore
+  protected def getCounterSummaryStore: SummaryStore[CounterSummary] = CassandraCounterSummaryStore
 
   private def toInfluxSeries(summaries: Seq[Summary], projections: Seq[Projection], metricName: String): Seq[InfluxSeries] = {
     log.info(s"Building Influx series: Metric $metricName - Projections: $projections - Summaries count: ${summaries.size}")
@@ -75,7 +82,7 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
     buildInfluxSeries(summaries, metricName, functions)
   }
 
-  def buildInfluxSeries(summaries: Seq[Summary], metricName: String, functions: Iterable[String]): Seq[InfluxSeries] = {
+  private def buildInfluxSeries(summaries: Seq[Summary], metricName: String, functions: Iterable[String]): Seq[InfluxSeries] = {
     val pointsPerFunction = TrieMap[String, Vector[Vector[Long]]]()
 
     summaries.foreach(summary ⇒ {
@@ -91,7 +98,7 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
 
   private def buildSlice(filters: List[Filter], ascendingOrder: Boolean): Slice = {
     var from = -1L
-    var to = System.currentTimeMillis()
+    var to = now
     filters foreach {
       case filter: TimeFilter ⇒ {
         filter.operator match {
@@ -109,6 +116,8 @@ trait InfluxQueryResolver extends MetaSupport with StatisticSummarySupport {
     else
       Slice(to, from, true)
   }
+
+  protected def now = System.currentTimeMillis()
 
   private def toSeconds(millis: Long): Long = {
     TimeUnit.MILLISECONDS.toSeconds(millis)

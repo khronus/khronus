@@ -53,7 +53,7 @@ object Functions {
 
   def percentileByValue(i: Int): Function = allPercentiles.find(_.value == i).get
 
-  val all: Seq[Function] = Seq(Count, Min, Max, Avg) ++ allPercentiles
+  val all: Seq[Function] = allPercentiles ++ Seq(Count, Min, Max, Avg)
   val allNames: Seq[String] = all.map(_.name)
 
   def withName(s: String): Function = all.find(_.name == s).get
