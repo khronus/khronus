@@ -95,7 +95,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
       seq ⇒ seq.view.map(t ⇒ t._2()))) andThen {
       case Success(buckets) ⇒
         if (!buckets.isEmpty) {
-          log.debug(s"${p(metric, duration)} - Grouped ${buckets.size} buckets")
+          log.debug(s"${p(metric, duration)} - Grouped ${buckets.size} buckets ${buckets.keys}")
         }
     }
   }
@@ -109,8 +109,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
       case Success((groups, filteredBuckets)) ⇒ {
         val filteredCount = groups.size - filteredBuckets.size
         if (filteredCount > 0) {
-          val removed = groups filterKeys (n ⇒ !filteredBuckets.contains(n))
-          log.debug(s"${p(metric, duration)} - Filtered out ${filteredCount} already processed buckets ${removed}")
+          log.debug(s"${p(metric, duration)} - Filtered out ${filteredCount} already processed buckets")
         }
       }
     } map { _._2 }

@@ -7,7 +7,7 @@ case class Tick(bucketNumber: BucketNumber) extends Logging {
   def startTimestamp = bucketNumber.startTimestamp()
   def endTimestamp = bucketNumber.endTimestamp()
 
-  override def toString = s"Tick($bucketNumber) from ${date(startTimestamp.ms)} to ${date(endTimestamp.ms)}"
+  override def toString = s"Tick($bucketNumber)"
 }
 
 object Tick extends Logging {
