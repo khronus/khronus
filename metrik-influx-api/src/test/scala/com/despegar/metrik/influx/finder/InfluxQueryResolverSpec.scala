@@ -54,12 +54,16 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
       | }
     """.stripMargin))
 
-  override lazy val metaStore = mock[MetaStore]
+  val metaStoreMock = mock[MetaStore]
+
+  override lazy val metaStore = metaStoreMock
   override lazy val getStatisticSummaryStore = mock[SummaryStore[StatisticSummary]]
   override lazy val getCounterSummaryStore = mock[SummaryStore[CounterSummary]]
   override lazy val now = System.currentTimeMillis()
 
   override lazy val parser: InfluxQueryParser = new InfluxQueryParser() {
+    override val metaStore: MetaStore = metaStoreMock
+
     override def getConfiguredWindows: Seq[FiniteDuration] = {
       Seq(FiniteDuration(30, TimeUnit.SECONDS),
         FiniteDuration(5, TimeUnit.MINUTES))
@@ -71,8 +75,8 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
   }
 
   test("list series returns all series names") {
-    val metric1 = Metric("metricName1", "timer")
-    val metric2 = Metric("metricName2", "counter")
+    val metric1 = Metric("metricName1", MetricType.Timer)
+    val metric2 = Metric("metricName2", MetricType.Counter)
     when(metaStore.retrieveMetrics).thenReturn(Future {
       Seq(metric1, metric2)
     })
@@ -84,18 +88,6 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     result.size should be(2)
     result(0).name should be(metric1.name)
     result(1).name should be(metric2.name)
-  }
-
-  test("Search for an inexistent metric throws exception") {
-    val query = """select * from "inexistentMetric" group by time (30s)"""
-
-    when(metaStore.getFromSnapshot).thenReturn(Seq.empty[Metric])
-
-    intercept[UnsupportedOperationException] {
-      Await.result(search(query), 2 seconds)
-
-      verify(metaStore).getFromSnapshot
-    }
   }
 
   test("Search for a invalid metric type throws exception") {
@@ -112,12 +104,11 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     }
   }
 
-  test("Search for a valid counter metric returns influx series ok") {
+  test("Select a valid field for a counter metric returns influx series ok") {
     val metricName = "counterMetric"
     val query = s"""select count(value) from "$metricName" group by time (30s)"""
 
-    val counterMetric = Metric(metricName, "counter")
-    when(metaStore.getFromSnapshot).thenReturn(Seq(counterMetric))
+    when(metaStore.getMetricType(metricName)).thenReturn(MetricType.Counter)
 
     val summary1 = CounterSummary(System.currentTimeMillis() - 1000, 100L)
     val summary2 = CounterSummary(System.currentTimeMillis(), 80L)
@@ -125,7 +116,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
 
     val results = Await.result(search(query), 2 seconds)
 
-    verify(metaStore).getFromSnapshot
+    verify(metaStore, times(2)).getMetricType(metricName)
     verify(getCounterSummaryStore).readAll(FiniteDuration(30, TimeUnit.SECONDS), metricName, Slice(-1L, now), Int.MaxValue)
 
     results.size should be(1)
@@ -141,21 +132,38 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     results(0).points(1)(1) should be(summary2.count)
   }
 
+  test("Select * for a valid counter metric returns influx series ok") {
+    val metricName = "counterMetric"
+    val query = s"""select * from "$metricName" group by time (5m)"""
+
+    when(metaStore.getMetricType(metricName)).thenReturn(MetricType.Counter)
+
+    val summary = CounterSummary(System.currentTimeMillis() - 1000, 100L)
+    when(getCounterSummaryStore.readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(-1L, now), Int.MaxValue)).thenReturn(Future { Seq(summary) })
+
+    val results = Await.result(search(query), 2 seconds)
+
+    verify(metaStore, times(2)).getMetricType(metricName)
+    verify(getCounterSummaryStore).readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(-1L, now), Int.MaxValue)
+
+    results.size should be(1)
+    assertInfluxSeries(results(0), metricName, Functions.Count.name, summary.timestamp.ms, summary.count)
+  }
+
   test("Select * for a valid histogram metric returns influx series ok") {
     val metricName = "histogramMetric"
     val to = System.currentTimeMillis()
     val from = to - 3600000L
     val query = s"""select * from "$metricName" where time >= $from and time <=  $to group by time (5m) limit 10 order desc"""
 
-    val histogramMetric = Metric(metricName, "timer")
-    when(metaStore.getFromSnapshot).thenReturn(Seq(histogramMetric))
+    when(metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
 
     val summary = StatisticSummary(System.currentTimeMillis(), 50L, 80L, 90L, 95L, 99L, 999L, 3L, 1000L, 100L, 200L)
     when(getStatisticSummaryStore.readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(to, from, true), 10)).thenReturn(Future { Seq(summary) })
 
     val results = Await.result(search(query), 2 seconds)
 
-    verify(metaStore).getFromSnapshot
+    verify(metaStore, times(2)).getMetricType(metricName)
     verify(getStatisticSummaryStore).readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(to, from, true), 10)
 
     // Select * makes 1 series for each function

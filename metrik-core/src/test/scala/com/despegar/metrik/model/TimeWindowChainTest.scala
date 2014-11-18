@@ -51,7 +51,7 @@ class TimeWindowChainTest extends FunSuite with MockitoSugar {
 
     when(chain.metaStore.update(any[Metric], any[Long])).thenReturn(Future {})
 
-    val metric = Metric("tito", "timer")
+    val metric = Metric("tito", MetricType.Timer)
     val result = chain.process(metric)
 
     Await.result(result, 5 seconds)

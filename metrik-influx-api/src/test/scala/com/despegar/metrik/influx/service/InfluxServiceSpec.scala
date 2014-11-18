@@ -5,7 +5,7 @@ import spray.testkit.Specs2RouteTest
 import spray.http._
 import StatusCodes._
 import com.despegar.metrik.model.MyJsonProtocol._
-import com.despegar.metrik.model.{ Metric, Version }
+import com.despegar.metrik.model.{ MetricType, Metric, Version }
 import spray.httpx.SprayJsonSupport._
 import akka.actor.ActorSystem
 import com.typesafe.config.ConfigFactory
@@ -97,8 +97,8 @@ class InfluxServiceSpec extends Specification with MockitoSugar with HttpService
           {
             val instance = new MockedInfluxEndpoint()
 
-            val firstMetric = Metric("metric1", "gauge")
-            val secondMetric = Metric("metric2", "gauge")
+            val firstMetric = Metric("metric1", MetricType.Timer)
+            val secondMetric = Metric("metric2", MetricType.Timer)
             Mockito.when(instance.metaStore.retrieveMetrics).thenReturn(Future(Seq(firstMetric, secondMetric)))
 
             Get(listSeriesURI) ~> instance.influxServiceRoute ~> check {

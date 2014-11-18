@@ -18,7 +18,7 @@ package com.despegar.metrik.influx.finder
 
 import com.despegar.metrik.influx.parser._
 import com.despegar.metrik.influx.service.{ InfluxSeries, InfluxEndpoint }
-import com.despegar.metrik.model.{ CounterSummary, StatisticSummary, Summary, Functions }
+import com.despegar.metrik.model._
 import com.despegar.metrik.store._
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -26,6 +26,14 @@ import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.TimeUnit
 import scala.collection.concurrent.TrieMap
+import com.despegar.metrik.model.CounterSummary
+import com.despegar.metrik.influx.parser.TimeFilter
+import com.despegar.metrik.influx.parser.StringFilter
+import com.despegar.metrik.model.StatisticSummary
+import com.despegar.metrik.influx.parser.AllField
+import com.despegar.metrik.influx.parser.Field
+import com.despegar.metrik.influx.service.InfluxSeries
+import com.despegar.metrik.store.Slice
 
 trait InfluxQueryResolver extends MetaSupport {
   this: InfluxEndpoint ⇒
@@ -60,34 +68,30 @@ trait InfluxQueryResolver extends MetaSupport {
   }
 
   private def getStore(metricName: String) = {
-    val metric = metaStore.getFromSnapshot find (metric ⇒ metric.name.equalsIgnoreCase(metricName)) getOrElse (throw new UnsupportedOperationException(s"Metric name not found: $metricName"))
-
-    metric.mtype match {
-      case "timer"   ⇒ getStatisticSummaryStore
-      case "counter" ⇒ getCounterSummaryStore
-      case _         ⇒ throw new UnsupportedOperationException(s"Metric type not found: ${metric.mtype}")
+    val metricType = metaStore.getMetricType(metricName)
+    metricType match {
+      case MetricType.Timer   ⇒ getStatisticSummaryStore
+      case MetricType.Counter ⇒ getCounterSummaryStore
+      case _                  ⇒ throw new UnsupportedOperationException(s"Unknown metric type: $metricType")
     }
   }
 
   protected def getStatisticSummaryStore: SummaryStore[StatisticSummary] = CassandraStatisticSummaryStore
   protected def getCounterSummaryStore: SummaryStore[CounterSummary] = CassandraCounterSummaryStore
 
-  private def toInfluxSeries(summaries: Seq[Summary], projections: Seq[Projection], metricName: String): Seq[InfluxSeries] = {
-    log.info(s"Building Influx series: Metric $metricName - Projections: $projections - Summaries count: ${summaries.size}")
-    val functions = projections.collect({
-      case Field(name, _) ⇒ Seq(name)
-      case AllField()     ⇒ Functions.allNames
-    }).flatten
+  private def toInfluxSeries(summaries: Seq[Summary], functions: Seq[Field], metricName: String): Seq[InfluxSeries] = {
+    log.info(s"Building Influx series: Metric $metricName - Projections: $functions - Summaries count: ${summaries.size}")
 
     buildInfluxSeries(summaries, metricName, functions)
   }
 
-  private def buildInfluxSeries(summaries: Seq[Summary], metricName: String, functions: Iterable[String]): Seq[InfluxSeries] = {
+  private def buildInfluxSeries(summaries: Seq[Summary], metricName: String, functions: Seq[Field]): Seq[InfluxSeries] = {
     val pointsPerFunction = TrieMap[String, Vector[Vector[Long]]]()
 
     summaries.foreach(summary ⇒ {
       functions.foreach(function ⇒ {
-        pointsPerFunction.put(function, pointsPerFunction.getOrElse(function, Vector.empty) :+ Vector(toSeconds(summary.timestamp.ms), summary.get(function)))
+        val id = function.alias.getOrElse(function.name)
+        pointsPerFunction.put(id, pointsPerFunction.getOrElse(id, Vector.empty) :+ Vector(toSeconds(summary.timestamp.ms), summary.get(function.name)))
       })
     })
 

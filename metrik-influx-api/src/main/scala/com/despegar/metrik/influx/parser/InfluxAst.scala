@@ -18,7 +18,7 @@ package com.despegar.metrik.influx.parser
 
 import scala.concurrent.duration.FiniteDuration
 
-case class InfluxCriteria(projections: Seq[Projection],
+case class InfluxCriteria(projections: Seq[Field],
   table: Table,
   filters: List[Filter],
   groupBy: GroupBy,

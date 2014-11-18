@@ -46,15 +46,15 @@ object Functions {
   case object Percentile999 extends Functions.Percentile { val name = "p999"; val value = 999 }
 
   val allPercentiles: Seq[Percentile] = Seq(Percentile50, Percentile80, Percentile90, Percentile95, Percentile99, Percentile999)
-
   val allPercentileNames: Seq[String] = allPercentiles.map(_.name)
-
   val allPercentilesValues: Seq[Int] = allPercentiles.map(_.value)
-
   def percentileByValue(i: Int): Function = allPercentiles.find(_.value == i).get
 
   val all: Seq[Function] = allPercentiles ++ Seq(Count, Min, Max, Avg)
   val allNames: Seq[String] = all.map(_.name)
+
+  val allHistogramFunctions: Seq[String] = allNames
+  val allCounterFunctions: Seq[String] = Seq(Count.name)
 
   def withName(s: String): Function = all.find(_.name == s).get
 

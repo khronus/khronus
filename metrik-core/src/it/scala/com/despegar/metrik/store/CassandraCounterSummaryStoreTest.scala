@@ -1,6 +1,6 @@
 package com.despegar.metrik.store
 
-import com.despegar.metrik.model.{CounterSummary, Metric, StatisticSummary}
+import com.despegar.metrik.model.{MetricType, CounterSummary, Metric, StatisticSummary}
 import com.despegar.metrik.util.BaseIntegrationTest
 import com.netflix.astyanax.connectionpool.OperationResult
 import com.netflix.astyanax.model.ColumnFamily
@@ -12,8 +12,8 @@ class CassandraCounterSummaryStoreTest extends FunSuite with BaseIntegrationTest
   test("An CounterSummary should be capable of serialize and deserialize from Cassandra") {
     val summary = new CounterSummary(22L, 250L)
     val summaries = Seq(summary)
-    await { CassandraCounterSummaryStore.store(Metric("testMetric","counter"), 30 seconds, summaries) }
-    val bucketsFromCassandra = await { CassandraCounterSummaryStore.sliceUntilNow(Metric("testMetric","counter"), 30 seconds) }
+    await { CassandraCounterSummaryStore.store(Metric("testMetric", MetricType.Counter), 30 seconds, summaries) }
+    val bucketsFromCassandra = await { CassandraCounterSummaryStore.sliceUntilNow(Metric("testMetric", MetricType.Counter), 30 seconds) }
     val summaryFromCassandra = bucketsFromCassandra(0)
 
     summary shouldEqual summaryFromCassandra

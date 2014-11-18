@@ -2,15 +2,17 @@ package com.despegar.metrik.service
 
 import akka.actor.Props
 import com.despegar.metrik.model.MetricBatchProtocol._
-import com.despegar.metrik.model._
-import com.despegar.metrik.store.{ BucketSupport, MetaSupport }
+import spray.routing.{ Route, HttpService, HttpServiceActor }
+import com.despegar.metrik.store.{ MetaSupport, BucketSupport }
 import com.despegar.metrik.util.Logging
-import spray.http.StatusCodes._
-import spray.routing.{ HttpService, _ }
-
-import scala.concurrent.ExecutionContext.Implicits.global
+import com.despegar.metrik.model._
+import com.despegar.metrik.model.Metric
+import com.despegar.metrik.model.MetricMeasurement
+import com.despegar.metrik.model.MetricBatch
 import scala.concurrent.Future
 import scala.concurrent.duration._
+import spray.http.StatusCodes._
+import scala.concurrent.ExecutionContext.Implicits.global
 
 class MetrikActor extends HttpServiceActor with MetricsEnpoint with MetrikHandlerException {
   def receive = runRoute(metricsRoute)
@@ -53,8 +55,8 @@ trait MetricsEnpoint extends HttpService with BucketSupport with MetaSupport wit
     track(metric)
     log.debug(s"Storing metric $metric")
     metric.mtype match {
-      case ("timer" | "gauge") ⇒ storeHistogramMetric(metric, metricMeasurement)
-      case "counter"           ⇒ storeCounterMetric(metric, metricMeasurement)
+      case MetricType.Timer   ⇒ storeHistogramMetric(metric, metricMeasurement)
+      case MetricType.Counter ⇒ storeCounterMetric(metric, metricMeasurement)
       case _ ⇒ {
         val msg = s"Discarding $metric. Unknown metric type: ${metric.mtype}"
         log.warn(msg)

@@ -24,9 +24,10 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.Success
 import scala.util.parsing.combinator.lexical._
 import scala.util.parsing.combinator.syntactical._
-import com.despegar.metrik.model.Functions
+import com.despegar.metrik.model.{ MetricType, Functions }
+import com.despegar.metrik.store.{ MetaSupport, MetaStore }
 
-class InfluxQueryParser extends StandardTokenParsers with Logging {
+class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSupport {
 
   class InfluxLexical extends StdLexical
 
@@ -57,8 +58,31 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
     "select" ~> projectionParser ~
       tableParser ~ opt(filterParser) ~
       groupByParser ~ opt(limitParser) ~ opt(orderParser) <~ opt(";") ^^ {
-        case projection ~ table ~ filters ~ groupBy ~ limit ~ order ⇒ InfluxCriteria(projection, table, filters.getOrElse(Nil), groupBy, limit, order.getOrElse(true))
+        case projections ~ table ~ filters ~ groupBy ~ limit ~ order ⇒ {
+          val functions = getSelectedFunctions(projections, table)
+          InfluxCriteria(functions, table, filters.getOrElse(Nil), groupBy, limit, order.getOrElse(true))
+        }
       }
+
+  private def getSelectedFunctions(projections: Seq[Projection], table: Table): Seq[Field] = {
+    val metricType = metaStore.getMetricType(table.name)
+
+    val allFunctionsByMetricType = metricType match {
+      case MetricType.Timer   ⇒ Functions.allHistogramFunctions
+      case MetricType.Counter ⇒ Functions.allCounterFunctions
+      case _                  ⇒ throw new UnsupportedOperationException(s"Unknown metric type: $metricType")
+    }
+
+    val functions = projections.collect({
+      case Field(name, alias) ⇒ {
+        if (!allFunctionsByMetricType.contains(name)) throw new UnsupportedOperationException(s"$name is an invalid function for a $metricType. Valid options: [${allFunctionsByMetricType.mkString(",")}]")
+        Seq(Field(name, alias))
+      }
+      case AllField() ⇒ allFunctionsByMetricType.collect({ case functionName ⇒ Field(functionName, None) })
+    }).flatten
+
+    functions
+  }
 
   private def projectionParser: Parser[Seq[Projection]] =
     allFieldProjectionParser |
@@ -67,31 +91,30 @@ class InfluxQueryParser extends StandardTokenParsers with Logging {
   private def allFieldProjectionParser: Parser[Seq[Projection]] = "*" ^^ (_ ⇒ Seq(AllField()))
 
   private def projectionExpressionParser: Parser[Seq[Projection]] = {
-    (ident ^^ (Identifier(_)) | knownFunctionParser | percentilesFunctionParser) ~ opt("as" ~> ident) ~ opt(",") ^^ {
-      case x ~ alias ~ _ ⇒ {
-        x match {
-          case id: Identifier                                ⇒ Seq(Field(id.value, alias))
-          case functions: Seq[Functions.Function @unchecked] ⇒ functions.map(f ⇒ Field(f.name, alias))
-        }
-      }
+    (knownFunctionParser | percentilesFunctionParser) ~ opt("as" ~> ident) ~ opt(",") ^^ {
+      case functions ~ alias ~ _ ⇒ functions.map(f ⇒ Field(f.name, alias))
     }
   }
 
   private def knownFunctionParser: Parser[Seq[Functions.Function]] = {
-    elem(s"Expected some function", { e ⇒ Functions.allNames.contains(e.chars.toString) }) <~ "(" <~ ident <~ ")" ^^ {
+    elem(s"Expected some function", { e ⇒ Functions.allNames.contains(e.chars.toString) }) <~ opt("(") <~ opt(ident) <~ opt(")") ^^ {
       case f ⇒ Seq(Functions.withName(f.chars.toString))
     }
   }
 
   private def percentilesFunctionParser: Parser[Seq[Functions.Function]] = {
     "percentiles" ~> "(" ~> rep(validPercentilesParser) <~ ")" ^^ {
-      case Nil                 ⇒ Functions.allPercentiles
-      case selectedPercentiles ⇒ selectedPercentiles.collect { case p ⇒ Functions.percentileByValue(p) }
-    }
+      case selectedPercentiles if selectedPercentiles.nonEmpty ⇒ selectedPercentiles.collect { case p ⇒ Functions.percentileByValue(p) }
+      case _ ⇒ Functions.allPercentiles
+    } |
+      "percentiles" ^^ { case _ ⇒ Functions.allPercentiles }
   }
 
   private def validPercentilesParser: Parser[Int] =
-    elem(s"Expected some valid percentile", { e ⇒ e.chars.forall(_.isDigit) && Functions.allPercentilesValues.contains(e.chars.toInt) }) ^^ (_.chars.toInt)
+    elem(s"Expected some valid percentile [${Functions.allPercentileNames.mkString(",")}]", {
+      e ⇒ e.chars.forall(_.isDigit) && Functions.allPercentilesValues.contains(e.chars.toInt)
+    }) ^^
+      (_.chars.toInt)
 
   private def tableParser: Parser[Table] =
     "from" ~> stringLit ~ opt("as") ~ opt(ident) ^^ {

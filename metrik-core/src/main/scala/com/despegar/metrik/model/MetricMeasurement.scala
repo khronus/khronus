@@ -24,6 +24,11 @@ import org.HdrHistogram.Histogram
 import spray.json.RootJsonFormat
 import spray.json._
 
+object MetricType {
+  val Counter = "counter"
+  val Timer = "timer"
+}
+
 case class Metric(name: String, mtype: String)
 
 case class MetricMeasurement(name: String, mtype: String, measurements: List[Measurement]) {

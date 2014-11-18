@@ -31,6 +31,11 @@ trait MetaStore extends Snapshot[Seq[Metric]] {
   def getLastProcessedTimestamp(metric: Metric): Future[Timestamp]
   def insert(metric: Metric): Future[Unit]
   def retrieveMetrics: Future[Seq[Metric]]
+
+  def getMetricType(metricName: String): String = {
+    val metric = getFromSnapshot find (metric ⇒ metric.name.equalsIgnoreCase(metricName)) getOrElse (throw new UnsupportedOperationException(s"Metric not found: $metricName"))
+    metric.mtype
+  }
 }
 
 trait MetaSupport {
@@ -95,4 +100,5 @@ object CassandraMetaStore extends MetaStore with Logging {
   }
 
   override def context = asyncExecutionContext
+
 }

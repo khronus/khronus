@@ -22,7 +22,7 @@ import com.typesafe.config.ConfigFactory
 import spray.http._
 import spray.client.pipelining._
 
-import com.despegar.metrik.model.{ MetricBatchProtocol, Measurement, MetricBatch, MetricMeasurement }
+import com.despegar.metrik.model._
 
 import scala.concurrent.Future
 import scala.util.{ Success, Failure, Random }
@@ -30,6 +30,13 @@ import spray.http._
 import spray.client.pipelining._
 
 import MetricBatchProtocol._
+import spray.http.HttpRequest
+import com.despegar.metrik.model.Measurement
+import com.despegar.metrik.model.MetricMeasurement
+import scala.util.Failure
+import spray.http.HttpResponse
+import scala.util.Success
+import com.despegar.metrik.model.MetricBatch
 
 object StressTest extends App {
   implicit val system = ActorSystem("StressActorSystem", ConfigFactory.parseString(
@@ -81,7 +88,7 @@ object StressTest extends App {
     } while (j < n)
 
     def postToMetrikApi(call: Int, run: Int): Unit = {
-      val metricMeasurements = (for (i ← 1 to nMetrics) yield MetricMeasurement(s"cachorra$i", "timer", getMeasurements())) toList
+      val metricMeasurements = (for (i ← 1 to nMetrics) yield MetricMeasurement(s"cachorra$i", MetricType.Timer, getMeasurements())) toList
 
       val metricBatch: MetricBatch = MetricBatch(metricMeasurements)
       println(s"calling Metrik #$call, run #$run")

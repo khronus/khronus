@@ -18,7 +18,7 @@ import com.despegar.metrik.model.BucketNumber._
 
 class CounterTimeWindowTest extends FunSuite with MockitoSugar with TimeWindowTest[CounterBucket] {
 
-  val metric = Metric("metrickA", "counter")
+  val metric = Metric("metrickA", MetricType.Counter)
 
   test("with previous buckets should store its buckets and summaries and remove previous buckets") {
 
