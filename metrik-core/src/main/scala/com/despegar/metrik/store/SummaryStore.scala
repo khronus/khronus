@@ -60,27 +60,23 @@ trait SummaryStore[T <: Summary] extends Logging {
 
   private def now = System.currentTimeMillis()
 
-  def doUnit(col: Seq[Any])(f: ⇒ Future[Unit]): Future[Unit] = {
+  def ifNotEmpty(col: Seq[Any])(f: ⇒ Unit): Future[Unit] = {
     if (col.size > 0) {
-      f
+      Future { f }
     } else {
-      Future[Unit] {}
+      Future.successful()
     }
   }
 
   def store(metric: Metric, windowDuration: Duration, summaries: Seq[T]): Future[Unit] = {
-    doUnit(summaries) {
-      Future {
-        log.debug(s"$metric - Storing ${summaries.size} summaries ($summaries) of $windowDuration")
-        val mutation = Cassandra.keyspace.prepareMutationBatch()
-        val columns = mutation.withRow(columnFamilies(windowDuration), getKey(metric, windowDuration))
-        summaries.foreach(summary ⇒ {
-          columns.putColumn(summary.timestamp.ms, serializeSummary(summary))
-        })
-
-        mutation.execute
-
-      }
+    ifNotEmpty(summaries) {
+      log.debug(s"$metric - Storing ${summaries.size} summaries ($summaries) of $windowDuration")
+      val mutation = Cassandra.keyspace.prepareMutationBatch()
+      val columns = mutation.withRow(columnFamilies(windowDuration), getKey(metric, windowDuration))
+      summaries.foreach(summary ⇒ {
+        columns.putColumn(summary.timestamp.ms, serializeSummary(summary), ttl(windowDuration))
+      })
+      mutation.execute
     }
   }
 
@@ -124,4 +120,6 @@ trait SummaryStore[T <: Summary] extends Logging {
       readRecursive(resultBuilder)(operationResult)
     }
   }
+
+  protected def ttl(windowDuration: Duration): Int
 }

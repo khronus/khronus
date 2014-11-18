@@ -58,7 +58,7 @@ trait BucketStore[T <: Bucket] extends Logging with Measurable {
     ifNotEmpty(buckets) {
       log.debug(s"${p(metric, windowDuration)} - Storing ${buckets.length} buckets")
       mutate(metric, windowDuration, buckets) { (mutation, bucket) ⇒
-        mutation.putColumn(UniqueTimestamp(bucket.timestamp), serializeBucket(metric, windowDuration, bucket))
+        mutation.putColumn(UniqueTimestamp(bucket.timestamp), serializeBucket(metric, windowDuration, bucket), ttl(windowDuration))
       }
     }
   }
@@ -88,7 +88,7 @@ trait BucketStore[T <: Bucket] extends Logging with Measurable {
     if (col.size > 0) {
       f
     } else {
-      Future {}
+      Future.successful()
     }
   }
 
@@ -103,5 +103,7 @@ trait BucketStore[T <: Bucket] extends Logging with Measurable {
       case Failure(reason) ⇒ log.error(s"$metric - Mutation failed", reason)
     }
   }
+
+  protected def ttl(windowDuration: Duration): Int
 
 }

@@ -34,7 +34,7 @@ trait HistogramBucketSupport extends BucketStoreSupport[HistogramBucket] {
 
 object CassandraHistogramBucketStore extends BucketStore[HistogramBucket] with Logging {
 
-  val windowDurations: Seq[Duration] = Settings().Histogram.windowDurations
+  val windowDurations: Seq[Duration] = Settings().Histogram.WindowDurations
 
   override def toBucket(windowDuration: Duration)(column: Column[UniqueTimestamp]) = {
     val uniqueTimestamp = column.getName()
@@ -54,5 +54,7 @@ object CassandraHistogramBucketStore extends BucketStore[HistogramBucket] with L
   }
 
   private def deserializeHistogram(bytes: ByteBuffer): Histogram = Histogram.decodeFromCompressedByteBuffer(bytes, 0)
+
+  override def ttl(windowDuration: Duration): Int = Settings().Histogram.BucketRetentionPolicy
 
 }

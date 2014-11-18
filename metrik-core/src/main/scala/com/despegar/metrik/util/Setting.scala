@@ -17,12 +17,11 @@
 package com.despegar.metrik.util
 
 import akka.actor._
+import com.despegar.metrik.model.{ CounterTimeWindow, HistogramTimeWindow }
 import com.despegar.metrik.service.ActorSystemSupport
-import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.duration._
+
 import scala.collection.JavaConverters._
-import com.despegar.metrik.model.HistogramTimeWindow
-import com.despegar.metrik.model.CounterTimeWindow
+import scala.concurrent.duration.{ FiniteDuration, _ }
 
 class Settings(config: com.typesafe.config.Config, extendedSystem: ExtendedActorSystem) extends Extension {
 
@@ -50,22 +49,30 @@ class Settings(config: com.typesafe.config.Config, extendedSystem: ExtendedActor
   }
 
   object Histogram {
-    val configuredWindows = config.getDurationList("metrik.histogram.windows", MILLISECONDS).asScala.map(adjustDuration(_))
-    val windowDurations = (1 millis) +: configuredWindows
-    val timeWindows = windowDurations.sliding(2).map { dp ⇒
+    private val histogramConfig = config.getConfig("metrik.histogram")
+
+    val ConfiguredWindows = histogramConfig.getDurationList("windows", MILLISECONDS).asScala.map(adjustDuration(_))
+    val BucketRetentionPolicy = histogramConfig.getDuration("bucket-retention-policy", SECONDS).toInt
+    val SummaryRetentionPolicy = histogramConfig.getDuration("summary-retention-policy", SECONDS).toInt
+    val WindowDurations = (1 millis) +: ConfiguredWindows
+    val TimeWindows = WindowDurations.sliding(2).map { dp ⇒
       val previous = dp.head
       val duration = dp.last
-      HistogramTimeWindow(duration, previous, windowDurations.last != duration)
+      HistogramTimeWindow(duration, previous, WindowDurations.last != duration)
     }.toSeq
   }
 
   object Counter {
-    val configuredWindows = config.getDurationList("metrik.counter.windows", MILLISECONDS).asScala.map(adjustDuration(_))
-    val windowDurations = (1 millis) +: configuredWindows
-    val timeWindows = windowDurations.sliding(2).map { dp ⇒
+    private val counterConfig = config.getConfig("metrik.counter")
+
+    val ConfiguredWindows = counterConfig.getDurationList("windows", MILLISECONDS).asScala.map(adjustDuration(_))
+    val BucketRetentionPolicy = counterConfig.getDuration("bucket-retention-policy", SECONDS).toInt
+    val SummaryRetentionPolicy = counterConfig.getDuration("summary-retention-policy", SECONDS).toInt
+    val WindowDurations = (1 millis) +: ConfiguredWindows
+    val TimeWindows = WindowDurations.sliding(2).map { dp ⇒
       val previous = dp.head
       val duration = dp.last
-      CounterTimeWindow(duration, previous, windowDurations.last != duration)
+      CounterTimeWindow(duration, previous, WindowDurations.last != duration)
     }.toSeq
   }
 
@@ -85,5 +92,6 @@ object Settings extends ExtensionId[Settings] with ExtensionIdProvider {
   def apply() = super.apply(ActorSystemSupport.system)
 
   override def lookup = Settings
+
   override def createExtension(system: ExtendedActorSystem) = new Settings(system.settings.config, system)
 }

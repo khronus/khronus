@@ -17,7 +17,7 @@
 package com.despegar.metrik.store
 
 import com.despegar.metrik.model.StatisticSummary
-import com.despegar.metrik.util.{ KryoSerializer, Logging }
+import com.despegar.metrik.util.{ KryoSerializer, Logging, Settings }
 
 import scala.concurrent.duration._
 
@@ -29,7 +29,7 @@ trait StatisticSummarySupport extends SummaryStoreSupport[StatisticSummary] {
 
 object CassandraStatisticSummaryStore extends SummaryStore[StatisticSummary] with Logging {
   //create column family definition for every bucket duration
-  val windowDurations: Seq[Duration] = Seq(30 seconds, 1 minute, 5 minute, 10 minute, 30 minute, 1 hour)
+  val windowDurations: Seq[Duration] = Settings().Histogram.WindowDurations
 
   val serializer: KryoSerializer[StatisticSummary] = new KryoSerializer("statisticSummary", List(StatisticSummary.getClass))
 
@@ -42,5 +42,7 @@ object CassandraStatisticSummaryStore extends SummaryStore[StatisticSummary] wit
   override def deserialize(bytes: Array[Byte]): StatisticSummary = {
     serializer.deserialize(bytes)
   }
+
+  override def ttl(windowDuration: Duration): Int = Settings().Histogram.SummaryRetentionPolicy
 
 }
