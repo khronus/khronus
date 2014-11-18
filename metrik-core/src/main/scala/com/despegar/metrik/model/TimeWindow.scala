@@ -109,8 +109,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
       case Success((groups, filteredBuckets)) ⇒ {
         val filteredCount = groups.size - filteredBuckets.size
         if (filteredCount > 0) {
-          val removed = groups filterKeys (n ⇒ !filteredBuckets.contains(n))
-          log.debug(s"${p(metric, duration)} - Filtered out ${filteredCount} already processed buckets ${removed}")
+          log.debug(s"${p(metric, duration)} - Filtered out ${filteredCount} already processed buckets")
         }
       }
     } map { _._2 }

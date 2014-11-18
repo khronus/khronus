@@ -54,7 +54,7 @@ case class BucketNumber(number: Long, duration: Duration) extends Logging {
 
   def -(aNumber: Int): BucketNumber = BucketNumber(number - aNumber, duration)
 
-  override def toString() = s"BucketNumber($number, $duration) from ${date(startTimestamp().ms)} to ${date(endTimestamp().ms)}}"
+  override def toString() = s"BucketNumber($number, $duration) from ${date(startTimestamp().ms)} to ${date(endTimestamp().ms)}"
 
 }
 
