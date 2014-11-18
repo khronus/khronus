@@ -47,7 +47,7 @@ object CassandraMetaStore extends MetaStore with Logging {
   def initialize = Cassandra.createColumnFamily(columnFamily)
 
   def insert(metric: Metric): Future[Unit] = {
-    put(metric, Timestamp(-Long.MaxValue))
+    put(metric, Timestamp(1))
   }
 
   def update(metric: Metric, lastProcessedTimestamp: Timestamp): Future[Unit] = {

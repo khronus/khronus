@@ -7,10 +7,16 @@ import scala.collection.concurrent.TrieMap
 trait Summary {
   def timestamp: Timestamp
 
+  def get(function: String) = Summary.get(function, this)
+}
+
+object Summary {
+
   private val cache = TrieMap.empty[String, Method]
 
-  def get(name: String): Long = {
-    val method = cache.getOrElseUpdate(name, this.getClass.getDeclaredMethod(name))
-    method.invoke(this).asInstanceOf[Long]
+  def get(name: String, summary: Summary): Long = {
+    val klass = this.getClass
+    val method = cache.getOrElseUpdate(s"${klass.getName}|$name", klass.getDeclaredMethod(name))
+    method.invoke(summary).asInstanceOf[Long]
   }
 }

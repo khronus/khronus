@@ -17,12 +17,13 @@
 package com.despegar.metrik.store
 
 import java.nio.ByteBuffer
-
-import com.despegar.metrik.model.{ CounterBucket, Metric, Timestamp }
-import com.despegar.metrik.util.{ KryoSerializer, Settings }
+import com.despegar.metrik.model._
+import com.despegar.metrik.util.KryoSerializer
 import com.netflix.astyanax.model.Column
-
+import scala.concurrent.Future
 import scala.concurrent.duration._
+import com.despegar.metrik.util.Settings
+import com.despegar.metrik.model.Timestamp
 
 trait CounterBucketStoreSupport extends BucketStoreSupport[CounterBucket] {
   override def bucketStore: BucketStore[CounterBucket] = CassandraCounterBucketStore
@@ -40,10 +41,10 @@ object CassandraCounterBucketStore extends BucketStore[CounterBucket] {
     serializer.deserialize(buffer.array())
   }
 
-  override def toBucket(windowDuration: Duration)(column: Column[java.lang.Long]): CounterBucket = {
-    val timestamp = column.getName()
+  override def toBucket(windowDuration: Duration)(column: Column[UniqueTimestamp]): CounterBucket = {
+    val uniqueTimestamp = column.getName()
     val counter = deserialize(column.getByteBufferValue)
-    new CounterBucket(Timestamp(timestamp).toBucketNumber(windowDuration), counter.counts)
+    new CounterBucket(Timestamp(uniqueTimestamp.measurementTimestamp).toBucketNumber(windowDuration), counter.counts)
   }
 
   override def serializeBucket(metric: Metric, windowDuration: Duration, bucket: CounterBucket): ByteBuffer = {

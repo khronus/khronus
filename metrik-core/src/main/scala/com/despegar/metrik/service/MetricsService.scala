@@ -1,19 +1,16 @@
 package com.despegar.metrik.service
 
 import akka.actor.Props
-import spray.routing._
-import spray.httpx.unmarshalling._
 import com.despegar.metrik.model.MetricBatchProtocol._
-import scala.concurrent.duration._
-import spray.http.StatusCodes._
-import com.despegar.metrik.model.MetricBatch
-import com.despegar.metrik.model.MetricMeasurement
+import com.despegar.metrik.model._
+import com.despegar.metrik.store.{ BucketSupport, MetaSupport }
 import com.despegar.metrik.util.Logging
-import com.despegar.metrik.store.MetaSupport
+import spray.http.StatusCodes._
+import spray.routing.{ HttpService, _ }
+
 import scala.concurrent.ExecutionContext.Implicits.global
-import com.despegar.metrik.model.Metric
-import com.despegar.metrik.store.BucketSupport
-import com.despegar.metrik.model.Bucket
+import scala.concurrent.Future
+import scala.concurrent.duration._
 
 class MetrikActor extends HttpServiceActor with MetricsEnpoint with MetrikHandlerException {
   def receive = runRoute(metricsRoute)
@@ -22,6 +19,7 @@ class MetrikActor extends HttpServiceActor with MetricsEnpoint with MetrikHandle
 object MetrikActor {
   val Name = "metrik-actor"
   val Path = "metrik/metrics"
+
   def props = Props[MetrikActor]
 }
 
@@ -66,27 +64,45 @@ trait MetricsEnpoint extends HttpService with BucketSupport with MetaSupport wit
   }
 
   private def track(metric: Metric) = {
-    if (isNew(metric)) {
-      log.info(s"Got a new metric: $metric. Will store metadata for it")
-      storeMetadata(metric)
-    } else {
-      log.info(s"$metric is already known. No need to store meta for it")
+    isNew(metric) map { isNew ⇒
+      if (isNew) {
+        log.info(s"Got a new metric: $metric. Will store metadata for it")
+        storeMetadata(metric)
+      } else {
+        log.info(s"$metric is already known. No need to store meta for it")
+      }
     }
   }
 
   private def storeMetadata(metric: Metric) = metaStore.insert(metric)
 
   private def storeHistogramMetric(metric: Metric, metricMeasurement: MetricMeasurement) = {
-    histogramBucketStore.store(metric, 1 millis, metricMeasurement.asHistogramBuckets.filter(!alreadyProcessed(_)))
+    val groupedMeasurements = metricMeasurement.measurements.groupBy(measurement ⇒ Timestamp(measurement.ts).alignedTo(5 seconds))
+    groupedMeasurements.foldLeft(Future.successful()) { (acc, measurementsGroup) ⇒
+      acc.flatMap { _ ⇒
+        val timestamp = measurementsGroup._1
+        val bucketNumber = timestamp.toBucketNumber(1 millis)
+        if (!alreadyProcessed(bucketNumber)) {
+          val histogram = HistogramBucket.newHistogram
+          measurementsGroup._2.foreach(measurement ⇒ measurement.values.foreach(value ⇒ histogram.recordValue(value)))
+          histogramBucketStore.store(metric, 1 millis, Seq(new HistogramBucket(bucketNumber, histogram)))
+        } else {
+          Future.successful()
+        }
+      }
+    }
   }
 
   private def storeCounterMetric(metric: Metric, metricMeasurement: MetricMeasurement) = {
     counterBucketStore.store(metric, 1 millis, metricMeasurement.asCounterBuckets.filter(!alreadyProcessed(_)))
   }
+  private def alreadyProcessed(bucketNumber: BucketNumber) = false //how?
 
   private def alreadyProcessed[T <: Bucket](bucket: T) = false //how?
 
   //ok, this has to be improved. maybe scheduling a reload at some interval and only going to meta if not found
-  private def isNew(metric: Metric) = !metaStore.getFromSnapshot.contains(metric)
+  private def isNew(metric: Metric) = metaStore.retrieveMetrics map {
+    !_.contains(metric)
+  }
 
 }

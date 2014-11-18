@@ -66,9 +66,9 @@ object Cassandra extends Logging {
     }
   }
 
-  def createColumnFamily[T, U](columnFamily: ColumnFamily[T, U]) = Try {
+  def createColumnFamily[T, U](columnFamily: ColumnFamily[T, U], params: Map[String, Object] = Map[String, Object]()) = Try {
     log.info(s"Initializing columnFamily[${columnFamily.getName()}]...")
-    keyspace.createColumnFamily(columnFamily, Map[String, Object]().asJava)
+    keyspace.createColumnFamily(columnFamily, params.asJava)
     log.info(s"columnFamily[${columnFamily.getName()}] created successfully")
   }
 
