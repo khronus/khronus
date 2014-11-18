@@ -17,7 +17,7 @@
 package com.despegar.metrik.store
 
 import com.despegar.metrik.model.CounterSummary
-import com.despegar.metrik.util.KryoSerializer
+import com.despegar.metrik.util.{ Settings, KryoSerializer }
 
 import scala.concurrent.duration._
 
@@ -27,7 +27,7 @@ trait CounterSummaryStoreSupport extends SummaryStoreSupport[CounterSummary] {
 
 object CassandraCounterSummaryStore extends SummaryStore[CounterSummary] {
   //create column family definition for every bucket duration
-  val windowDurations: Seq[Duration] = Seq(30 seconds)
+  val windowDurations: Seq[Duration] = Settings().Counter.windowDurations
 
   val serializer: KryoSerializer[CounterSummary] = new KryoSerializer("counterSummary", List(CounterSummary.getClass))
 
