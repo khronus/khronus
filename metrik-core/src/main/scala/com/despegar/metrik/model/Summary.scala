@@ -15,7 +15,7 @@ object Summary {
   private val cache = TrieMap.empty[String, Method]
 
   def get(name: String, summary: Summary): Long = {
-    val klass = this.getClass
+    val klass = summary.getClass
     val method = cache.getOrElseUpdate(s"${klass.getName}|$name", klass.getDeclaredMethod(name))
     method.invoke(summary).asInstanceOf[Long]
   }
