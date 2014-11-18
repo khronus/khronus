@@ -198,7 +198,7 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSuppo
   protected def now: Long = System.currentTimeMillis()
 
   protected def getConfiguredWindows: Seq[FiniteDuration] = {
-    Settings().Histogram.configuredWindows.toSeq
+    Settings().Histogram.ConfiguredWindows.toSeq
   }
 
   private def stringParser: Parser[String] = stringLit ^^ {

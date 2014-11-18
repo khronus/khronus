@@ -31,7 +31,7 @@ trait CounterBucketStoreSupport extends BucketStoreSupport[CounterBucket] {
 
 object CassandraCounterBucketStore extends BucketStore[CounterBucket] {
 
-  val windowDurations: Seq[Duration] = Settings().Counter.windowDurations
+  val windowDurations: Seq[Duration] = Settings().Counter.WindowDurations
 
   val serializer: KryoSerializer[CounterBucket] = new KryoSerializer("counterBucket", List(CounterBucket.getClass))
 
@@ -50,4 +50,6 @@ object CassandraCounterBucketStore extends BucketStore[CounterBucket] {
   override def serializeBucket(metric: Metric, windowDuration: Duration, bucket: CounterBucket): ByteBuffer = {
     ByteBuffer.wrap(serializer.serialize(bucket))
   }
+
+  override def ttl(windowDuration: Duration): Int = Settings().Counter.BucketRetentionPolicy
 }

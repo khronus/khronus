@@ -36,20 +36,15 @@ class SettingTest extends FunSuite with MockitoSugar with Matchers {
       |    windows = [30 seconds]
       |  }
       |}
-      |akka {
-      |  loggers = ["akka.event.slf4j.Slf4jLogger"]
-      |  loglevel = INFO
-      |  stdout-loglevel = DEBUG
-      |  }
     """.stripMargin))
 
   test("should configure histogram time windows properly") {
-    Settings(system).Histogram.timeWindows shouldBe (Seq(HistogramTimeWindow(30 seconds, 1 millis),
+    Settings(system).Histogram.TimeWindows shouldBe (Seq(HistogramTimeWindow(30 seconds, 1 millis),
       HistogramTimeWindow(1 minute, 30 seconds, false)))
   }
 
   test("should configure counter time windows properly") {
-    Settings(system).Counter.timeWindows shouldBe (Seq(CounterTimeWindow(30 seconds, 1 millis, false)))
+    Settings(system).Counter.TimeWindows shouldBe (Seq(CounterTimeWindow(30 seconds, 1 millis, false)))
   }
 
 }
