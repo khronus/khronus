@@ -64,7 +64,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
   override lazy val parser: InfluxQueryParser = new InfluxQueryParser() {
     override val metaStore: MetaStore = metaStoreMock
 
-    override def getConfiguredWindows: Seq[FiniteDuration] = {
+    override def getConfiguredWindows(metricType: String): Seq[FiniteDuration] = {
       Seq(FiniteDuration(30, TimeUnit.SECONDS),
         FiniteDuration(5, TimeUnit.MINUTES))
     }

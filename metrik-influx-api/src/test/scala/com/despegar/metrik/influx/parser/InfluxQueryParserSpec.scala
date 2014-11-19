@@ -35,7 +35,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
   def buildParser = new InfluxQueryParser() {
     override val metaStore: MetaStore = mock[MetaStore]
 
-    override val getConfiguredWindows: Seq[FiniteDuration] = {
+    override def getConfiguredWindows(metricType: String): Seq[FiniteDuration] = {
       Seq(FiniteDuration(30, TimeUnit.SECONDS),
         FiniteDuration(1, TimeUnit.MINUTES),
         FiniteDuration(5, TimeUnit.MINUTES),
@@ -341,7 +341,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val mockedNow = 1414767928000L
     val mockedParser = new InfluxQueryParser() {
       override val metaStore: MetaStore = mock[MetaStore]
-      override def getConfiguredWindows: Seq[FiniteDuration] = Seq(FiniteDuration(5, TimeUnit.MINUTES))
+      override def getConfiguredWindows(metricType: String): Seq[FiniteDuration] = Seq(FiniteDuration(5, TimeUnit.MINUTES))
       override def now: Long = mockedNow
     }
 
@@ -420,7 +420,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     influxCriteria.limit should be(None)
   }
 
-  test("Group by clause by valid windows should be parsed ok") {
+  test("Group by clause by configured windows should be parsed ok") {
     val parser = buildParser
 
     when(parser.metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
@@ -438,6 +438,30 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     influxCriteriaResult5m.groupBy.duration.unit should be(TimeUnit.MINUTES)
 
     val influxCriteriaResult1h = parser.parse(s"""select avg(value) as counter from "$metricName" group by time(2h)""")
+    influxCriteriaResult1h.groupBy.duration.length should be(2)
+    influxCriteriaResult1h.groupBy.duration.unit should be(TimeUnit.HOURS)
+
+    verify(parser.metaStore, times(4)).getMetricType(metricName)
+  }
+
+  test("Group by clause by unconfigured time window should use the nearest window") {
+    val parser = buildParser
+
+    when(parser.metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
+
+    val influxCriteriaResult30s = parser.parse(s"""select count from "$metricName" group by time(10s)""")
+    influxCriteriaResult30s.groupBy.duration.length should be(30)
+    influxCriteriaResult30s.groupBy.duration.unit should be(TimeUnit.SECONDS)
+
+    val influxCriteriaResult1m = parser.parse(s"""select min from "$metricName" group by time(2m)""")
+    influxCriteriaResult1m.groupBy.duration.length should be(1)
+    influxCriteriaResult1m.groupBy.duration.unit should be(TimeUnit.MINUTES)
+
+    val influxCriteriaResult5m = parser.parse(s"""select max from "$metricName" group by time(80m)""")
+    influxCriteriaResult5m.groupBy.duration.length should be(2)
+    influxCriteriaResult5m.groupBy.duration.unit should be(TimeUnit.HOURS)
+
+    val influxCriteriaResult1h = parser.parse(s"""select avg from "$metricName" group by time(5h)""")
     influxCriteriaResult1h.groupBy.duration.length should be(2)
     influxCriteriaResult1h.groupBy.duration.unit should be(TimeUnit.HOURS)
 
@@ -571,17 +595,6 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
 
     intercept[UnsupportedOperationException] {
       parser.parse(s"""select max(value) from "$metricName" group by time(30s""")
-      verify(parser.metaStore).getMetricType(metricName)
-    }
-  }
-
-  test("Query with unconfigured time window should fail") {
-    val parser = buildParser
-
-    when(parser.metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
-
-    intercept[UnsupportedOperationException] {
-      parser.parse(s"""select max(value) from "$metricName" group by time(4m)""")
       verify(parser.metaStore).getMetricType(metricName)
     }
   }
