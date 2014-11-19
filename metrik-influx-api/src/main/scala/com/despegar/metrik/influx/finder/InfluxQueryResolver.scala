@@ -42,28 +42,28 @@ trait InfluxQueryResolver extends MetaSupport {
 
   lazy val parser = new InfluxQueryParser
 
-  def search(query: String): Future[Seq[InfluxSeries]] = {
-    log.info(s"Starting Influx query [$query]")
+  def search(search: String): Future[Seq[InfluxSeries]] = search match {
+    case GetSeriesPattern(expression) ⇒ listSeries(s".*$expression.*")
+    case query                        ⇒ executeQuery(query)
+  }
 
-    if (ListSeries.equalsIgnoreCase(query)) {
-      log.info("Listing series...")
+  private def listSeries(expression: String): Future[Seq[InfluxSeries]] = {
+    log.info(s"Listing series $expression")
+    metaStore.searchInSnapshot(expression).map(results ⇒ results.map(x ⇒ new InfluxSeries(x.name)))
+  }
 
-      metaStore.retrieveMetrics.map(results ⇒ {
-        results.map(x ⇒ new InfluxSeries(x.name))
-      })
-    } else {
-      log.info(s"Executing query [$query]")
+  private def executeQuery(expression: String): Future[Seq[InfluxSeries]] = {
+    log.info(s"Executing query [$expression]")
 
-      val influxCriteria = parser.parse(query)
+    val influxCriteria = parser.parse(expression)
 
-      val slice = buildSlice(influxCriteria.filters, influxCriteria.orderAsc)
-      val timeWindow: FiniteDuration = influxCriteria.groupBy.duration
-      val metricName: String = influxCriteria.table.name
-      val maxResults: Int = influxCriteria.limit.getOrElse(Int.MaxValue)
+    val slice = buildSlice(influxCriteria.filters, influxCriteria.orderAsc)
+    val timeWindow: FiniteDuration = influxCriteria.groupBy.duration
+    val metricName: String = influxCriteria.table.name
+    val maxResults: Int = influxCriteria.limit.getOrElse(Int.MaxValue)
 
-      getStore(metricName).readAll(timeWindow, metricName, slice, maxResults).map {
-        results ⇒ toInfluxSeries(results, influxCriteria.projections, metricName)
-      }
+    getStore(metricName).readAll(timeWindow, metricName, slice, maxResults).map {
+      results ⇒ toInfluxSeries(results, influxCriteria.projections, metricName)
     }
   }
 
@@ -91,7 +91,7 @@ trait InfluxQueryResolver extends MetaSupport {
     summaries.foreach(summary ⇒ {
       functions.foreach(function ⇒ {
         val id = function.alias.getOrElse(function.name)
-        pointsPerFunction.put(id, pointsPerFunction.getOrElse(id, Vector.empty) :+ Vector(toSeconds(summary.timestamp.ms), summary.get(function.name)))
+        pointsPerFunction.put(id, pointsPerFunction.getOrElse(id, Vector.empty) :+ Vector(summary.timestamp.ms, summary.get(function.name)))
       })
     })
 
@@ -122,14 +122,11 @@ trait InfluxQueryResolver extends MetaSupport {
   }
 
   protected def now = System.currentTimeMillis()
-
-  private def toSeconds(millis: Long): Long = {
-    TimeUnit.MILLISECONDS.toSeconds(millis)
-  }
 }
 
 object InfluxQueryResolver {
-  val ListSeries = "list series"
+  //matches list series /expression/
+  val GetSeriesPattern = "list series /(.*)/".r
   val influxTimeKey = "time"
 
 }

@@ -88,7 +88,7 @@ trait BucketStore[T <: Bucket] extends Logging with Measurable {
     if (col.size > 0) {
       f
     } else {
-      Future.successful()
+      Future.successful(())
     }
   }
 

@@ -64,7 +64,7 @@ trait SummaryStore[T <: Summary] extends Logging {
     if (col.size > 0) {
       Future { f }
     } else {
-      Future.successful()
+      Future.successful(())
     }
   }
 
@@ -110,12 +110,10 @@ trait SummaryStore[T <: Summary] extends Logging {
   private def readRecursive(resultBuilder: mutable.Builder[T, Vector[T]])(operationResult: () ⇒ OperationResult[ColumnList[lang.Long]]): Seq[T] = {
     val result = operationResult().getResult.asScala
 
-    if (result.isEmpty) {
-      resultBuilder.result().toSeq
-    } else {
-      result.foldLeft(resultBuilder) {
-        (builder, column) ⇒
-          builder += deserialize(column.getByteArrayValue)
+    if (result.isEmpty) { resultBuilder.result().toSeq }
+    else {
+      result.foldLeft(resultBuilder) { (builder, column) ⇒
+        builder += deserialize(column.getByteArrayValue)
       }
       readRecursive(resultBuilder)(operationResult)
     }

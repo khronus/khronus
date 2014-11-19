@@ -16,33 +16,22 @@
 
 package com.despegar.metrik.influx.finder
 
-import com.despegar.metrik.model._
-import org.scalatest.{ BeforeAndAfter, FunSuite, Matchers }
-import org.mockito.Mockito._
 import java.util.concurrent.TimeUnit
-import scala.concurrent.duration._
-import com.despegar.metrik.store._
-import org.scalatest.mock.MockitoSugar
-import com.despegar.metrik.influx.service.{ InfluxSeries, InfluxEndpoint }
-import akka.actor.{ ActorSystem, ActorRefFactory }
-import com.typesafe.config.ConfigFactory
-import scala.concurrent.{ Await, Future }
-import scala.concurrent.ExecutionContext.Implicits.global
-import com.despegar.metrik.model.CounterSummary
-import com.despegar.metrik.model.Metric
-import com.despegar.metrik.model.StatisticSummary
-import com.despegar.metrik.model.CounterSummary
-import com.despegar.metrik.model.Metric
-import com.despegar.metrik.model.StatisticSummary
-import com.despegar.metrik.model.CounterSummary
-import com.despegar.metrik.model.Metric
-import com.despegar.metrik.model.StatisticSummary
-import com.despegar.metrik.store.Slice
-import com.despegar.metrik.model.Functions
-import org.mockito.Mockito
-import org.mockito.Matchers.any
-import org.mockito.{ Matchers ⇒ MockitoMatchers }
+
+import akka.actor.ActorSystem
 import com.despegar.metrik.influx.parser.InfluxQueryParser
+import com.despegar.metrik.influx.service.{ InfluxEndpoint, InfluxSeries }
+import com.despegar.metrik.model.{ CounterSummary, Functions, Metric, StatisticSummary, _ }
+import com.despegar.metrik.store.{ Slice, _ }
+import com.typesafe.config.ConfigFactory
+import org.mockito.Mockito._
+import org.mockito.{ Mockito, Matchers ⇒ MockitoMatchers }
+import org.scalatest.mock.MockitoSugar
+import org.scalatest.{ BeforeAndAfter, FunSuite, Matchers }
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.concurrent.{ Await, Future }
 
 class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers with MockitoSugar with InfluxQueryResolver with InfluxEndpoint {
   override implicit def actorRefFactory = ActorSystem("TestSystem", ConfigFactory.parseString(
@@ -72,22 +61,6 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
 
   before {
     Mockito.reset(metaStore, getStatisticSummaryStore, getCounterSummaryStore)
-  }
-
-  test("list series returns all series names") {
-    val metric1 = Metric("metricName1", MetricType.Timer)
-    val metric2 = Metric("metricName2", MetricType.Counter)
-    when(metaStore.retrieveMetrics).thenReturn(Future {
-      Seq(metric1, metric2)
-    })
-
-    val result = Await.result(search(InfluxQueryResolver.ListSeries), 2 seconds)
-
-    verify(metaStore).retrieveMetrics
-
-    result.size should be(2)
-    result(0).name should be(metric1.name)
-    result(1).name should be(metric2.name)
   }
 
   test("Search for a invalid metric type throws exception") {
@@ -125,10 +98,10 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     results(0).columns(0) should be(InfluxQueryResolver.influxTimeKey)
     results(0).columns(1) should be(Functions.Count.name)
 
-    results(0).points(0)(0) should be(summary1.timestamp.ms / 1000)
+    results(0).points(0)(0) should be(summary1.timestamp.ms)
     results(0).points(0)(1) should be(summary1.count)
 
-    results(0).points(1)(0) should be(summary2.timestamp.ms / 1000)
+    results(0).points(1)(0) should be(summary2.timestamp.ms)
     results(0).points(1)(1) should be(summary2.count)
   }
 
@@ -186,7 +159,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     series.name should be(expectedName)
     series.columns(0) should be(InfluxQueryResolver.influxTimeKey)
     series.columns(1) should be(expectedFunction)
-    series.points(0)(0) should be(expectedMillis / 1000)
+    series.points(0)(0) should be(expectedMillis)
     series.points(0)(1) should be(expectedValue)
   }
 }

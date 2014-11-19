@@ -66,30 +66,7 @@ class InfluxServiceSpec extends Specification with MockitoSugar with HttpService
   }
 
   "InfluxService for listing series" should {
-    val listSeriesURI = Uri(influxSeriesURI).withQuery("q" -> "list series", "u" -> "aUser", "p" -> "****")
-
-    "return empty list when there isnt any metric" in {
-      applying {
-        () ⇒
-          {
-            val instance = new MockedInfluxEndpoint()
-
-            Mockito.when(instance.metaStore.retrieveMetrics).thenReturn(Future(Seq()))
-
-            Get(listSeriesURI) ~> instance.influxServiceRoute ~> check {
-
-              handled must beTrue
-              response.status == OK
-
-              Mockito.verify(instance.metaStore).retrieveMetrics
-
-              import InfluxSeriesProtocol._
-              val results = responseAs[Seq[InfluxSeries]]
-              results must beEmpty
-            }
-          }
-      }
-    }
+    val listSeriesURI = Uri(influxSeriesURI).withQuery("q" -> "list series /counter/", "u" -> "aUser", "p" -> "****")
 
     "return all existent metrics as influx series" in {
       applying {
@@ -97,27 +74,25 @@ class InfluxServiceSpec extends Specification with MockitoSugar with HttpService
           {
             val instance = new MockedInfluxEndpoint()
 
-            val firstMetric = Metric("metric1", MetricType.Timer)
-            val secondMetric = Metric("metric2", MetricType.Timer)
-            Mockito.when(instance.metaStore.retrieveMetrics).thenReturn(Future(Seq(firstMetric, secondMetric)))
+            val counter = Metric("counter1", MetricType.Counter)
+            val timer = Metric("timer1", MetricType.Timer)
+            val searchExpression: String = ".*counter.*"
+
+            Mockito.when(instance.metaStore.searchInSnapshot(searchExpression)).thenReturn(Future(Seq(counter)))
 
             Get(listSeriesURI) ~> instance.influxServiceRoute ~> check {
               handled must beTrue
               status == OK
 
-              Mockito.verify(instance.metaStore).retrieveMetrics
+              Mockito.verify(instance.metaStore).searchInSnapshot(searchExpression)
 
               import InfluxSeriesProtocol._
               val results = responseAs[Seq[InfluxSeries]]
-              results.size must beEqualTo(2)
+              results.size must beEqualTo(1)
 
-              results(0).name === firstMetric.name
+              results(0).name === counter.name
               results(0).columns must beEmpty
               results(0).points must beEmpty
-
-              results(1).name === secondMetric.name
-              results(1).columns must beEmpty
-              results(1).points must beEmpty
             }
           }
       }

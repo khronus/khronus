@@ -80,7 +80,7 @@ trait MetricsEnpoint extends HttpService with BucketSupport with MetaSupport wit
 
   private def storeHistogramMetric(metric: Metric, metricMeasurement: MetricMeasurement) = {
     val groupedMeasurements = metricMeasurement.measurements.groupBy(measurement ⇒ Timestamp(measurement.ts).alignedTo(5 seconds))
-    groupedMeasurements.foldLeft(Future.successful()) { (acc, measurementsGroup) ⇒
+    groupedMeasurements.foldLeft(Future.successful(())) { (acc, measurementsGroup) ⇒
       acc.flatMap { _ ⇒
         val timestamp = measurementsGroup._1
         val bucketNumber = timestamp.toBucketNumber(1 millis)
@@ -89,7 +89,7 @@ trait MetricsEnpoint extends HttpService with BucketSupport with MetaSupport wit
           measurementsGroup._2.foreach(measurement ⇒ measurement.values.foreach(value ⇒ histogram.recordValue(value)))
           histogramBucketStore.store(metric, 1 millis, Seq(new HistogramBucket(bucketNumber, histogram)))
         } else {
-          Future.successful()
+          Future.successful(())
         }
       }
     }
@@ -106,5 +106,4 @@ trait MetricsEnpoint extends HttpService with BucketSupport with MetaSupport wit
   private def isNew(metric: Metric) = metaStore.retrieveMetrics map {
     !_.contains(metric)
   }
-
 }

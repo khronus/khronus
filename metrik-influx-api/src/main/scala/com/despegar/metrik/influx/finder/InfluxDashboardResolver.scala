@@ -75,15 +75,14 @@ object InfluxDashboardResolver extends DashboardResolver with Logging {
     case _ ⇒ {
       log.error(s"Unsupported grafana expression [$expression]")
       throw new UnsupportedOperationException(s"Unsupported grafana expression [$expression]")
-    };
+    }
   }
 
   def lookup(expression: String): Future[Seq[Dashboard]] = executeWithinFuture {
     log.debug(s"Looking for Dashboard with expression: $expression}")
 
     val columns: OperationResult[ColumnList[String]] = Cassandra.keyspace.prepareQuery(Column).getKey(Row).execute()
-    columns.getResult.asScala.filter(_.getName.matches(expression))
-      .map(column ⇒ Serializer.deserialize(column.getByteArrayValue))(collection.breakOut)
+    columns.getResult.asScala.filter(_.getName.matches(expression)).map(column ⇒ Serializer.deserialize(column.getByteArrayValue))(collection.breakOut)
   }
 
   def drop(dashboard: String): Future[Seq[Dashboard]] = executeWithinFuture {
