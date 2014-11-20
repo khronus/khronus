@@ -75,12 +75,11 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
       pendingMetrics ++= metrics filterNot (metric ⇒ pendingMetrics contains metric)
 
-      if (!busyWorkers.isEmpty) {
-        log.warn("There are still busy workers from previous Tick. This may mean that either workers are still processing metrics or Terminated message has not been received yet")
+      if (busyWorkers.nonEmpty) {
+        log.warning("There are still busy workers from previous Tick. This may mean that either workers are still processing metrics or Terminated message has not been received yet")
       } else {
-      start = System.currentTimeMillis()
+        start = System.currentTimeMillis()
       }
-
 
       while (pendingMetrics.nonEmpty && idleWorkers.nonEmpty) {
         val worker = idleWorkers.head
@@ -117,14 +116,14 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
       log.info("Removing worker [{}] from worker list", worker.path)
       idleWorkers -= worker
       if (busyWorkers.contains(worker)) {
-      removeBusyWorker(worker)
+        removeBusyWorker(worker)
       }
   }
 
   private def removeBusyWorker(worker: ActorRef) = {
     busyWorkers -= worker
     if (busyWorkers.isEmpty) {
-       //no more busy workers. end of the tick
+      //no more busy workers. end of the tick
       val timeElapsed = System.currentTimeMillis() - start
       log.info(s"Total time spent in Tick: $timeElapsed ms")
     }
