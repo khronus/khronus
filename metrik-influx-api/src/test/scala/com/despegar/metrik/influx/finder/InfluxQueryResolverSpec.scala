@@ -50,13 +50,12 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
   override lazy val getCounterSummaryStore = mock[SummaryStore[CounterSummary]]
   override lazy val now = System.currentTimeMillis()
 
+  override val maxResolution: Int = 1000
+  override val minResolution: Int = 700
+  override def getConfiguredWindows(metricType: String): Seq[FiniteDuration] = Seq(FiniteDuration(30, TimeUnit.SECONDS), FiniteDuration(5, TimeUnit.MINUTES), FiniteDuration(30, TimeUnit.MINUTES))
+
   override lazy val parser: InfluxQueryParser = new InfluxQueryParser() {
     override val metaStore: MetaStore = metaStoreMock
-
-    override def getConfiguredWindows(metricType: String): Seq[FiniteDuration] = {
-      Seq(FiniteDuration(30, TimeUnit.SECONDS),
-        FiniteDuration(5, TimeUnit.MINUTES))
-    }
   }
 
   before {
@@ -65,32 +64,31 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
 
   test("Search for a invalid metric type throws exception") {
     val metricName = "counterMetric"
-    val query = s"""select count(value) from "$metricName" group by time (30s)"""
+    val query = s"""select * from "$metricName" group by time (30s)"""
 
     val counterMetric = Metric(metricName, "unknownType")
     when(metaStore.getFromSnapshot).thenReturn(Seq(counterMetric))
 
     intercept[UnsupportedOperationException] {
-      Await.result(search(query), 2 seconds)
-
+      await(search(query))
       verify(metaStore).getFromSnapshot
     }
   }
 
   test("Select a valid field for a counter metric returns influx series ok") {
     val metricName = "counterMetric"
-    val query = s"""select count(value) from "$metricName" group by time (30s)"""
+    val query = s"""select count(value) from "$metricName" group by time (30m)"""
 
     when(metaStore.getMetricType(metricName)).thenReturn(MetricType.Counter)
 
     val summary1 = CounterSummary(System.currentTimeMillis() - 1000, 100L)
     val summary2 = CounterSummary(System.currentTimeMillis(), 80L)
-    when(getCounterSummaryStore.readAll(FiniteDuration(30, TimeUnit.SECONDS), metricName, Slice(-1L, now), Int.MaxValue)).thenReturn(Future { Seq(summary1, summary2) })
+    when(getCounterSummaryStore.readAll(FiniteDuration(30, TimeUnit.MINUTES), metricName, Slice(-1L, now), Int.MaxValue)).thenReturn(Future { Seq(summary1, summary2) })
 
-    val results = Await.result(search(query), 2 seconds)
+    val results = await(search(query))
 
     verify(metaStore, times(2)).getMetricType(metricName)
-    verify(getCounterSummaryStore).readAll(FiniteDuration(30, TimeUnit.SECONDS), metricName, Slice(-1L, now), Int.MaxValue)
+    verify(getCounterSummaryStore).readAll(FiniteDuration(30, TimeUnit.MINUTES), metricName, Slice(-1L, now), Int.MaxValue)
 
     results.size should be(1)
     results(0).name should be(metricName)
@@ -107,17 +105,17 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
 
   test("Select * for a valid counter metric returns influx series ok") {
     val metricName = "counterMetric"
-    val query = s"""select * from "$metricName" group by time (5m)"""
+    val query = s"""select * from "$metricName" group by time (30m)"""
 
     when(metaStore.getMetricType(metricName)).thenReturn(MetricType.Counter)
 
     val summary = CounterSummary(System.currentTimeMillis() - 1000, 100L)
-    when(getCounterSummaryStore.readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(-1L, now), Int.MaxValue)).thenReturn(Future { Seq(summary) })
+    when(getCounterSummaryStore.readAll(FiniteDuration(30, TimeUnit.MINUTES), metricName, Slice(-1L, now), Int.MaxValue)).thenReturn(Future { Seq(summary) })
 
-    val results = Await.result(search(query), 2 seconds)
+    val results = await(search(query))
 
     verify(metaStore, times(2)).getMetricType(metricName)
-    verify(getCounterSummaryStore).readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(-1L, now), Int.MaxValue)
+    verify(getCounterSummaryStore).readAll(FiniteDuration(30, TimeUnit.MINUTES), metricName, Slice(-1L, now), Int.MaxValue)
 
     results.size should be(1)
     assertInfluxSeries(results(0), metricName, Functions.Count.name, summary.timestamp.ms, summary.count)
@@ -126,7 +124,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
   test("Select * for a valid histogram metric returns influx series ok") {
     val metricName = "histogramMetric"
     val to = System.currentTimeMillis()
-    val from = to - 3600000L
+    val from = to - FiniteDuration(80, HOURS).toMillis
     val query = s"""select * from "$metricName" where time >= $from and time <=  $to group by time (5m) limit 10 order desc"""
 
     when(metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
@@ -134,7 +132,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     val summary = StatisticSummary(System.currentTimeMillis(), 50L, 80L, 90L, 95L, 99L, 999L, 3L, 1000L, 100L, 200L)
     when(getStatisticSummaryStore.readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(to, from, true), 10)).thenReturn(Future { Seq(summary) })
 
-    val results = Await.result(search(query), 2 seconds)
+    val results = await(search(query))
 
     verify(metaStore, times(2)).getMetricType(metricName)
     verify(getStatisticSummaryStore).readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(to, from, true), 10)
@@ -155,6 +153,127 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     assertInfluxSeries(sortedResults(9), metricName, Functions.Percentile999.name, summary.timestamp.ms, summary.p999)
   }
 
+  test("Select with a configured resolution between configured limits returns the desired window") {
+    // 80 h  / 5 minutes = 960 points (ok, between 700 and 1000)
+
+    val metricName = "histogramMetric"
+    val to = System.currentTimeMillis()
+    val from = to - FiniteDuration(80, HOURS).toMillis
+    val query = s"""select * from "$metricName" where time >= $from and time <=  $to group by time (5m)"""
+
+    when(metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
+    when(getStatisticSummaryStore.readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)).thenReturn(Future { Seq() })
+
+    await(search(query))
+
+    verify(metaStore, times(2)).getMetricType(metricName)
+    verify(getStatisticSummaryStore).readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)
+  }
+
+  test("Select with unconfigured time window should use the nearest window") {
+    val metricName = "histogramMetric"
+    val to = System.currentTimeMillis()
+
+    when(metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
+
+    var from = to - FiniteDuration(8, HOURS).toMillis
+    when(getStatisticSummaryStore.readAll(FiniteDuration(30, TimeUnit.SECONDS), metricName, Slice(from, to), Int.MaxValue)).thenReturn(Future { Seq() })
+    await(search(s"""select * from "$metricName" where time >= $from and time <=  $to group by time(10s)"""))
+    verify(getStatisticSummaryStore).readAll(FiniteDuration(30, TimeUnit.SECONDS), metricName, Slice(from, to), Int.MaxValue)
+
+    from = to - FiniteDuration(80, HOURS).toMillis
+    when(getStatisticSummaryStore.readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)).thenReturn(Future { Seq() })
+    await(search(s"""select * from "$metricName" where time >= $from and time <=  $to group by time(6m)"""))
+    verify(getStatisticSummaryStore).readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)
+
+    from = to - FiniteDuration(500, HOURS).toMillis
+    when(getStatisticSummaryStore.readAll(FiniteDuration(30, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)).thenReturn(Future { Seq() })
+    await(search(s"""select * from "$metricName" where time >= $from and time <=  $to group by time(5h)"""))
+    verify(getStatisticSummaryStore).readAll(FiniteDuration(30, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)
+
+    verify(metaStore, times(6)).getMetricType(metricName)
+
+  }
+
+  test("Select with a bad resolution adjust it to the best configured window") {
+    // 80 h  / 30 minutes = 160 points (resolution too bad! Adjust it to 5 minutes in order to have 960 points, between 700 and 1000)
+    val metricName = "histogramMetric"
+    val to = System.currentTimeMillis()
+    val from = to - FiniteDuration(80, HOURS).toMillis
+    val query = s"""select * from "$metricName" where time >= $from and time <=  $to group by time (30m)"""
+
+    when(metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
+    when(getStatisticSummaryStore.readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)).thenReturn(Future { Seq() })
+
+    await(search(query))
+
+    verify(metaStore, times(2)).getMetricType(metricName)
+    verify(getStatisticSummaryStore).readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)
+  }
+
+  test("Select with a very high resolution adjust it to the best configured window") {
+    // 80 h  / 30 seconds = 9600 points (Too much points! Adjust it to 5 minutes in order to have 960 points, between 700 and 1000)
+    val metricName = "histogramMetric"
+    val to = System.currentTimeMillis()
+    val from = to - FiniteDuration(80, HOURS).toMillis
+    val query = s"""select * from "$metricName" where time >= $from and time <=  $to group by time (30s)"""
+
+    when(metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
+    when(getStatisticSummaryStore.readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)).thenReturn(Future { Seq() })
+
+    await(search(query))
+
+    verify(metaStore, times(2)).getMetricType(metricName)
+    verify(getStatisticSummaryStore).readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)
+  }
+
+  test("Select without time bounds adjust window to the lowest configured resolution") {
+    val metricName = "histogramMetric"
+    val to = System.currentTimeMillis()
+    val from = -1L
+    val query = s"""select * from "$metricName" where time <=  $to group by time (5m)"""
+
+    when(metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
+    when(getStatisticSummaryStore.readAll(FiniteDuration(30, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)).thenReturn(Future { Seq() })
+
+    await(search(query))
+
+    verify(metaStore, times(2)).getMetricType(metricName)
+    verify(getStatisticSummaryStore).readAll(FiniteDuration(30, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)
+  }
+
+  test("Select with a very high resolution returns the lowest configured resolution outside boundaries") {
+    // 1000 h  / 5 minutes = 12000 points. Adjust to the lowest configured window => 1000h / 30m = 2000 points. Returns 30m, even when this window is outside boundaries (between 700 and 1000 points)
+    val metricName = "histogramMetric"
+    val to = System.currentTimeMillis()
+    val from = to - FiniteDuration(1000, HOURS).toMillis
+    val query = s"""select * from "$metricName" where time >= $from and time <=  $to group by time (5m)"""
+
+    when(metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
+    when(getStatisticSummaryStore.readAll(FiniteDuration(30, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)).thenReturn(Future { Seq() })
+
+    await(search(query))
+
+    verify(metaStore, times(2)).getMetricType(metricName)
+    verify(getStatisticSummaryStore).readAll(FiniteDuration(30, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)
+  }
+
+  test("Select with a very bad resolution returns the highest configured resolution outside boundaries") {
+    // 1h  / 5 minutes = 12 points. Adjust to the lowest configured window => 1h / 30s = 120 points. Returns 30s, even when this window is outside boundaries (between 700 and 1000 points)
+    val metricName = "histogramMetric"
+    val to = System.currentTimeMillis()
+    val from = to - FiniteDuration(1, HOURS).toMillis
+    val query = s"""select * from "$metricName" where time >= $from and time <= $to group by time (5m)"""
+
+    when(metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
+    when(getStatisticSummaryStore.readAll(FiniteDuration(30, TimeUnit.SECONDS), metricName, Slice(from, to), Int.MaxValue)).thenReturn(Future { Seq() })
+
+    await(search(query))
+
+    verify(metaStore, times(2)).getMetricType(metricName)
+    verify(getStatisticSummaryStore).readAll(FiniteDuration(30, TimeUnit.SECONDS), metricName, Slice(from, to), Int.MaxValue)
+  }
+
   private def assertInfluxSeries(series: InfluxSeries, expectedName: String, expectedFunction: String, expectedMillis: Long, expectedValue: Long) = {
     series.name should be(expectedName)
     series.columns(0) should be(InfluxQueryResolver.influxTimeKey)
@@ -162,4 +281,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     series.points(0)(0) should be(expectedMillis)
     series.points(0)(1) should be(expectedValue)
   }
+
+  private def await[T](f: ⇒ Future[T]): T = Await.result(f, 2 seconds)
+
 }

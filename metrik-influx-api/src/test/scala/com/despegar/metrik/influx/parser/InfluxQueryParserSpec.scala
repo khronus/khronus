@@ -34,13 +34,6 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
 
   def buildParser = new InfluxQueryParser() {
     override val metaStore: MetaStore = mock[MetaStore]
-
-    override def getConfiguredWindows(metricType: String): Seq[FiniteDuration] = {
-      Seq(FiniteDuration(30, TimeUnit.SECONDS),
-        FiniteDuration(1, TimeUnit.MINUTES),
-        FiniteDuration(5, TimeUnit.MINUTES),
-        FiniteDuration(2, TimeUnit.HOURS))
-    }
   }
 
   test("basic Influx query should be parsed ok") {
@@ -100,6 +93,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     influxCriteria.groupBy.duration.unit should be(TimeUnit.HOURS)
 
     influxCriteria.filters should be(Nil)
+
     influxCriteria.limit should be(None)
   }
 
@@ -341,7 +335,6 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val mockedNow = 1414767928000L
     val mockedParser = new InfluxQueryParser() {
       override val metaStore: MetaStore = mock[MetaStore]
-      override def getConfiguredWindows(metricType: String): Seq[FiniteDuration] = Seq(FiniteDuration(5, TimeUnit.MINUTES))
       override def now: Long = mockedNow
     }
 
@@ -420,11 +413,12 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     influxCriteria.limit should be(None)
   }
 
-  test("Group by clause by configured windows should be parsed ok") {
+  test("Group by clause by any windows should be parsed ok") {
     val parser = buildParser
 
     when(parser.metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
 
+    // Configured windows should be parsed ok
     val influxCriteriaResult30s = parser.parse(s"""select count(value) as counter from "$metricName" group by time(30s)""")
     influxCriteriaResult30s.groupBy.duration.length should be(30)
     influxCriteriaResult30s.groupBy.duration.unit should be(TimeUnit.SECONDS)
@@ -433,39 +427,12 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     influxCriteriaResult1m.groupBy.duration.length should be(1)
     influxCriteriaResult1m.groupBy.duration.unit should be(TimeUnit.MINUTES)
 
-    val influxCriteriaResult5m = parser.parse(s"""select max(value) as counter from "$metricName" group by time(5m)""")
-    influxCriteriaResult5m.groupBy.duration.length should be(5)
-    influxCriteriaResult5m.groupBy.duration.unit should be(TimeUnit.MINUTES)
+    // Unconfigured window should be parsed ok
+    val influxCriteriaResult13s = parser.parse(s"""select count from "$metricName" group by time(13s)""")
+    influxCriteriaResult13s.groupBy.duration.length should be(13)
+    influxCriteriaResult13s.groupBy.duration.unit should be(TimeUnit.SECONDS)
 
-    val influxCriteriaResult1h = parser.parse(s"""select avg(value) as counter from "$metricName" group by time(2h)""")
-    influxCriteriaResult1h.groupBy.duration.length should be(2)
-    influxCriteriaResult1h.groupBy.duration.unit should be(TimeUnit.HOURS)
-
-    verify(parser.metaStore, times(4)).getMetricType(metricName)
-  }
-
-  test("Group by clause by unconfigured time window should use the nearest window") {
-    val parser = buildParser
-
-    when(parser.metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
-
-    val influxCriteriaResult30s = parser.parse(s"""select count from "$metricName" group by time(10s)""")
-    influxCriteriaResult30s.groupBy.duration.length should be(30)
-    influxCriteriaResult30s.groupBy.duration.unit should be(TimeUnit.SECONDS)
-
-    val influxCriteriaResult1m = parser.parse(s"""select min from "$metricName" group by time(2m)""")
-    influxCriteriaResult1m.groupBy.duration.length should be(1)
-    influxCriteriaResult1m.groupBy.duration.unit should be(TimeUnit.MINUTES)
-
-    val influxCriteriaResult5m = parser.parse(s"""select max from "$metricName" group by time(80m)""")
-    influxCriteriaResult5m.groupBy.duration.length should be(2)
-    influxCriteriaResult5m.groupBy.duration.unit should be(TimeUnit.HOURS)
-
-    val influxCriteriaResult1h = parser.parse(s"""select avg from "$metricName" group by time(5h)""")
-    influxCriteriaResult1h.groupBy.duration.length should be(2)
-    influxCriteriaResult1h.groupBy.duration.unit should be(TimeUnit.HOURS)
-
-    verify(parser.metaStore, times(4)).getMetricType(metricName)
+    verify(parser.metaStore, times(3)).getMetricType(metricName)
   }
 
   test("Limit clause should be parsed ok") {

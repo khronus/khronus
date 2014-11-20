@@ -51,7 +51,7 @@ trait BucketStore[T <: Bucket] extends Logging with Measurable {
   def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[Seq[(UniqueTimestamp, () ⇒ T)]] = {
     Future {
       executeSlice(metric, from, to, sourceWindow)
-    } map { _.map { column ⇒ (column.getName, () ⇒ toBucket(sourceWindow)(column) ) }.toSeq }
+    } map { _.map { column ⇒ (column.getName, () ⇒ toBucket(sourceWindow)(column)) }.toSeq }
   }
 
   def store(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit] = {
@@ -59,7 +59,7 @@ trait BucketStore[T <: Bucket] extends Logging with Measurable {
       log.debug(s"${p(metric, windowDuration)} - Storing ${buckets.length} buckets")
       mutate(metric, windowDuration, buckets) { (mutation, bucket) ⇒
         val serializedBucket: ByteBuffer = serializeBucket(metric, windowDuration, bucket)
-        log.info(s"${p(metric,windowDuration)} Storing a bucket of ${serializedBucket.limit()} bytes")
+        log.info(s"${p(metric, windowDuration)} Storing a bucket of ${serializedBucket.limit()} bytes")
         mutation.putColumn(UniqueTimestamp(bucket.timestamp), serializedBucket, ttl(windowDuration))
       }
     }
