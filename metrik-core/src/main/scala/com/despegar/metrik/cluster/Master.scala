@@ -32,9 +32,13 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
   import context._
 
   var idleWorkers = Set[ActorRef]()
+  var busyWorkers = Set[ActorRef]()
+
   var pendingMetrics = Seq[Metric]()
 
   val settings = Settings(system).Master
+
+  var start: Long = _
 
   self ! Initialize
 
@@ -65,11 +69,18 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
     }
 
     case PendingMetrics(metrics) ⇒ {
-      log.info(s"Pending metrics received: ${pendingMetrics.size} pending metrics and ${idleWorkers.size} idle workers")
+      log.info(s"Metrics received: ${metrics.size}, Pending metrics: ${pendingMetrics.size} and ${idleWorkers.size} idle workers")
       log.debug(s"Pending metrics: $pendingMetrics workers idle: $idleWorkers")
       log.debug(s"Idle workers: $idleWorkers")
 
       pendingMetrics ++= metrics filterNot (metric ⇒ pendingMetrics contains metric)
+
+      if (!busyWorkers.isEmpty) {
+        log.warn("There are still busy workers from previous Tick. This may mean that either workers are still processing metrics or Terminated message has not been received yet")
+      } else {
+      start = System.currentTimeMillis()
+      }
+
 
       while (pendingMetrics.nonEmpty && idleWorkers.nonEmpty) {
         val worker = idleWorkers.head
@@ -78,6 +89,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
         log.info(s"Dispatching $pending to ${worker.path}")
         worker ! Work(pending)
 
+        busyWorkers += worker
         idleWorkers = idleWorkers.tail
         pendingMetrics = pendingMetrics.tail
       }
@@ -90,17 +102,32 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
     case WorkDone(worker) ⇒
       if (pendingMetrics.nonEmpty) {
-        log.debug(s"Dispatching ${pendingMetrics.head} to ${worker.path}")
-        worker ! Work(pendingMetrics.head)
+        val pending = pendingMetrics.head
+        log.info(s"Fast-Dispatching $pending to ${worker.path}")
+        worker ! Work(pending)
         pendingMetrics = pendingMetrics.tail
       } else {
         log.debug(s"Pending metrics is empty. Adding worker ${worker.path} to worker idle list")
         idleWorkers += worker
+        removeBusyWorker(worker)
+
       }
 
     case Terminated(worker) ⇒
       log.info("Removing worker [{}] from worker list", worker.path)
       idleWorkers -= worker
+      if (busyWorkers.contains(worker)) {
+      removeBusyWorker(worker)
+      }
+  }
+
+  private def removeBusyWorker(worker: ActorRef) = {
+    busyWorkers -= worker
+    if (busyWorkers.isEmpty) {
+       //no more busy workers. end of the tick
+      val timeElapsed = System.currentTimeMillis() - start
+      log.info(s"Total time spent in Tick: $timeElapsed ms")
+    }
   }
 
   def scheduleHeartbeat(router: ActorRef) {
