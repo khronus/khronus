@@ -432,7 +432,12 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     influxCriteriaResult13s.groupBy.duration.length should be(13)
     influxCriteriaResult13s.groupBy.duration.unit should be(TimeUnit.SECONDS)
 
-    verify(parser.metaStore, times(3)).getMetricType(metricName)
+    // Decimal windows should be truncated
+    val influxCriteriaResultDecimal = parser.parse(s"""select count from "$metricName" group by time(0.1s)""")
+    influxCriteriaResultDecimal.groupBy.duration.length should be(0)
+    influxCriteriaResultDecimal.groupBy.duration.unit should be(TimeUnit.SECONDS)
+
+    verify(parser.metaStore, times(4)).getMetricType(metricName)
   }
 
   test("Limit clause should be parsed ok") {

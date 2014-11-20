@@ -176,8 +176,8 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSuppo
     "group_by_time" ~> "(" ~> timeWindowParser <~ ")" ^^ { case timeWindowDuration ⇒ GroupBy(timeWindowDuration) }
 
   private def timeWindowParser: Parser[FiniteDuration] =
-    (numericLit ~ (TimeSuffixes.Seconds | TimeSuffixes.Minutes | TimeSuffixes.Hours)) ^^ {
-      case number ~ timeSuffix ⇒ {
+    (numericLit ~ opt(".") ~ opt(numericLit) ~ (TimeSuffixes.Seconds | TimeSuffixes.Minutes | TimeSuffixes.Hours)) ^^ {
+      case number ~ _ ~ _ ~ timeSuffix ⇒ {
         val window = timeSuffix match {
           case TimeSuffixes.Seconds ⇒ new FiniteDuration(number.toLong, TimeUnit.SECONDS)
           case TimeSuffixes.Minutes ⇒ new FiniteDuration(number.toLong, TimeUnit.MINUTES)
