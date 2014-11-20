@@ -16,6 +16,7 @@
 
 package com.despegar.metrik.store
 
+import java.nio.ByteBuffer
 import java.util.concurrent.Executors
 
 import com.despegar.metrik.model.{ StatisticSummary, Metric, Summary }
@@ -46,9 +47,9 @@ trait SummaryStore[T <: Summary] extends Logging {
 
   def getColumnFamilyName(duration: Duration): String
 
-  def deserialize(bytes: Array[Byte]): T
+  def deserialize(timestamp: Long, buffer: ByteBuffer): T
 
-  def serializeSummary(summary: T): Array[Byte]
+  def serializeSummary(summary: T): ByteBuffer
 
   lazy val columnFamilies = windowDurations.map(duration ⇒ (duration, ColumnFamily.newColumnFamily(getColumnFamilyName(duration), StringSerializer.get(), LongSerializer.get()))).toMap
 
@@ -91,7 +92,7 @@ trait SummaryStore[T <: Summary] extends Logging {
     }
 
     asyncResult map { slice ⇒
-      slice.map(column ⇒ deserialize(column.getByteArrayValue)).toSeq
+      slice.map(column ⇒ deserialize(column.getName, column.getByteBufferValue)).toSeq
     }
   }
 
@@ -113,7 +114,7 @@ trait SummaryStore[T <: Summary] extends Logging {
     if (result.isEmpty) { resultBuilder.result().toSeq }
     else {
       result.foldLeft(resultBuilder) { (builder, column) ⇒
-        builder += deserialize(column.getByteArrayValue)
+        builder += deserialize(column.getName(), column.getByteBufferValue)
       }
       readRecursive(resultBuilder)(operationResult)
     }

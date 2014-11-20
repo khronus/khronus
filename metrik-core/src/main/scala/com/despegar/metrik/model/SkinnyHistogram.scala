@@ -1,16 +1,15 @@
 package org.HdrHistogram
 
 import java.nio.ByteBuffer
-import java.util.zip.{Deflater, Inflater}
-import com.esotericsoftware.kryo.Kryo
-import com.esotericsoftware.kryo.io.{UnsafeInput, UnsafeOutput}
+import java.util.zip.{ Deflater, Inflater }
+
+import com.esotericsoftware.kryo.io.{ UnsafeInput, UnsafeOutput }
 
 class SkinnyHistogram(lowestValue: Long, maxValue: Long, precision: Int) extends Histogram(lowestValue, maxValue, precision) {
 
-  def this(maxValue: Long, precision: Int)  {
+  def this(maxValue: Long, precision: Int) {
     this(1L, maxValue, precision)
   }
-
 
   override def encodeIntoCompressedByteBuffer(targetBuffer: ByteBuffer): Int = {
     val intermediateUncompressedByteBuffer = ByteBuffer.allocate(this.getNeededByteBufferCapacity())
@@ -39,7 +38,7 @@ class SkinnyHistogram(lowestValue: Long, maxValue: Long, precision: Int) extends
 
     val countsDiffsSeq = countsDiffs
     output.writeVarInt(countsDiffsSeq.length, true)
-    countsDiffsSeq foreach { tuple =>
+    countsDiffsSeq foreach { tuple ⇒
       val idx = tuple._1
       val freq = tuple._2
       output.writeVarInt(idx, true)
@@ -51,11 +50,11 @@ class SkinnyHistogram(lowestValue: Long, maxValue: Long, precision: Int) extends
     total
   }
 
-  private def countsDiffs: Seq[(Int,Long)] = {
-    var seq = Seq[(Int,Long)]()
+  private def countsDiffs: Seq[(Int, Long)] = {
+    var seq = Seq[(Int, Long)]()
     var lastValue: Long = 0
     var lastIdx: Int = 0
-    for ( i <- (0 to  (counts.length - 1)) ) {
+    for (i ← (0 to (counts.length - 1))) {
       val (idx, value) = (i, counts(i))
       if (value > 0) {
         seq = seq :+ ((idx - lastIdx), (value - lastValue))
@@ -69,8 +68,7 @@ class SkinnyHistogram(lowestValue: Long, maxValue: Long, precision: Int) extends
 }
 
 object SkinnyHistogram {
-  private val encodingCookieBase:Int = 129
-  private val encodingCompressedCookieBase:Int = 130
+  private val encodingCompressedCookieBase: Int = 130
   private val defaultCompressionLevel = -1
 
   def decodeFromCompressedByteBuffer(buffer: ByteBuffer, minBarForHighestTrackableValue: Long): Histogram = {
@@ -91,7 +89,7 @@ object SkinnyHistogram {
   }
 
   def decodeFromByteBuffer(buffer: ByteBuffer): Histogram = {
-    val input = new UnsafeInput(buffer.array(),0,buffer.limit())
+    val input = new UnsafeInput(buffer.array(), 0, buffer.limit())
     input.setVarIntsEnabled(true)
     val significantValueDigits = input.readVarInt(true)
     val lowest = input.readVarLong(true)
@@ -103,7 +101,7 @@ object SkinnyHistogram {
     skinnyHistogram.clearCounts()
     var lastIdx = 0
     var lastFreq = 0L
-    (1 to idxArrayLength) foreach { _ =>
+    (1 to idxArrayLength) foreach { _ ⇒
       val idx = input.readVarInt(true) + lastIdx
       val freq = input.readVarLong(false) + lastFreq
       skinnyHistogram.addToCountAtIndex(idx, freq)

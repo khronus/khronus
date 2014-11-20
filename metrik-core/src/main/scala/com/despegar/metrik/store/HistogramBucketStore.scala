@@ -17,16 +17,13 @@
 package com.despegar.metrik.store
 
 import java.nio.ByteBuffer
-import java.util.concurrent.{ TimeUnit, Executors }
-import com.despegar.metrik.model.{ UniqueTimestamp, HistogramBucket, Metric, Timestamp }
-import com.despegar.metrik.util.Logging
+
+import com.despegar.metrik.model._
+import com.despegar.metrik.util.{ Logging, Settings }
 import com.netflix.astyanax.model.Column
-import org.HdrHistogram.Histogram
+import org.HdrHistogram.{ Histogram, SkinnyHistogram }
 
 import scala.concurrent.duration._
-import com.despegar.metrik.util.Settings
-import com.despegar.metrik.model.Metric
-import com.despegar.metrik.model.Timestamp
 
 trait HistogramBucketSupport extends BucketStoreSupport[HistogramBucket] {
   override def bucketStore: BucketStore[HistogramBucket] = CassandraHistogramBucketStore
@@ -46,14 +43,14 @@ object CassandraHistogramBucketStore extends BucketStore[HistogramBucket] with L
 
   def serializeBucket(metric: Metric, windowDuration: Duration, bucket: HistogramBucket): ByteBuffer = {
     val buffer = ByteBuffer.allocate(bucket.histogram.getEstimatedFootprintInBytes)
-    val bytesEncoded = bucket.histogram.encodeIntoCompressedByteBuffer(buffer) //TODO: Find a better way to do this serialization
+    val bytesEncoded = bucket.histogram.encodeIntoCompressedByteBuffer(buffer)
     log.debug(s"$metric- Histogram of $windowDuration with ${bucket.histogram.getTotalCount()} measures encoded and compressed into $bytesEncoded bytes")
     buffer.limit(bytesEncoded)
     buffer.rewind()
     buffer
   }
 
-  private def deserializeHistogram(bytes: ByteBuffer): Histogram = Histogram.decodeFromCompressedByteBuffer(bytes, 0)
+  private def deserializeHistogram(bytes: ByteBuffer): Histogram = SkinnyHistogram.decodeFromCompressedByteBuffer(bytes, 0)
 
   override def ttl(windowDuration: Duration): Int = Settings().Histogram.BucketRetentionPolicy
 

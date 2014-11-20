@@ -15,9 +15,7 @@
  */
 package com.despegar.metrik.model
 
-import org.HdrHistogram.Histogram
-
-import scala.concurrent.duration.Duration
+import org.HdrHistogram.{ Histogram, SkinnyHistogram }
 
 class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Histogram) extends Bucket(bucketNumber) {
 
@@ -43,6 +41,7 @@ object HistogramBucket {
     buckets.foreach(bucket ⇒ histogram.add(bucket.histogram))
     histogram
   }
-  def newHistogram = new Histogram(3600000000000L, 3)
+
+  def newHistogram = new SkinnyHistogram(3600000000000L, 3)
 }
 

@@ -16,8 +16,12 @@
 
 package com.despegar.metrik.store
 
+import java.io.ByteArrayOutputStream
+import java.nio.ByteBuffer
+
 import com.despegar.metrik.model.CounterSummary
-import com.despegar.metrik.util.{ KryoSerializer, Settings }
+import com.despegar.metrik.util.Settings
+import com.esotericsoftware.kryo.io.{ UnsafeInput, UnsafeOutput }
 
 import scala.concurrent.duration._
 
@@ -29,16 +33,28 @@ object CassandraCounterSummaryStore extends SummaryStore[CounterSummary] {
   //create column family definition for every bucket duration
   val windowDurations: Seq[Duration] = Settings().Histogram.WindowDurations
 
-  val serializer: KryoSerializer[CounterSummary] = new KryoSerializer("counterSummary", List(CounterSummary.getClass))
-
   override def getColumnFamilyName(duration: Duration) = s"counterSummary${duration.length}${duration.unit}"
 
-  override def serializeSummary(summary: CounterSummary): Array[Byte] = {
-    serializer.serialize(summary)
+  override def serializeSummary(summary: CounterSummary): ByteBuffer = {
+    val baos = new ByteArrayOutputStream()
+    val output = new UnsafeOutput(baos)
+    output.writeByte(1)
+    output.writeVarLong(summary.count, true)
+    output.flush()
+    baos.flush()
+    output.close()
+    ByteBuffer.wrap(baos.toByteArray)
   }
 
-  override def deserialize(bytes: Array[Byte]): CounterSummary = {
-    serializer.deserialize(bytes)
+  override def deserialize(timestamp: Long, buffer: ByteBuffer): CounterSummary = {
+    val input = new UnsafeInput(buffer.array())
+    val version = input.read
+    if (version == 1) {
+      //TODO: versioned
+    }
+    val count = input.readVarLong(true)
+    input.close()
+    CounterSummary(timestamp, count)
   }
 
   override def ttl(windowDuration: Duration): Int = Settings().Counter.SummaryRetentionPolicy

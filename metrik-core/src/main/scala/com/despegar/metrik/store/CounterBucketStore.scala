@@ -16,14 +16,15 @@
 
 package com.despegar.metrik.store
 
+import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
-import com.despegar.metrik.model._
-import com.despegar.metrik.util.KryoSerializer
-import com.netflix.astyanax.model.Column
-import scala.concurrent.Future
-import scala.concurrent.duration._
+
+import com.despegar.metrik.model.{ Timestamp, _ }
 import com.despegar.metrik.util.Settings
-import com.despegar.metrik.model.Timestamp
+import com.esotericsoftware.kryo.io.{ UnsafeInput, UnsafeOutput }
+import com.netflix.astyanax.model.Column
+
+import scala.concurrent.duration._
 
 trait CounterBucketStoreSupport extends BucketStoreSupport[CounterBucket] {
   override def bucketStore: BucketStore[CounterBucket] = CassandraCounterBucketStore
@@ -33,22 +34,36 @@ object CassandraCounterBucketStore extends BucketStore[CounterBucket] {
 
   val windowDurations: Seq[Duration] = Settings().Counter.WindowDurations
 
-  val serializer: KryoSerializer[CounterBucket] = new KryoSerializer("counterBucket", List(CounterBucket.getClass))
-
   override def getColumnFamilyName(duration: Duration): String = s"counterBucket${duration.length}${duration.unit}"
-
-  def deserialize(buffer: ByteBuffer): CounterBucket = {
-    serializer.deserialize(buffer.array())
-  }
 
   override def toBucket(windowDuration: Duration)(column: Column[UniqueTimestamp]): CounterBucket = {
     val uniqueTimestamp = column.getName()
-    val counter = deserialize(column.getByteBufferValue)
-    new CounterBucket(Timestamp(uniqueTimestamp.measurementTimestamp).toBucketNumber(windowDuration), counter.counts)
+    val counts = deserializeCounts(column.getByteBufferValue)
+    new CounterBucket(Timestamp(uniqueTimestamp.measurementTimestamp).toBucketNumber(windowDuration), counts)
   }
 
   override def serializeBucket(metric: Metric, windowDuration: Duration, bucket: CounterBucket): ByteBuffer = {
-    ByteBuffer.wrap(serializer.serialize(bucket))
+    val baos = new ByteArrayOutputStream()
+    val output = new UnsafeOutput(baos)
+    output.writeByte(1)
+    output.writeVarLong(bucket.counts, true)
+    output.flush()
+    baos.flush()
+    output.close()
+    val buffer = ByteBuffer.wrap(baos.toByteArray)
+    output.close()
+    buffer
+  }
+
+  private def deserializeCounts(buffer: ByteBuffer): Long = {
+    val input = new UnsafeInput(buffer.array())
+    val version = input.readByte()
+    if (version == 1) {
+      //TODO: versioned
+    }
+    val count = input.readVarLong(true)
+    input.close()
+    count
   }
 
   override def ttl(windowDuration: Duration): Int = Settings().Counter.BucketRetentionPolicy

@@ -16,8 +16,12 @@
 
 package com.despegar.metrik.store
 
+import java.io.ByteArrayOutputStream
+import java.nio.ByteBuffer
+
 import com.despegar.metrik.model.StatisticSummary
-import com.despegar.metrik.util.{ KryoSerializer, Logging, Settings }
+import com.despegar.metrik.util.{Logging, Settings}
+import com.esotericsoftware.kryo.io.{UnsafeInput, UnsafeOutput}
 
 import scala.concurrent.duration._
 
@@ -31,18 +35,47 @@ object CassandraStatisticSummaryStore extends SummaryStore[StatisticSummary] wit
   //create column family definition for every bucket duration
   val windowDurations: Seq[Duration] = Settings().Histogram.WindowDurations
 
-  val serializer: KryoSerializer[StatisticSummary] = new KryoSerializer("statisticSummary", List(StatisticSummary.getClass))
-
   override def getColumnFamilyName(duration: Duration) = s"statisticSummary${duration.length}${duration.unit}"
 
-  override def serializeSummary(summary: StatisticSummary): Array[Byte] = {
-    serializer.serialize(summary)
+  override def serializeSummary(summary: StatisticSummary): ByteBuffer = {
+    val baos = new ByteArrayOutputStream()
+    val output = new UnsafeOutput(baos)
+    output.writeByte(1) //version
+    output.writeVarLong(summary.p50, true)
+    output.writeVarLong(summary.p80, true)
+    output.writeVarLong(summary.p90, true)
+    output.writeVarLong(summary.p95, true)
+    output.writeVarLong(summary.p99, true)
+    output.writeVarLong(summary.p999, true)
+    output.writeVarLong(summary.min, true)
+    output.writeVarLong(summary.max, true)
+    output.writeVarLong(summary.count, true)
+    output.writeVarLong(summary.avg, true)
+    output.flush()
+    baos.flush()
+    ByteBuffer.wrap(baos.toByteArray)
   }
 
-  override def deserialize(bytes: Array[Byte]): StatisticSummary = {
-    serializer.deserialize(bytes)
+  override def deserialize(timestamp: Long, buffer: ByteBuffer): StatisticSummary = {
+    val input = new UnsafeInput(buffer.array())
+    val version = input.readByte()
+    if (version == 1) {
+      //TODO: versioned
+    }
+    val p50 = input.readVarLong(true)
+    val p80 = input.readVarLong(true)
+    val p90 = input.readVarLong(true)
+    val p95 = input.readVarLong(true)
+    val p99 = input.readVarLong(true)
+    val p999 = input.readVarLong(true)
+    val min = input.readVarLong(true)
+    val max = input.readVarLong(true)
+    val count = input.readVarLong(true)
+    val avg = input.readVarLong(true)
+    StatisticSummary(timestamp, p50, p80, p90, p95, p99, p999, min, max, count, avg)
   }
 
   override def ttl(windowDuration: Duration): Int = Settings().Histogram.SummaryRetentionPolicy
 
 }
+
