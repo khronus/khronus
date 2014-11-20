@@ -38,8 +38,9 @@ object Dependencies {
   val logbackClassic    =       "ch.qos.logback"                  %   "logback-classic"             % "1.1.2"
   val commonsLang       =       "commons-lang"                    %   "commons-lang"                % "2.6"
   val parserCombinators =       "org.scala-lang.modules"          %%  "scala-parser-combinators"    % "1.0.2"
-
-  def compile(deps: ModuleID*): Seq[ModuleID]   = deps map (_ % "compile")
+  val snappy            =       "org.xerial.snappy"               %   "snappy-java"                 % "1.1.1.6"
+  
+def compile(deps: ModuleID*): Seq[ModuleID]   = deps map (_ % "compile")
   def provided(deps: ModuleID*): Seq[ModuleID]  = deps map (_ % "provided")
   def test(deps: ModuleID*): Seq[ModuleID]      = deps map (_ % "test")
   def runtime(deps: ModuleID*): Seq[ModuleID]   = deps map (_ % "runtime")
