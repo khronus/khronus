@@ -15,6 +15,7 @@
  */
 package com.despegar.metrik.model
 
+import com.despegar.metrik.util.Measurable
 import org.HdrHistogram.{ Histogram, SkinnyHistogram }
 
 class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Histogram) extends Bucket(bucketNumber) {
@@ -35,8 +36,8 @@ class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Hi
   }
 }
 
-object HistogramBucket {
-  implicit def sumHistograms(buckets: Seq[HistogramBucket]): Histogram = {
+object HistogramBucket extends Measurable {
+  implicit def sumHistograms(buckets: Seq[HistogramBucket]): Histogram = measureTime("sumHistograms") {
     val histogram = HistogramBucket.newHistogram
     buckets.foreach(bucket ⇒ histogram.add(bucket.histogram))
     histogram

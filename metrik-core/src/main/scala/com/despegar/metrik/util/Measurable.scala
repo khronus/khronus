@@ -8,14 +8,27 @@ import scala.util.Success
 
 trait Measurable extends Logging {
 
-  def measureTime[T](label: String, metric: Metric, duration: Duration)(block: ⇒ Future[T])(implicit ec: ExecutionContext): Future[T] = {
+  private def now = System.currentTimeMillis()
+
+  def measureTime[T](label: String)(block: ⇒ T): T = {
+    val start = now
+    val blockReturn = block
+    log.info(s"$label - time spent: ${now - start}ms")
+    blockReturn
+  }
+
+  def measureTime[T](label: String, metric: Metric, duration: Duration)(block: ⇒ T): T = {
     measureTime(s"${p(metric, duration)} $label")(block)
   }
 
-  def measureTime[T](label: String)(block: ⇒ Future[T])(implicit ec: ExecutionContext): Future[T] = {
-    val start = System.currentTimeMillis()
+  def measureFutureTime[T](label: String, metric: Metric, duration: Duration)(block: ⇒ Future[T])(implicit ec: ExecutionContext): Future[T] = {
+    measureFutureTime(s"${p(metric, duration)} $label")(block)
+  }
+
+  def measureFutureTime[T](label: String)(block: ⇒ Future[T])(implicit ec: ExecutionContext): Future[T] = {
+    val start = now
     block andThen {
-      case Success(_) ⇒ log.info(s"$label - Processed in ${System.currentTimeMillis() - start}ms")
+      case Success(_) ⇒ log.info(s"$label - time spent: ${now - start}ms")
     }
   }
 }

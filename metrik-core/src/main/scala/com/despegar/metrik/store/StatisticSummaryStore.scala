@@ -20,8 +20,8 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 
 import com.despegar.metrik.model.StatisticSummary
-import com.despegar.metrik.util.{Logging, Settings}
-import com.esotericsoftware.kryo.io.{UnsafeInput, UnsafeOutput}
+import com.despegar.metrik.util.{ Logging, Settings }
+import com.esotericsoftware.kryo.io.{ UnsafeInput, UnsafeOutput }
 
 import scala.concurrent.duration._
 

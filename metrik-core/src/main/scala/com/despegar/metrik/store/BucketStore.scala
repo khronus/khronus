@@ -48,10 +48,10 @@ trait BucketStore[T <: Bucket] extends Logging with Measurable {
 
   implicit val asyncExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(50))
 
-  def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[Seq[(UniqueTimestamp, () ⇒ T)]] = measureTime("Slice", metric, sourceWindow) {
+  def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[Seq[(UniqueTimestamp, () ⇒ T)]] = {
     Future {
       executeSlice(metric, from, to, sourceWindow)
-    } map { _.map { column ⇒ (column.getName, () ⇒ toBucket(sourceWindow)(column)) }.toSeq }
+    } map { _.map { column ⇒ (column.getName, () ⇒ measureTime("deserialize", metric, sourceWindow) { toBucket(sourceWindow)(column) }) }.toSeq }
   }
 
   def store(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit] = {
@@ -74,7 +74,7 @@ trait BucketStore[T <: Bucket] extends Logging with Measurable {
 
   def serializeBucket(metric: Metric, windowDuration: Duration, bucket: T): ByteBuffer
 
-  private def executeSlice(metric: Metric, from: Timestamp, to: Timestamp, windowDuration: Duration): Iterable[Column[UniqueTimestamp]] = {
+  private def executeSlice(metric: Metric, from: Timestamp, to: Timestamp, windowDuration: Duration): Iterable[Column[UniqueTimestamp]] = measureTime("Slice", metric, windowDuration) {
     val result = Cassandra.keyspace.prepareQuery(columnFamilies(windowDuration)).getKey(metric.name)
       .withColumnRange(UniqueTimestamp.serializer.buildRange().
         greaterThanEquals(from.ms).

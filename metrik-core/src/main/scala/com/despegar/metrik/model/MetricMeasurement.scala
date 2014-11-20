@@ -37,8 +37,6 @@ case class MetricMeasurement(name: String, mtype: String, measurements: List[Mea
 
   def asMetric = Metric(name, mtype)
 
-  // def asHistogramBuckets = measurements.map(measurement ⇒ new HistogramBucket(BucketNumber(measurement.ts, 1 millis), histogramOf(measurement.values))).toSeq
-
   def asCounterBuckets = measurements.map(measurement ⇒ new CounterBucket(BucketNumber(measurement.ts, 1 millis), measurement.values.sum)).toSeq
 
 }

@@ -27,7 +27,7 @@ import scala.concurrent.Future
 
 abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[T] with SummaryStoreSupport[U] with MetaSupport with Logging with Measurable {
 
-  def process(metric: Metric, tick: Tick): scala.concurrent.Future[Unit] = measureTime("Process window", metric, duration) {
+  def process(metric: Metric, tick: Tick): scala.concurrent.Future[Unit] = measureFutureTime("Process window", metric, duration) {
     log.debug(s"${p(metric, duration)} - Processing time window for ${Tick(tick.bucketNumber ~ duration)}")
     //get the last bucket processed for this winwdow
     val lastProcessed = lastProcessedBucket(metric)
@@ -70,8 +70,10 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
     }
   }
 
-  protected def aggregateBuckets(buckets: Future[Map[BucketNumber, Seq[T]]], metric: Metric): Future[Seq[T]] = measureTime("Aggregate", metric, duration) {
-    buckets map (buckets ⇒ buckets.collect { case (bucketNumber, buckets) ⇒ aggregate(bucketNumber, buckets) }.toSeq)
+  protected def aggregateBuckets(buckets: Future[Map[BucketNumber, Seq[T]]], metric: Metric): Future[Seq[T]] = {
+    buckets map (buckets ⇒ measureTime("Aggregate", metric, duration) {
+      buckets.collect { case (bucketNumber, buckets) ⇒ aggregate(bucketNumber, buckets) }.toSeq
+    })
   }
 
   protected def aggregate(bucketNumber: BucketNumber, buckets: Seq[T]): T
