@@ -17,7 +17,7 @@
 package com.despegar.metrik.util
 
 import akka.actor._
-import com.despegar.metrik.model.{ CounterTimeWindow, HistogramTimeWindow }
+import com.despegar.metrik.model.{ MetricType, CounterTimeWindow, HistogramTimeWindow }
 import com.despegar.metrik.service.ActorSystemSupport
 
 import scala.collection.JavaConverters._
@@ -38,6 +38,11 @@ class Settings(config: com.typesafe.config.Config, extendedSystem: ExtendedActor
 
   object Window {
     val ExecutionDelay: Long = config.getDuration("metrik.windows.execution-delay", MILLISECONDS)
+  }
+
+  object Dashboard {
+    val MinResolutionPoints: Int = config.getInt("metrik.dashboards.min-resolution-points")
+    val MaxResolutionPoints: Int = config.getInt("metrik.dashboards.max-resolution-points")
   }
 
   object Cassandra {
@@ -82,6 +87,14 @@ class Settings(config: com.typesafe.config.Config, extendedSystem: ExtendedActor
       case durationInMillis if durationInMillis < 60000 ⇒ (durationInMillis millis).toSeconds seconds
       case durationInMillis if durationInMillis < 3600000 ⇒ (durationInMillis millis).toMinutes minutes
       case _ ⇒ (durationInMillis millis).toHours hours
+    }
+  }
+
+  def getConfiguredWindows(metricType: String): Seq[FiniteDuration] = {
+    metricType match {
+      case MetricType.Timer   ⇒ Histogram.ConfiguredWindows.toSeq
+      case MetricType.Counter ⇒ Counter.ConfiguredWindows.toSeq
+      case _                  ⇒ throw new UnsupportedOperationException(s"Unknown metric type $metricType")
     }
   }
 

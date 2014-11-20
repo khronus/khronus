@@ -18,7 +18,7 @@ package com.despegar.metrik.influx.parser
 
 import java.util.concurrent.TimeUnit
 
-import com.despegar.metrik.util.{ Settings, Logging }
+import com.despegar.metrik.util.Logging
 
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Success
@@ -58,11 +58,10 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSuppo
     "select" ~> projectionParser ~
       tableParser ~ opt(filterParser) ~
       groupByParser ~ opt(limitParser) ~ opt(orderParser) <~ opt(";") ^^ {
-        case projections ~ table ~ filters ~ window ~ limit ~ order ⇒ {
+        case projections ~ table ~ filters ~ groupBy ~ limit ~ order ⇒ {
 
           val metricType = metaStore.getMetricType(table.name)
           val functions = getSelectedFunctions(projections, metricType)
-          val groupBy = GroupBy(getNearestConfiguredWindow(window, metricType))
 
           InfluxCriteria(functions, table, filters.getOrElse(Nil), groupBy, limit, order.getOrElse(true))
         }
@@ -85,13 +84,6 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSuppo
 
     functions
   }
-
-  private def getNearestConfiguredWindow(duration: FiniteDuration, metricType: String): FiniteDuration = {
-    val configuredWindows = getConfiguredWindows(metricType)
-    configuredWindows.foldLeft(configuredWindows(0))((nearest, next) ⇒ if (millisBetween(duration, next) < millisBetween(duration, nearest)) next else nearest)
-  }
-
-  private def millisBetween(wanted: FiniteDuration, some: FiniteDuration) = Math.abs(wanted.toMillis - some.toMillis)
 
   private def projectionParser: Parser[Seq[Projection]] =
     allFieldProjectionParser |
@@ -180,12 +172,12 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSuppo
     case _                    ⇒ number.toLong
   }
 
-  private def groupByParser: Parser[FiniteDuration] =
-    "group_by_time" ~> "(" ~> timeWindowParser <~ ")" ^^ { case d ⇒ d }
+  private def groupByParser: Parser[GroupBy] =
+    "group_by_time" ~> "(" ~> timeWindowParser <~ ")" ^^ { case timeWindowDuration ⇒ GroupBy(timeWindowDuration) }
 
   private def timeWindowParser: Parser[FiniteDuration] =
-    (numericLit ~ (TimeSuffixes.Seconds | TimeSuffixes.Minutes | TimeSuffixes.Hours)) ^^ {
-      case number ~ timeSuffix ⇒ {
+    (numericLit ~ opt(".") ~ opt(numericLit) ~ (TimeSuffixes.Seconds | TimeSuffixes.Minutes | TimeSuffixes.Hours)) ^^ {
+      case number ~ _ ~ _ ~ timeSuffix ⇒ {
         val window = timeSuffix match {
           case TimeSuffixes.Seconds ⇒ new FiniteDuration(number.toLong, TimeUnit.SECONDS)
           case TimeSuffixes.Minutes ⇒ new FiniteDuration(number.toLong, TimeUnit.MINUTES)
@@ -200,17 +192,8 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSuppo
 
   private def orderParser: Parser[Boolean] = "order" ~> ("asc" | "desc") ^^ { case o ⇒ "asc".equals(o) }
 
-  protected def now: Long = System.currentTimeMillis()
-
-  protected def getConfiguredWindows(metricType: String): Seq[FiniteDuration] = {
-    metricType match {
-      case MetricType.Timer   ⇒ Settings().Histogram.ConfiguredWindows.toSeq
-      case MetricType.Counter ⇒ Settings().Counter.ConfiguredWindows.toSeq
-      case _                  ⇒ throw new UnsupportedOperationException(s"Unknown metric type $metricType")
-    }
-
-  }
-
   private def stringParser: Parser[String] = stringLit ^^ { case s ⇒ s }
+
+  protected def now: Long = System.currentTimeMillis()
 
 }

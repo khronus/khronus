@@ -24,16 +24,15 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-import java.util.concurrent.TimeUnit
 import scala.collection.concurrent.TrieMap
 import com.despegar.metrik.model.CounterSummary
 import com.despegar.metrik.influx.parser.TimeFilter
 import com.despegar.metrik.influx.parser.StringFilter
 import com.despegar.metrik.model.StatisticSummary
-import com.despegar.metrik.influx.parser.AllField
 import com.despegar.metrik.influx.parser.Field
 import com.despegar.metrik.influx.service.InfluxSeries
 import com.despegar.metrik.store.Slice
+import com.despegar.metrik.util.Settings
 
 trait InfluxQueryResolver extends MetaSupport {
   this: InfluxEndpoint ⇒
@@ -57,18 +56,47 @@ trait InfluxQueryResolver extends MetaSupport {
 
     val influxCriteria = parser.parse(expression)
 
-    val slice = buildSlice(influxCriteria.filters, influxCriteria.orderAsc)
-    val timeWindow: FiniteDuration = influxCriteria.groupBy.duration
     val metricName: String = influxCriteria.table.name
+    val metricType = metaStore.getMetricType(metricName)
+
+    val slice = buildSlice(influxCriteria.filters, influxCriteria.orderAsc)
+    val timeWindow = adjustResolution(slice, influxCriteria.groupBy.duration, metricType)
+
     val maxResults: Int = influxCriteria.limit.getOrElse(Int.MaxValue)
 
-    getStore(metricName).readAll(timeWindow, metricName, slice, maxResults).map {
+    getStore(metricType).readAll(timeWindow, metricName, slice, maxResults).map {
       results ⇒ toInfluxSeries(results, influxCriteria.projections, metricName)
     }
   }
 
-  private def getStore(metricName: String) = {
-    val metricType = metaStore.getMetricType(metricName)
+  private def adjustResolution(slice: Slice, desiredTimeWindow: FiniteDuration, metricType: String): FiniteDuration = {
+    val sortedWindows = getConfiguredWindows(metricType).sortBy(_.toMillis).reverse
+    val nearestConfiguredWindow = sortedWindows.foldLeft(sortedWindows.last)((nearest, next) ⇒ if (millisBetween(desiredTimeWindow, next) < millisBetween(desiredTimeWindow, nearest)) next else nearest)
+
+    val points = resolution(slice, nearestConfiguredWindow)
+    if (points <= maxResolution & points >= minResolution)
+      nearestConfiguredWindow
+    else {
+      sortedWindows.foldLeft(sortedWindows.head)((adjustedWindow, next) ⇒ {
+        val points = resolution(slice, next)
+        if (points >= minResolution & points <= maxResolution)
+          next
+        else if (points < minResolution) next else adjustedWindow
+      })
+    }
+  }
+
+  protected lazy val maxResolution: Int = Settings().Dashboard.MaxResolutionPoints
+  protected lazy val minResolution: Int = Settings().Dashboard.MinResolutionPoints
+  protected def getConfiguredWindows(metricType: String): Seq[FiniteDuration] = Settings().getConfiguredWindows(metricType)
+
+  private def resolution(slice: Slice, timeWindow: FiniteDuration) = {
+    Math.abs(slice.to - slice.from) / timeWindow.toMillis
+  }
+
+  private def millisBetween(some: FiniteDuration, other: FiniteDuration) = Math.abs(some.toMillis - other.toMillis)
+
+  private def getStore(metricType: String) = {
     metricType match {
       case MetricType.Timer   ⇒ getStatisticSummaryStore
       case MetricType.Counter ⇒ getCounterSummaryStore

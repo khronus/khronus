@@ -155,7 +155,6 @@ trait RouterProvider {
   this: Actor ⇒
 
   def createRouter(): ActorRef = {
-    SupervisorStrategy
     context.actorOf(Props[Worker].withRouter(FromConfig().withSupervisorStrategy(RouterSupervisorStrategy.restartOnError)), "workerRouter")
   }
 }
