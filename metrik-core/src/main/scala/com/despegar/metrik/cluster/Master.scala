@@ -76,7 +76,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
       pendingMetrics ++= metrics filterNot (metric ⇒ pendingMetrics contains metric)
 
       if (busyWorkers.nonEmpty) {
-        log.warning("There are still busy workers from previous Tick. This may mean that either workers are still processing metrics or Terminated message has not been received yet")
+        log.warning(s"There are still busy workers from previous Tick: $busyWorkers. This may mean that either workers are still processing metrics or Terminated message has not been received yet")
       } else {
         start = System.currentTimeMillis()
       }
