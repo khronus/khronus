@@ -49,6 +49,9 @@ class Settings(config: com.typesafe.config.Config, extendedSystem: ExtendedActor
     private val cassandraCfg = config.getConfig("metrik.cassandra")
     val Cluster = cassandraCfg.getString("cluster")
     val Keyspace = cassandraCfg.getString("keyspace")
+    val MaxConnectionsPerHost = cassandraCfg.getInt("max-connections-per-host")
+    val SocketTimeout = cassandraCfg.getDuration("socket-timeout", MILLISECONDS).toInt
+    val ConnectionTimeout = cassandraCfg.getDuration("connection-timeout", MILLISECONDS).toInt
     val Port = cassandraCfg.getInt("port")
     val Seeds = cassandraCfg.getString("seeds")
   }

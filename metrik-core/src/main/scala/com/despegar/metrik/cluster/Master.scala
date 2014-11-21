@@ -98,6 +98,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
       log.info("Registering worker [{}]", worker.path)
       watch(worker)
       idleWorkers += worker
+      removeBusyWorker(worker)
 
     case WorkDone(worker) ⇒
       if (pendingMetrics.nonEmpty) {

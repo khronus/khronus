@@ -15,12 +15,16 @@
  */
 package com.despegar.metrik.model
 
-import com.despegar.metrik.util.Measurable
+import java.io.{ PrintStream, ByteArrayOutputStream, StringWriter }
+
+import com.despegar.metrik.util.{ Logging, Measurable }
 import org.HdrHistogram.{ Histogram, SkinnyHistogram }
 
-class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Histogram) extends Bucket(bucketNumber) {
+import scala.util.{ Failure, Try }
 
-  override def summary: StatisticSummary = {
+class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Histogram) extends Bucket(bucketNumber) with Logging {
+
+  override def summary: StatisticSummary = Try {
     val p50 = histogram.getValueAtPercentile(50)
     val p80 = histogram.getValueAtPercentile(80)
     val p90 = histogram.getValueAtPercentile(90)
@@ -33,7 +37,16 @@ class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Hi
     val mean = histogram.getMean
 
     StatisticSummary(timestamp, p50, p80, p90, p95, p99, p999, min, max, count, mean.toLong)
-  }
+  }.recoverWith[StatisticSummary] {
+    case e: Exception ⇒
+
+      val baos = new ByteArrayOutputStream()
+      val printStream = new PrintStream(baos)
+      histogram.outputPercentileDistribution(printStream, 1000.0)
+      printStream.flush()
+      log.error(s"Failure creating summary of histogram: totalCount: ${histogram.getTotalCount}, percentileDistribution: ${baos.toString}", e)
+      Failure(e)
+  }.get
 }
 
 object HistogramBucket extends Measurable {
