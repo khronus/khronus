@@ -50,7 +50,7 @@ object CassandraStatisticSummaryStore extends SummaryStore[StatisticSummary] wit
     output.writeVarLong(summary.min, true)
     output.writeVarLong(summary.max, true)
     output.writeVarLong(summary.count, true)
-    output.writeVarLong(summary.avg, true)
+    output.writeVarLong(summary.mean, true)
     output.flush()
     baos.flush()
     ByteBuffer.wrap(baos.toByteArray)
@@ -71,8 +71,8 @@ object CassandraStatisticSummaryStore extends SummaryStore[StatisticSummary] wit
     val min = input.readVarLong(true)
     val max = input.readVarLong(true)
     val count = input.readVarLong(true)
-    val avg = input.readVarLong(true)
-    StatisticSummary(timestamp, p50, p80, p90, p95, p99, p999, min, max, count, avg)
+    val mean = input.readVarLong(true)
+    StatisticSummary(timestamp, p50, p80, p90, p95, p99, p999, min, max, count, mean)
   }
 
   override def ttl(windowDuration: Duration): Int = Settings().Histogram.SummaryRetentionPolicy

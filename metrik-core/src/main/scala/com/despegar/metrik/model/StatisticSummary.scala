@@ -16,7 +16,7 @@
 
 package com.despegar.metrik.model
 
-case class StatisticSummary(timestamp: Timestamp, p50: Long, p80: Long, p90: Long, p95: Long, p99: Long, p999: Long, min: Long, max: Long, count: Long, avg: Long) extends Summary {
+case class StatisticSummary(timestamp: Timestamp, p50: Long, p80: Long, p90: Long, p95: Long, p99: Long, p999: Long, min: Long, max: Long, count: Long, mean: Long) extends Summary {
   override def toString = s"StatisticSummary(timestamp=${timestamp.ms},count=$count,...)"
 }
 
@@ -44,8 +44,8 @@ object Functions {
     val name = "max"
   }
 
-  case object Avg extends Functions.Function {
-    val name = "avg"
+  case object Mean extends Functions.Function {
+    val name = "mean"
   }
 
   case object Percentile50 extends Functions.Percentile {
@@ -84,7 +84,7 @@ object Functions {
 
   def percentileByValue(i: Int): Function = allPercentiles.find(_.value == i).get
 
-  val all: Seq[Function] = allPercentiles ++ Seq(Count, Min, Max, Avg)
+  val all: Seq[Function] = allPercentiles ++ Seq(Count, Min, Max, Mean)
   val allNames: Seq[String] = all.map(_.name)
 
   val allHistogramFunctions: Seq[String] = allNames
