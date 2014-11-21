@@ -32,7 +32,7 @@ class SkinnyHistogram(lowestValue: Long, maxValue: Long, precision: Int) extends
     val output = new UnsafeOutput(buffer.array())
     output.supportVarInts(true)
     output.writeVarInt(numberOfSignificantValueDigits, true)
-    output.writeVarLong(lowestTrackableValue, true)
+    output.writeVarLong(lowestDiscernibleValue, true)
     output.writeLong(highestTrackableValue)
     output.writeVarLong(getTotalCount, true)
 

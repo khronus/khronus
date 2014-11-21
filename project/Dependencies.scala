@@ -26,7 +26,7 @@ object Dependencies {
   val akkaContrib       =       "com.typesafe.akka"               %%  "akka-contrib"                % akkaV
   val scalaTest         =       "org.scalatest"                   %%  "scalatest"                   % "2.2.1"
   val akkaQuartz        =       "us.theatr"                       %%  "akka-quartz"                 % "0.3.0"
-  val hdrHistogram      =       "org.hdrhistogram"                %   "HdrHistogram"                % "1.2.1"
+  val hdrHistogram      =       "org.hdrhistogram"                %   "HdrHistogram"                % "2.0.3"
   val specs2            =       "org.specs2"          	          %%  "specs2-core"   		          % "2.3.11"
   val mockito           =       "org.mockito"         	          %   "mockito-all"   		          % "1.9.5"
   val astyanaxCore      =       "com.netflix.astyanax"	          %	  "astyanax-core"               %	astyanaxVersion excludeAll(ExclusionRule(name = "log4j"), ExclusionRule(name = "slf4j-log4j12"))
