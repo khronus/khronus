@@ -19,7 +19,7 @@ package com.despegar.metrik.cluster
 import akka.actor.{ ActorRef, Props, Actor, ActorLogging }
 import com.despegar.metrik.cluster.Worker.WorkError
 import com.despegar.metrik.model.TimeWindowChain
-import scala.util.control.NonFatal
+import scala.util.control.{ NoStackTrace, NonFatal }
 import scala.util.{ Failure, Success }
 import com.despegar.metrik.model.Metric
 
@@ -50,7 +50,7 @@ class Worker extends Actor with ActorLogging with TimeWindowChainProvider {
         requestor ! WorkDone(self)
       case Failure(NonFatal(reason)) ⇒
         log.error(reason, s"Error processing $metric")
-        self ! WorkError(reason)
+        self ! WorkError(new WorkFailureException(reason.getMessage))
     }
   }
 
@@ -68,3 +68,5 @@ object Worker {
 trait TimeWindowChainProvider {
   def timeWindowChain: TimeWindowChain = new TimeWindowChain
 }
+
+class WorkFailureException(message: String) extends RuntimeException with NoStackTrace

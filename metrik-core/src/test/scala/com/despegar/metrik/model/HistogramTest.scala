@@ -1,5 +1,6 @@
 package com.despegar.metrik.model
 
+import java.io.{ PrintStream, ByteArrayOutputStream }
 import java.nio.ByteBuffer
 
 import org.HdrHistogram.{ SkinnyHistogram, Histogram }
@@ -32,6 +33,13 @@ object HistogramTest extends App {
     val d = serializeBucket(histogram3)
 
     println(s"Reduction: ${100 - (c.toDouble / b.toDouble) * 100}%")
+
+    val baos = new ByteArrayOutputStream()
+    val printStream = new PrintStream(baos)
+    histogram1.outputPercentileDistribution(printStream, 1000.0)
+    printStream.flush()
+
+    println(s"distribution: ${baos.toString()}")
   }
 
   def serializeBucket(histo: Histogram): Int = {
