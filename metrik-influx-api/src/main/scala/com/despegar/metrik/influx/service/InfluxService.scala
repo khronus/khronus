@@ -18,7 +18,7 @@ package com.despegar.metrik.influx.service
 
 import akka.actor.Props
 import com.despegar.metrik.influx.finder.{ DashboardSupport, InfluxQueryResolver }
-import com.despegar.metrik.util.{ CORSSupport, Logging }
+import com.despegar.metrik.util.CORSSupport
 import spray.http.MediaTypes._
 import spray.http.StatusCodes._
 import spray.httpx.encoding.{ Gzip, NoEncoding }
@@ -27,6 +27,7 @@ import InfluxSeriesProtocol.influxSeriesFormat
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import com.despegar.metrik.service.MetrikHandlerException
+import com.despegar.metrik.util.log.Logging
 
 class InfluxActor extends HttpServiceActor with InfluxEndpoint with MetrikHandlerException {
   def receive = runRoute(influxServiceRoute)

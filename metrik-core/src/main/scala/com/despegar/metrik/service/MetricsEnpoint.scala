@@ -4,13 +4,13 @@ import akka.actor.Props
 import com.despegar.metrik.model.MetricBatchProtocol._
 import com.despegar.metrik.model.{ Metric, MetricBatch, MetricMeasurement, _ }
 import com.despegar.metrik.store.{ BucketSupport, MetaSupport }
-import com.despegar.metrik.util.Logging
 import spray.http.StatusCodes._
 import spray.routing.{ HttpService, HttpServiceActor, Route }
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration._
+import com.despegar.metrik.util.log.Logging
 
 class MetrikActor extends HttpServiceActor with MetricsEnpoint with MetrikHandlerException {
   def receive = runRoute(metricsRoute)

@@ -2,10 +2,9 @@ package com.despegar.metrik.store
 
 import java.util.concurrent.{ Executors, TimeUnit }
 
-import com.despegar.metrik.util.Logging
-
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.{ Failure, Success }
+import com.despegar.metrik.util.log.Logging
 
 trait Snapshot[T] extends Logging {
 

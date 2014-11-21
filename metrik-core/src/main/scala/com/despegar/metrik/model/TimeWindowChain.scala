@@ -17,9 +17,10 @@
 package com.despegar.metrik.model
 
 import com.despegar.metrik.store.MetaSupport
-import com.despegar.metrik.util.{ Logging, Settings }
+import com.despegar.metrik.util.Settings
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import com.despegar.metrik.util.log.Logging
 
 class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport {
 

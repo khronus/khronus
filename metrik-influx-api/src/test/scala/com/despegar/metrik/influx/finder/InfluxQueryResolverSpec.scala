@@ -141,9 +141,9 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     results.size should be(10)
 
     val sortedResults = results.sortBy(_.columns(1))
-    assertInfluxSeries(sortedResults(0), metricName, Functions.Avg.name, summary.timestamp.ms, summary.avg)
-    assertInfluxSeries(sortedResults(1), metricName, Functions.Count.name, summary.timestamp.ms, summary.count)
-    assertInfluxSeries(sortedResults(2), metricName, Functions.Max.name, summary.timestamp.ms, summary.max)
+    assertInfluxSeries(sortedResults(0), metricName, Functions.Count.name, summary.timestamp.ms, summary.count)
+    assertInfluxSeries(sortedResults(1), metricName, Functions.Max.name, summary.timestamp.ms, summary.max)
+    assertInfluxSeries(sortedResults(2), metricName, Functions.Mean.name, summary.timestamp.ms, summary.mean)
     assertInfluxSeries(sortedResults(3), metricName, Functions.Min.name, summary.timestamp.ms, summary.min)
     assertInfluxSeries(sortedResults(4), metricName, Functions.Percentile50.name, summary.timestamp.ms, summary.p50)
     assertInfluxSeries(sortedResults(5), metricName, Functions.Percentile80.name, summary.timestamp.ms, summary.p80)

@@ -16,7 +16,7 @@
 
 package com.despegar.metrik.store
 
-import com.despegar.metrik.util.{ Settings, Logging }
+import com.despegar.metrik.util.Settings
 import com.netflix.astyanax.AstyanaxContext
 import com.netflix.astyanax.connectionpool.NodeDiscoveryType
 import com.netflix.astyanax.connectionpool.impl.{ ConnectionPoolConfigurationImpl, CountingConnectionPoolMonitor }
@@ -26,6 +26,7 @@ import com.netflix.astyanax.thrift.ThriftFamilyFactory
 
 import scala.collection.JavaConverters._
 import scala.util.Try
+import com.despegar.metrik.util.log.Logging
 
 object Cassandra extends Logging {
 

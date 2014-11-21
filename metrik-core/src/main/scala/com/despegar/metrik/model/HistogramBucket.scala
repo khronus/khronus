@@ -17,10 +17,11 @@ package com.despegar.metrik.model
 
 import java.io.{ PrintStream, ByteArrayOutputStream, StringWriter }
 
-import com.despegar.metrik.util.{ Logging, Measurable }
+import com.despegar.metrik.util.Measurable
 import org.HdrHistogram.{ Histogram, SkinnyHistogram }
 
 import scala.util.{ Failure, Try }
+import com.despegar.metrik.util.log.Logging
 
 class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Histogram) extends Bucket(bucketNumber) with Logging {
 
@@ -34,9 +35,9 @@ class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Hi
     val min = histogram.getMinValue
     val max = histogram.getMaxValue
     val count = histogram.getTotalCount
-    val avg = histogram.getMean
+    val mean = histogram.getMean
 
-    StatisticSummary(timestamp, p50, p80, p90, p95, p99, p999, min, max, count, avg.toLong)
+    StatisticSummary(timestamp, p50, p80, p90, p95, p99, p999, min, max, count, mean.toLong)
   }.recoverWith[StatisticSummary] {
     case e: Exception ⇒
 

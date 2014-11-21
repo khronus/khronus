@@ -1,11 +1,10 @@
 package com.despegar.metrik.model
 
 import java.nio.ByteBuffer
-
-import com.despegar.metrik.util.Logging
 import org.HdrHistogram.{ SkinnyHistogram, Histogram }
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{ FunSuite, Matchers }
+import com.despegar.metrik.util.log.Logging
 
 class SkinnyHistogramTest extends FunSuite with MockitoSugar with Matchers with Logging {
 

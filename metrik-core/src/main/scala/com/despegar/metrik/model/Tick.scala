@@ -1,7 +1,7 @@
 package com.despegar.metrik.model
 
 import com.despegar.metrik.util.Settings
-import com.despegar.metrik.util.Logging
+import com.despegar.metrik.util.log.Logging
 
 case class Tick(bucketNumber: BucketNumber) extends Logging {
   def startTimestamp = bucketNumber.startTimestamp()

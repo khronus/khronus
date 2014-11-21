@@ -19,11 +19,12 @@ package com.despegar.metrik.store
 import java.nio.ByteBuffer
 
 import com.despegar.metrik.model._
-import com.despegar.metrik.util.{ Logging, Settings }
+import com.despegar.metrik.util.Settings
 import com.netflix.astyanax.model.Column
 import org.HdrHistogram.{ Histogram, SkinnyHistogram }
 
 import scala.concurrent.duration._
+import com.despegar.metrik.util.log.Logging
 
 trait HistogramBucketSupport extends BucketStoreSupport[HistogramBucket] {
   override def bucketStore: BucketStore[HistogramBucket] = CassandraHistogramBucketStore

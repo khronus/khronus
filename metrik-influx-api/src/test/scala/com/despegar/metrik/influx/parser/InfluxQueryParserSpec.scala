@@ -67,7 +67,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
 
     when(parser.metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
 
-    val query = s"""select avg max as maxValue min(value) from "$metricName" group by time(2h)"""
+    val query = s"""select mean max as maxValue min(value) from "$metricName" group by time(2h)"""
     val influxCriteria = parser.parse(query)
 
     verify(parser.metaStore).getMetricType(metricName)
@@ -75,7 +75,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     influxCriteria.projections.size should be(3)
 
     val firstProjection = influxCriteria.projections(0)
-    firstProjection.name should be(Functions.Avg.name)
+    firstProjection.name should be(Functions.Mean.name)
     firstProjection.alias should be(None)
 
     val secondProjection = influxCriteria.projections(1)
@@ -111,9 +111,9 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     influxCriteria.projections.size should be(10)
     val sortedProjections = influxCriteria.projections.sortBy(_.name)
 
-    sortedProjections(0).name should be(Functions.Avg.name)
-    sortedProjections(1).name should be(Functions.Count.name)
-    sortedProjections(2).name should be(Functions.Max.name)
+    sortedProjections(0).name should be(Functions.Count.name)
+    sortedProjections(1).name should be(Functions.Max.name)
+    sortedProjections(2).name should be(Functions.Mean.name)
     sortedProjections(3).name should be(Functions.Min.name)
     sortedProjections(4).name should be(Functions.Percentile50.name)
     sortedProjections(5).name should be(Functions.Percentile80.name)
@@ -169,9 +169,9 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val resultedFieldMin = parser.parse(queryMin).projections(0)
     resultedFieldMin.name should be(Functions.Min.name)
 
-    val queryAvg = s"""select avg from "$metricName" group by time(1m)"""
-    val resultedFieldAvg = parser.parse(queryAvg).projections(0)
-    resultedFieldAvg.name should be(Functions.Avg.name)
+    val queryMean = s"""select mean from "$metricName" group by time(1m)"""
+    val resultedFieldMean = parser.parse(queryMean).projections(0)
+    resultedFieldMean.name should be(Functions.Mean.name)
 
     val queryCount = s"""select count from "$metricName" group by time(1m)"""
     val resultedFieldCount = parser.parse(queryCount).projections(0)
@@ -340,37 +340,37 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
 
     when(mockedParser.metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
 
-    val criteriaNow = mockedParser.parse(s"""select avg(value) from "$metricName" where time > now() group by time(5m)""")
+    val criteriaNow = mockedParser.parse(s"""select mean(value) from "$metricName" where time > now() group by time(5m)""")
     val filterNow = criteriaNow.filters(0).asInstanceOf[TimeFilter]
     filterNow.identifier should be("time")
     filterNow.operator should be(Operators.Gt)
     filterNow.value should be(mockedNow)
 
-    val criteriaNow20s = mockedParser.parse(s"""select avg(value) from "$metricName" where time < now() - 20s group by time(5m)""")
+    val criteriaNow20s = mockedParser.parse(s"""select mean(value) from "$metricName" where time < now() - 20s group by time(5m)""")
     val filterNow20s = criteriaNow20s.filters(0).asInstanceOf[TimeFilter]
     filterNow20s.identifier should be("time")
     filterNow20s.operator should be(Operators.Lt)
     filterNow20s.value should be(mockedNow - TimeUnit.SECONDS.toMillis(20))
 
-    val criteriaNow5m = mockedParser.parse(s"""select avg(value) from "$metricName" where time <= now() - 5m group by time(5m)""")
+    val criteriaNow5m = mockedParser.parse(s"""select mean(value) from "$metricName" where time <= now() - 5m group by time(5m)""")
     val filterNow5m = criteriaNow5m.filters(0).asInstanceOf[TimeFilter]
     filterNow5m.identifier should be("time")
     filterNow5m.operator should be(Operators.Lte)
     filterNow5m.value should be(mockedNow - TimeUnit.MINUTES.toMillis(5))
 
-    val criteriaNow3h = mockedParser.parse(s"""select avg(value) from "$metricName" where time >= now() - 3h group by time(5m)""")
+    val criteriaNow3h = mockedParser.parse(s"""select mean(value) from "$metricName" where time >= now() - 3h group by time(5m)""")
     val filterNow3h = criteriaNow3h.filters(0).asInstanceOf[TimeFilter]
     filterNow3h.identifier should be("time")
     filterNow3h.operator should be(Operators.Gte)
     filterNow3h.value should be(mockedNow - TimeUnit.HOURS.toMillis(3))
 
-    val criteriaNow10d = mockedParser.parse(s"""select avg(value) from "$metricName" where time >= now() - 10d group by time(5m)""")
+    val criteriaNow10d = mockedParser.parse(s"""select mean(value) from "$metricName" where time >= now() - 10d group by time(5m)""")
     val filterNow10d = criteriaNow10d.filters(0).asInstanceOf[TimeFilter]
     filterNow10d.identifier should be("time")
     filterNow10d.operator should be(Operators.Gte)
     filterNow10d.value should be(mockedNow - TimeUnit.DAYS.toMillis(10))
 
-    val criteriaNow2w = mockedParser.parse(s"""select avg(value) from "$metricName" where time <= now() - 2w group by time(5m)""")
+    val criteriaNow2w = mockedParser.parse(s"""select mean(value) from "$metricName" where time <= now() - 2w group by time(5m)""")
     val filterNow2w = criteriaNow2w.filters(0).asInstanceOf[TimeFilter]
     filterNow2w.identifier should be("time")
     filterNow2w.operator should be(Operators.Lte)

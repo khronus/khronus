@@ -18,14 +18,13 @@ package com.despegar.metrik.influx.parser
 
 import java.util.concurrent.TimeUnit
 
-import com.despegar.metrik.util.Logging
-
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Success
 import scala.util.parsing.combinator.lexical._
 import scala.util.parsing.combinator.syntactical._
 import com.despegar.metrik.model.{ MetricType, Functions }
 import com.despegar.metrik.store.{ MetaSupport, MetaStore }
+import com.despegar.metrik.util.log.Logging
 
 class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSupport {
 
