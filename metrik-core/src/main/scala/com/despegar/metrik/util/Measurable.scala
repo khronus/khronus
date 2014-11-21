@@ -5,6 +5,7 @@ import com.despegar.metrik.model.Metric
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Success
+import com.despegar.metrik.util.log.Logging
 
 trait Measurable extends Logging {
 

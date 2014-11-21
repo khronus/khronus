@@ -17,10 +17,11 @@ package com.despegar.metrik.model
 
 import java.io.{ PrintStream, ByteArrayOutputStream, StringWriter }
 
-import com.despegar.metrik.util.{ Logging, Measurable }
+import com.despegar.metrik.util.Measurable
 import org.HdrHistogram.{ Histogram, SkinnyHistogram }
 
 import scala.util.{ Failure, Try }
+import com.despegar.metrik.util.log.Logging
 
 class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Histogram) extends Bucket(bucketNumber) with Logging {
 

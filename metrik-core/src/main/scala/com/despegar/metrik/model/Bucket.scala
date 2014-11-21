@@ -1,8 +1,7 @@
 package com.despegar.metrik.model
 
-import com.despegar.metrik.util.Logging
-
 import scala.concurrent.duration.Duration
+import com.despegar.metrik.util.log.Logging
 
 abstract case class Bucket(bucketNumber: BucketNumber) {
   def timestamp = bucketNumber.startTimestamp()

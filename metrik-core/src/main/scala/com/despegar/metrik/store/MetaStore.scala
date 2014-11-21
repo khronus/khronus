@@ -17,7 +17,6 @@
 package com.despegar.metrik.store
 
 import java.util.concurrent.Executors
-import com.despegar.metrik.util.Logging
 import com.netflix.astyanax.model.ColumnFamily
 import com.netflix.astyanax.serializers.StringSerializer
 import scala.collection.JavaConverters._
@@ -25,6 +24,7 @@ import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Failure
 import com.despegar.metrik.model.Metric
 import com.despegar.metrik.model.Timestamp
+import com.despegar.metrik.util.log.Logging
 
 trait MetaStore extends Snapshot[Seq[Metric]] {
   def update(metric: Metric, lastProcessedTimestamp: Timestamp): Future[Unit]

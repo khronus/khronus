@@ -19,11 +19,12 @@ package com.despegar.metrik.model
 import com.despegar.metrik.model.CounterBucket._
 import com.despegar.metrik.model.HistogramBucket._
 import com.despegar.metrik.store._
-import com.despegar.metrik.util.{ Measurable, Logging }
+import com.despegar.metrik.util.Measurable
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.util.{ Failure, Success }
 import scala.concurrent.Future
+import com.despegar.metrik.util.log.Logging
 
 abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[T] with SummaryStoreSupport[U] with MetaSupport with Logging with Measurable {
 

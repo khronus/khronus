@@ -20,10 +20,11 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 
 import com.despegar.metrik.model.StatisticSummary
-import com.despegar.metrik.util.{ Logging, Settings }
+import com.despegar.metrik.util.Settings
 import com.esotericsoftware.kryo.io.{ UnsafeInput, UnsafeOutput }
 
 import scala.concurrent.duration._
+import com.despegar.metrik.util.log.Logging
 
 case class ColumnRange(from: Long, to: Long, reversed: Boolean, count: Int)
 

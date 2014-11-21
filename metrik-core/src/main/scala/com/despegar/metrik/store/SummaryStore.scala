@@ -20,7 +20,6 @@ import java.nio.ByteBuffer
 import java.util.concurrent.Executors
 
 import com.despegar.metrik.model.{ StatisticSummary, Metric, Summary }
-import com.despegar.metrik.util.Logging
 import com.netflix.astyanax.model.{ ColumnList, ColumnFamily }
 import com.netflix.astyanax.serializers.{ LongSerializer, StringSerializer }
 
@@ -32,6 +31,7 @@ import java.lang
 import scala.annotation.tailrec
 import scala.collection.mutable
 import com.netflix.astyanax.connectionpool.OperationResult
+import com.despegar.metrik.util.log.Logging
 
 case class Slice(from: Long, to: Long, reverseOrder: Boolean = false)
 

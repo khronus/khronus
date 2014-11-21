@@ -20,7 +20,7 @@ import java.util.concurrent.Executors
 
 import com.despegar.metrik.influx.service.Dashboard
 import com.despegar.metrik.store.Cassandra
-import com.despegar.metrik.util.{ KryoSerializer, Logging }
+import com.despegar.metrik.util.KryoSerializer
 import com.netflix.astyanax.connectionpool.OperationResult
 import com.netflix.astyanax.model.{ ColumnFamily, ColumnList }
 import com.netflix.astyanax.serializers.StringSerializer
@@ -29,6 +29,7 @@ import org.apache.commons.codec.binary.Base64
 import scala.collection.JavaConverters._
 import scala.concurrent.{ ExecutionContext, Future, Promise }
 import scala.util.control.NonFatal
+import com.despegar.metrik.util.log.Logging
 
 trait DashboardResolver {
   def dashboardOperation(expression: String): Future[Seq[Dashboard]]

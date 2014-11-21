@@ -13,9 +13,7 @@
  * and limitations under the License.
  * =========================================================================================
  */
-package com.despegar.metrik.util
-
-import java.text.SimpleDateFormat
+package com.despegar.metrik.util.log
 
 import com.typesafe.scalalogging.Logger
 import org.apache.commons.lang.time.FastDateFormat

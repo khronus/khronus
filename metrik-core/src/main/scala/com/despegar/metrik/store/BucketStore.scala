@@ -19,7 +19,7 @@ package com.despegar.metrik.store
 import java.nio.ByteBuffer
 import java.util.concurrent.Executors
 import com.despegar.metrik.model.{ UniqueTimestamp, Bucket, Metric, Timestamp }
-import com.despegar.metrik.util.{ Measurable, Logging }
+import com.despegar.metrik.util.Measurable
 import com.netflix.astyanax.ColumnListMutation
 import com.netflix.astyanax.model.{ Column, ColumnFamily }
 import com.netflix.astyanax.serializers.{ LongSerializer, StringSerializer }
@@ -27,6 +27,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Failure
+import com.despegar.metrik.util.log.Logging
 
 trait BucketStoreSupport[T <: Bucket] {
 
