@@ -30,12 +30,10 @@ trait MetricsEnpoint extends HttpService with BucketSupport with MetaSupport wit
   val metricsRoute: Route =
     post {
       entity(as[MetricBatch]) { metricBatch ⇒
-        respondWithStatus(OK) {
           complete {
             store(metricBatch.metrics)
-            metricBatch
+            OK
           }
-        }
       }
     }
 
