@@ -49,21 +49,24 @@ trait MetricsEnpoint extends HttpService with BucketSupport with MetaSupport wit
       log.warn(s"Discarding post of ${metricMeasurement.asMetric} with empty measurements")
       return
     }
+
     val metric = metricMeasurement.asMetric
-    track(metric)
+
     log.debug(s"Storing metric $metric")
+
     metric.mtype match {
       case MetricType.Timer   ⇒ storeHistogramMetric(metric, metricMeasurement)
       case MetricType.Counter ⇒ storeCounterMetric(metric, metricMeasurement)
-      case _ ⇒ {
+      case anythingElse ⇒
         val msg = s"Discarding $metric. Unknown metric type: ${metric.mtype}"
         log.warn(msg)
         throw new UnsupportedOperationException(msg)
-      }
     }
+    //only if it's of a known type
+    track(metric)
   }
 
-  private def track(metric: Metric) = {
+  private def track(metric: Metric): Unit = {
     if (isNew(metric)) {
       log.info(s"Got a new metric: $metric. Will store metadata for it")
       storeMetadata(metric)
@@ -74,7 +77,7 @@ trait MetricsEnpoint extends HttpService with BucketSupport with MetaSupport wit
 
   private def storeMetadata(metric: Metric) = metaStore.insert(metric)
 
-  private def storeHistogramMetric(metric: Metric, metricMeasurement: MetricMeasurement) = {
+  private def storeHistogramMetric(metric: Metric, metricMeasurement: MetricMeasurement): Unit = {
     storeGrouped(metric, metricMeasurement) { (bucketNumber, measurements) ⇒
       val histogram = HistogramBucket.newHistogram
       measurements.foreach(measurement ⇒ measurement.values.foreach(value ⇒ histogram.recordValue(value)))
