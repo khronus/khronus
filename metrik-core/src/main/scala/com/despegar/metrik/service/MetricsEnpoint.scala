@@ -4,13 +4,13 @@ import akka.actor.Props
 import com.despegar.metrik.model.MetricBatchProtocol._
 import com.despegar.metrik.model.{ Metric, MetricBatch, MetricMeasurement, _ }
 import com.despegar.metrik.store.{ BucketSupport, MetaSupport }
+import com.despegar.metrik.util.log.Logging
 import spray.http.StatusCodes._
 import spray.routing.{ HttpService, HttpServiceActor, Route }
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import com.despegar.metrik.util.log.Logging
 
 class MetrikActor extends HttpServiceActor with MetricsEnpoint with MetrikHandlerException {
   def receive = runRoute(metricsRoute)
@@ -64,13 +64,11 @@ trait MetricsEnpoint extends HttpService with BucketSupport with MetaSupport wit
   }
 
   private def track(metric: Metric) = {
-    isNew(metric) map { isNew ⇒
-      if (isNew) {
-        log.info(s"Got a new metric: $metric. Will store metadata for it")
-        storeMetadata(metric)
-      } else {
-        log.info(s"$metric is already known. No need to store meta for it")
-      }
+    if (isNew(metric)) {
+      log.info(s"Got a new metric: $metric. Will store metadata for it")
+      storeMetadata(metric)
+    } else {
+      log.info(s"$metric is already known. No need to store meta for it")
     }
   }
 
@@ -108,7 +106,5 @@ trait MetricsEnpoint extends HttpService with BucketSupport with MetaSupport wit
   private def alreadyProcessed(bucketNumber: BucketNumber) = false //how?
 
   //ok, this has to be improved. maybe scheduling a reload at some interval and only going to meta if not found
-  private def isNew(metric: Metric) = metaStore.retrieveMetrics map {
-    !_.contains(metric)
-  }
+  private def isNew(metric: Metric) = !metaStore.contains(metric)
 }

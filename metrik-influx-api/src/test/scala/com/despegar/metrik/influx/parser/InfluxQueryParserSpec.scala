@@ -521,7 +521,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
   test("Search for an inexistent metric throws exception") {
     val parser = buildParser
 
-    when(parser.metaStore.getFromSnapshot).thenReturn(Seq.empty[Metric])
+    when(parser.metaStore.getFromSnapshot).thenReturn(Map.empty[Metric, Timestamp])
 
     intercept[UnsupportedOperationException] {
       parser.parse("""select * from "inexistentMetric" group by time (30s)""")

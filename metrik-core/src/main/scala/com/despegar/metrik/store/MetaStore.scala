@@ -26,17 +26,14 @@ import com.despegar.metrik.model.Metric
 import com.despegar.metrik.model.Timestamp
 import com.despegar.metrik.util.log.Logging
 
-trait MetaStore extends Snapshot[Seq[Metric]] {
+trait MetaStore extends Snapshot[Map[Metric, Timestamp]] {
   def update(metric: Metric, lastProcessedTimestamp: Timestamp): Future[Unit]
   def getLastProcessedTimestamp(metric: Metric): Future[Timestamp]
   def insert(metric: Metric): Future[Unit]
-  def retrieveMetrics: Future[Seq[Metric]]
+  def allMetrics: Future[Seq[Metric]]
   def searchInSnapshot(expression: String): Future[Seq[Metric]]
-
-  def getMetricType(metricName: String): String = {
-    val metric = getFromSnapshot find (metric ⇒ metric.name.equalsIgnoreCase(metricName)) getOrElse (throw new UnsupportedOperationException(s"Metric not found: $metricName"))
-    metric.mtype
-  }
+  def contains(metric: Metric): Boolean
+  def getMetricType(metricName: String): String
 }
 
 trait MetaSupport {
@@ -69,11 +66,15 @@ object CassandraMetaStore extends MetaStore with Logging {
     case Failure(reason) ⇒ log.error(s"$metric - Failed to store meta", reason)
   }
 
-  def searchInSnapshot(expression: String): Future[Seq[Metric]] = Future { getFromSnapshot.filter(_.name.matches(expression)) }
+  def searchInSnapshot(expression: String): Future[Seq[Metric]] = Future { getFromSnapshot.keys.filter(_.name.matches(expression)).toSeq }
 
-  def retrieveMetrics: Future[Seq[Metric]] = Future {
-    val metrics = Cassandra.keyspace.prepareQuery(columnFamily).getKey(metricsKey).execute().getResult.asScala.map(c ⇒ fromString(c.getName)).toSeq
-    log.info(s"Found ${metrics.length} metrics in meta")
+  def contains(metric: Metric): Boolean = getFromSnapshot.contains(metric)
+
+  def allMetrics(): Future[Seq[Metric]] = retrieveMetrics.map(_.keys.toSeq)
+
+  def retrieveMetrics: Future[Map[Metric, Timestamp]] = Future {
+    val metrics = Cassandra.keyspace.prepareQuery(columnFamily).getKey(metricsKey).execute().getResult.asScala.map(c ⇒ (fromString(c.getName), Timestamp(c.getLongValue))).toMap
+    log.info(s"Found ${metrics.size} metrics in meta")
     metrics
   } andThen {
     case Failure(reason) ⇒ log.error(s"Failed to retrieve metrics from meta", reason)
@@ -92,8 +93,13 @@ object CassandraMetaStore extends MetaStore with Logging {
     Metric(tokens(0), tokens(1))
   }
 
-  override def getFreshData(): Future[Seq[Metric]] = {
+  override def getFreshData(): Future[Map[Metric, Timestamp]] = {
     retrieveMetrics
+  }
+
+  def getMetricType(metricName: String): String = {
+    val metric = getFromSnapshot.keys find (metric ⇒ metric.name.equalsIgnoreCase(metricName)) getOrElse (throw new UnsupportedOperationException(s"Metric not found: $metricName"))
+    metric.mtype
   }
 
   override def context = asyncExecutionContext

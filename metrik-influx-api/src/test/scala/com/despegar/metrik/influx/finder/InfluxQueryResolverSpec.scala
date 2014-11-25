@@ -67,7 +67,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     val query = s"""select * from "$metricName" group by time (30s)"""
 
     val counterMetric = Metric(metricName, "unknownType")
-    when(metaStore.getFromSnapshot).thenReturn(Seq(counterMetric))
+    when(metaStore.getFromSnapshot).thenReturn(Map(counterMetric -> Timestamp(1)))
 
     intercept[UnsupportedOperationException] {
       await(search(query))
