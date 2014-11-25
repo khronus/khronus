@@ -11,3 +11,4 @@
 -J-XX:+TieredCompilation
 -J-XX:ReservedCodeCacheSize=128m
 -J-XX:InitialCodeCacheSize=128m
+-J-XX:+HeapDumpOnOutOfMemoryError
