@@ -2,11 +2,12 @@ package com.despegar.metrik.service
 
 import akka.actor.Props
 import com.despegar.metrik.model.MetricBatchProtocol._
-import com.despegar.metrik.model.{ Metric, MetricBatch, MetricMeasurement, _ }
-import com.despegar.metrik.store.{ BucketSupport, MetaSupport }
+import com.despegar.metrik.model.{Metric, MetricBatch, MetricMeasurement, _}
+import com.despegar.metrik.store.{BucketSupport, MetaSupport}
 import com.despegar.metrik.util.log.Logging
 import spray.http.StatusCodes._
-import spray.routing.{ HttpService, HttpServiceActor, Route }
+import spray.httpx.encoding.{Gzip, NoEncoding}
+import spray.routing.{HttpService, HttpServiceActor, Route}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -28,12 +29,14 @@ trait MetricsEnpoint extends HttpService with BucketSupport with MetaSupport wit
   override def loggerName = classOf[MetricsEnpoint].getName()
 
   val metricsRoute: Route =
-    post {
-      entity(as[MetricBatch]) { metricBatch ⇒
+    decompressRequest(Gzip, NoEncoding) {
+      post {
+        entity(as[MetricBatch]) { metricBatch ⇒
           complete {
             store(metricBatch.metrics)
             OK
           }
+        }
       }
     }
 
@@ -53,7 +56,7 @@ trait MetricsEnpoint extends HttpService with BucketSupport with MetaSupport wit
     log.debug(s"Storing metric $metric")
 
     metric.mtype match {
-      case MetricType.Timer   ⇒ storeHistogramMetric(metric, metricMeasurement)
+      case MetricType.Timer ⇒ storeHistogramMetric(metric, metricMeasurement)
       case MetricType.Counter ⇒ storeCounterMetric(metric, metricMeasurement)
       case anythingElse ⇒
         val msg = s"Discarding $metric. Unknown metric type: ${metric.mtype}"
