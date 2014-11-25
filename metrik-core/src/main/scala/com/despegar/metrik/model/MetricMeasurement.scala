@@ -29,7 +29,19 @@ object MetricType {
   val Timer = "timer"
 }
 
-case class Metric(name: String, mtype: String)
+case class Metric(name: String, mtype: String) {
+  def isSystem = SystemMetric.isSystem(name)
+}
+
+object SystemMetric {
+  val systemSymbol = '~'
+  def apply(name: String, mtype: String): Metric = {
+     Metric(s"$systemSymbol$name",mtype)
+  }
+  def isSystem(metricName: String) = {
+    metricName.charAt(0) == systemSymbol
+  }
+}
 
 case class MetricMeasurement(name: String, mtype: String, measurements: List[Measurement]) {
 

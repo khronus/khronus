@@ -23,6 +23,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Failure
 import com.despegar.metrik.model.Metric
+
 import com.despegar.metrik.model.Timestamp
 import com.despegar.metrik.util.log.Logging
 
