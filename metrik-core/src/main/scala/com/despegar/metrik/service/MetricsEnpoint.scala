@@ -6,6 +6,7 @@ import com.despegar.metrik.model.{ Metric, MetricBatch, MetricMeasurement, _ }
 import com.despegar.metrik.store.{ BucketSupport, MetaSupport }
 import com.despegar.metrik.util.log.Logging
 import spray.http.StatusCodes._
+import spray.httpx.encoding.{NoEncoding, Gzip}
 import spray.routing.{ HttpService, HttpServiceActor, Route }
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -28,12 +29,14 @@ trait MetricsEnpoint extends HttpService with BucketSupport with MetaSupport wit
   override def loggerName = classOf[MetricsEnpoint].getName()
 
   val metricsRoute: Route =
-    post {
-      entity(as[MetricBatch]) { metricBatch ⇒
-        respondWithStatus(OK) {
-          complete {
-            store(metricBatch.metrics)
-            metricBatch
+    decompressRequest(Gzip, NoEncoding) {
+      post {
+        entity(as[MetricBatch]) { metricBatch ⇒
+          respondWithStatus(OK) {
+            complete {
+              store(metricBatch.metrics)
+              metricBatch
+            }
           }
         }
       }
