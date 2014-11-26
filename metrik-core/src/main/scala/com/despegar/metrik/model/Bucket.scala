@@ -35,7 +35,9 @@ object Timestamp {
   implicit def fromInt(ms: Int) = Timestamp(ms.toLong)
 }
 
-case class BucketNumber(number: Long, duration: Duration) extends Logging {
+case class BucketNumber(number: Long, duration: Duration) {
+
+  import BucketNumber._
 
   def startTimestamp(): Timestamp = {
     Timestamp(duration.toMillis * number)
@@ -57,7 +59,7 @@ case class BucketNumber(number: Long, duration: Duration) extends Logging {
 
 }
 
-object BucketNumber {
+object BucketNumber extends Logging {
   implicit def fromIntTuple(tuple: (Int, Duration)) = BucketNumber(tuple._1, tuple._2)
 
   implicit def fromLongTuple(tuple: (Long, Duration)) = BucketNumber(tuple._1, tuple._2)
