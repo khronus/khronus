@@ -1,24 +1,28 @@
 package com.despegar.metrik.model
 
-import java.util.concurrent.{TimeUnit, Executors, ConcurrentLinkedQueue}
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.{ConcurrentLinkedQueue, Executors, TimeUnit}
+
 import com.despegar.metrik.store.MetricMeasurementStoreSupport
 
-import scala.collection.mutable.{Map, Buffer}
-import scala.concurrent.{Future, ExecutionContext}
-import scala.concurrent.duration._
+import scala.collection.mutable.{Buffer, Map}
+import scala.concurrent.ExecutionContext
 
 trait MonitoringSupport {
 
-  def recordValue(metricName: String, value: Long) = Monitoring.recordValue(metricName, value)
+  def recordTime(metricName: String, time: Long) = Monitoring.recordTime(metricName, time)
 
-  def incrementCounter(metricName: String) = Monitoring.incrementCounter(metricName)
+  def recordGauge(metricName: String, value: Long) = Monitoring.recordGauge(metricName, value)
+
+  def incrementCounter(metricName: String) = incrementCounter(metricName, 1)
+
+  def incrementCounter(metricName: String, counts: Int) = incrementCounter(metricName, counts.toLong)
+
+  def incrementCounter(metricName: String, counts: Long) = Monitoring.incrementCounter(metricName, counts)
 
 }
 
 object Monitoring extends MetricMeasurementStoreSupport {
 
- // val queue = new AtomicReference[ConcurrentLinkedQueue[MonitoringMetric]](new ConcurrentLinkedQueue[MonitoringMetric]())
   val queue = new ConcurrentLinkedQueue[MonitoringMetric]()
 
   val scheduler = Executors.newScheduledThreadPool(1)
@@ -31,41 +35,66 @@ object Monitoring extends MetricMeasurementStoreSupport {
   def flush() = write(drained(queue))
 
   private def write(metrics: Seq[MonitoringMetric]) = {
-    val map = Map[String,Map[Long,Buffer[Long]]]()
-    metrics.foreach{ metric =>
-        val metricMap = map.getOrElseUpdate(metric.name,Map[Long,Buffer[Long]]())
-
+    val rawMetricMeasurements = Map[String, Map[String, Map[Long, Buffer[Long]]]]()
+    metrics.foreach { metric =>
+      val mtypeMap = rawMetricMeasurements.getOrElseUpdate(metric.mtype, Map[String, Map[Long, Buffer[Long]]]())
+      val metricMap = mtypeMap.getOrElseUpdate(metric.name, Map[Long, Buffer[Long]]())
+      val values = metricMap.getOrElseUpdate(metric.timestamp, Buffer[Long]())
+      values += metric.value
     }
+    val metricMeasurements = rawMetricMeasurements.collect { case (mtype, mtypeMap) =>
+      mtypeMap.collect { case (metricName, rawMeasurements) =>
+        MetricMeasurement(metricName, mtype, rawMeasurements.collect { case (ts, value) => Measurement(ts, value.toSeq)}.toList)
+      }
+    }.toList.flatten
+
+    metricStore.storeMetricMeasurements(metricMeasurements)
   }
 
   private def drained(queue: ConcurrentLinkedQueue[MonitoringMetric]): Seq[MonitoringMetric] = {
     var metric = queue.poll()
     val metrics = Buffer[MonitoringMetric]()
-    while(metric != null) {
+    while (metric != null) {
       metrics += metric
       metric = queue.poll()
     }
     metrics
   }
 
-  def recordValue(metricName: String, value: Long) = {
-    queue.offer(HistogramValue(metricName, value, System.currentTimeMillis()))
+  def recordTime(metricName: String, value: Long) = {
+    queue.offer(TimerValue(metricName, value, System.currentTimeMillis()))
   }
 
-  def incrementCounter(metricName: String) = {
-    queue.offer(Counter(metricName, 1, System.currentTimeMillis()))
+  def recordGauge(metricName: String, value: Long) = {
+    queue.offer(GaugeValue(metricName, value, System.currentTimeMillis()))
+  }
+
+  def incrementCounter(metricName: String, counts: Long) = {
+    queue.offer(Counter(metricName, counts, System.currentTimeMillis()))
   }
 
   case class Counter(name: String, value: Long, timestamp: Long) extends MonitoringMetric {
-
+    val mtype = "counter"
   }
 
-  case class HistogramValue(name: String, value: Long, timestamp: Long) extends MonitoringMetric
+  case class TimerValue(name: String, value: Long, timestamp: Long) extends MonitoringMetric {
+    val mtype = "timer"
+  }
+
+  case class GaugeValue(name: String, value: Long, timestamp: Long) extends MonitoringMetric {
+    val mtype = "gauge"
+  }
+
 
   trait MonitoringMetric {
     def value: Long
+
     def name: String
+
+    def mtype: String
+
     def timestamp: Long
   }
+
 }
 

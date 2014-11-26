@@ -27,6 +27,7 @@ import spray.json._
 object MetricType {
   val Counter = "counter"
   val Timer = "timer"
+  val Gauge = "gauge"
 }
 
 case class Metric(name: String, mtype: String) {

@@ -37,6 +37,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
     metric.mtype match {
       case MetricType.Timer   ⇒ storeHistogramMetric(metric, metricMeasurement)
       case MetricType.Counter ⇒ storeCounterMetric(metric, metricMeasurement)
+      case MetricType.Gauge ⇒ storeHistogramMetric(metric, metricMeasurement)
       case _ ⇒ {
         val msg = s"Discarding $metric. Unknown metric type: ${metric.mtype}"
         log.warn(msg)
