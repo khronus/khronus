@@ -24,7 +24,7 @@ import us.theatr.akka.quartz.{ AddCronScheduleFailure, _ }
 import scala.concurrent.Future
 import scala.util.control.NonFatal
 import scala.util.{ Failure, Success }
-import com.despegar.metrik.model.Metric
+import com.despegar.metrik.model.{Monitoring, Metric}
 
 class Master extends Actor with ActorLogging with RouterProvider with MetricFinder {
 
@@ -126,6 +126,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
     if (busyWorkers.isEmpty) {
       //no more busy workers. end of the tick
       val timeElapsed = System.currentTimeMillis() - start
+      Monitoring.recordTime("totalTimeTick", timeElapsed)
       log.info(s"Total time spent in Tick: $timeElapsed ms")
     }
   }

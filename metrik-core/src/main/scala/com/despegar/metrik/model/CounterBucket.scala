@@ -9,5 +9,5 @@ class CounterBucket(bucketNumber: BucketNumber, val counts: Long) extends Bucket
 }
 
 object CounterBucket extends Measurable {
-  implicit def sumCounters(buckets: Seq[CounterBucket]): Long = measureTime("sumCounters") { buckets.map(_.counts).sum }
+  implicit def sumCounters(buckets: Seq[CounterBucket]): Long =  buckets.map(_.counts).sum
 }

@@ -1,14 +1,13 @@
 package com.despegar.metrik.store
 
 import com.despegar.metrik.model.{Metric, MetricMeasurement, _}
-import com.despegar.metrik.util.Logging
 import com.despegar.metrik.util.log.Logging
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-trait MetricMeasurementStoreSupport  {
+trait MetricMeasurementStoreSupport {
   val metricStore: MetricMeasurementStore = CassandraMetricMeasurementStore
 }
 
@@ -35,7 +34,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
     val metric = metricMeasurement.asMetric
     log.debug(s"Storing metric $metric")
     metric.mtype match {
-      case MetricType.Timer   ⇒ storeHistogramMetric(metric, metricMeasurement)
+      case MetricType.Timer ⇒ storeHistogramMetric(metric, metricMeasurement)
       case MetricType.Counter ⇒ storeCounterMetric(metric, metricMeasurement)
       case MetricType.Gauge ⇒ storeHistogramMetric(metric, metricMeasurement)
       case _ ⇒ {

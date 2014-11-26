@@ -6,6 +6,7 @@ import com.despegar.metrik.model.{ Metric, MetricBatch, MetricMeasurement, _ }
 import com.despegar.metrik.store.{MetricMeasurementStoreSupport, BucketSupport, MetaSupport}
 import com.despegar.metrik.util.log.Logging
 import spray.http.StatusCodes._
+import spray.httpx.encoding.{NoEncoding, Gzip}
 import spray.routing.{ HttpService, HttpServiceActor, Route }
 
 import scala.concurrent.ExecutionContext.Implicits.global

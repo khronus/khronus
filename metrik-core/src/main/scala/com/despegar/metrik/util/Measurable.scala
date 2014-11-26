@@ -11,7 +11,7 @@ trait Measurable extends Logging with MonitoringSupport {
 
   private def now = System.currentTimeMillis()
 
-  private def measureTime[T](label: String, text: String)(block: ⇒ T): T = {
+  def measureTime[T](label: String, text: String)(block: ⇒ T): T = {
     val start = now
     val blockReturn = block
     val elapsed = now - start

@@ -9,15 +9,15 @@ import scala.concurrent.ExecutionContext
 
 trait MonitoringSupport {
 
-  def recordTime(metricName: String, time: Long) = Monitoring.recordTime(metricName, time)
+  def recordTime(metricName: String, time: Long):Unit = Monitoring.recordTime(metricName, time)
 
-  def recordGauge(metricName: String, value: Long) = Monitoring.recordGauge(metricName, value)
+  def recordGauge(metricName: String, value: Long):Unit = Monitoring.recordGauge(metricName, value)
 
-  def incrementCounter(metricName: String) = incrementCounter(metricName, 1)
+  def incrementCounter(metricName: String):Unit = incrementCounter(metricName, 1)
 
-  def incrementCounter(metricName: String, counts: Int) = incrementCounter(metricName, counts.toLong)
+  def incrementCounter(metricName: String, counts: Int):Unit = incrementCounter(metricName, counts.toLong)
 
-  def incrementCounter(metricName: String, counts: Long) = Monitoring.incrementCounter(metricName, counts)
+  def incrementCounter(metricName: String, counts: Long):Unit = Monitoring.incrementCounter(metricName, counts)
 
 }
 
