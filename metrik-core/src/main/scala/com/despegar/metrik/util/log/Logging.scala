@@ -23,10 +23,11 @@ import com.despegar.metrik.model.Metric
 
 trait Logging {
 
+  import Logging._
+
   def loggerName = this.getClass().getName()
   val log = Logger(LoggerFactory.getLogger(loggerName))
 
-  val df = FastDateFormat.getInstance("dd/MM/yyyy hh:mm:ss")
 
   def p(metric: Metric, duration: Duration) = s"[$metric-$duration]"
 
@@ -35,4 +36,8 @@ trait Logging {
   }]"
 
   def date(ts: Long) = df.format(ts)
+}
+
+object Logging {
+  val df = FastDateFormat.getInstance("dd/MM/yyyy hh:mm:ss")
 }
