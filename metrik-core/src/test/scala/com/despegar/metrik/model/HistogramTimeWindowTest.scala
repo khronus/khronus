@@ -75,7 +75,7 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindow
     verify(window.summaryStore).store(metric, windowDuration, mySummaries)
 
     //verify previous buckets removal
-    verify(window.bucketStore).remove(metric, previousWindowDuration, uniqueTimestampsPreviousBuckets)
+    //verify(window.bucketStore).remove(metric, previousWindowDuration, uniqueTimestampsPreviousBuckets)
   }
 
   test("with already processed buckets should remove them without storing any bucket or summary") {
@@ -105,7 +105,7 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindow
     verify(window.summaryStore).store(metric, windowDuration, Seq())
 
     //verify removal of previous undeleted buckets
-    verify(window.bucketStore).remove(metric, previousWindowDuration, previousUndeletedBucketsUniqueTimestamps)
+    //verify(window.bucketStore).remove(metric, previousWindowDuration, previousUndeletedBucketsUniqueTimestamps)
   }
 
   test("without previous buckets should do nothing") {
@@ -132,7 +132,7 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindow
     verify(window.summaryStore).store(metric, windowDuration, Seq())
 
     //verify that not remove anything
-    verify(window.bucketStore).remove(metric, previousWindowDuration, Seq())
+    //verify(window.bucketStore).remove(metric, previousWindowDuration, Seq())
   }
 
   test("should do nothing upon failure of previous buckets slice retrieval") {
@@ -158,7 +158,7 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindow
     verify(window.summaryStore, never()).store(any[Metric], any[FiniteDuration], any[Seq[StatisticSummary]])
 
     //verify that not remove anything
-    verify(window.bucketStore, never()).remove(any[Metric], any[FiniteDuration], any[Seq[UniqueTimestamp]])
+    //verify(window.bucketStore, never()).remove(any[Metric], any[FiniteDuration], any[Seq[UniqueTimestamp]])
   }
 
   test("with previous buckets should not remove them upon failure of temporal buckets store") {
@@ -196,7 +196,7 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindow
     verify(window.bucketStore).store(metric, windowDuration, myBuckets)
 
     //verify previous buckets were not removed
-    verify(window.bucketStore, never()).remove(metric, previousWindowDuration, uniqueTimestampsPreviousBuckets)
+    //verify(window.bucketStore, never()).remove(metric, previousWindowDuration, uniqueTimestampsPreviousBuckets)
   }
 
   test("with previous buckets should not remove them upon failure of summaries store") {
@@ -239,7 +239,7 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindow
     verify(window.summaryStore).store(metric, windowDuration, mySummaries)
 
     //verify previous buckets were not removed
-    verify(window.bucketStore, never()).remove(metric, previousWindowDuration, uniqueTimestampsPreviousBuckets)
+    //verify(window.bucketStore, never()).remove(metric, previousWindowDuration, uniqueTimestampsPreviousBuckets)
   }
 
   private def histogram1 = {

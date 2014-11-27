@@ -54,8 +54,10 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
     //store the statistic summaries
     val storeFuture = statisticsSummaries flatMap (summaries ⇒ summaryStore.store(metric, duration, summaries))
 
+    storeFuture
+
     //remove previous histogram buckets
-    storeFuture flatMap { _ ⇒ previousWindowBuckets flatMap (windowTuples ⇒ bucketStore.remove(metric, previousWindowDuration, windowTuples.map(_._1))) }
+    //storeFuture flatMap { _ ⇒ previousWindowBuckets flatMap (windowTuples ⇒ bucketStore.remove(metric, previousWindowDuration, windowTuples.map(_._1))) }
   }
 
   protected def getSummary(bucket: T): U

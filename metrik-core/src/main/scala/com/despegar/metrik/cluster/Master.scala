@@ -18,15 +18,16 @@ package com.despegar.metrik.cluster
 
 import akka.actor._
 import akka.routing.{ Broadcast, FromConfig }
+import com.despegar.metrik.model.{ MonitoringSupport, Metric, Monitoring }
 import com.despegar.metrik.store.MetaSupport
 import com.despegar.metrik.util.Settings
 import us.theatr.akka.quartz.{ AddCronScheduleFailure, _ }
+
 import scala.concurrent.Future
 import scala.util.control.NonFatal
 import scala.util.{ Failure, Success }
-import com.despegar.metrik.model.{ Monitoring, Metric }
 
-class Master extends Actor with ActorLogging with RouterProvider with MetricFinder {
+class Master extends Actor with ActorLogging with RouterProvider with MetricFinder with MonitoringSupport {
 
   import com.despegar.metrik.cluster.Master._
   import context._
@@ -72,6 +73,10 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
       log.info(s"Metrics received: ${metrics.size}, Pending metrics: ${pendingMetrics.size} and ${idleWorkers.size} idle workers")
       log.debug(s"Pending metrics: $pendingMetrics workers idle: $idleWorkers")
       log.debug(s"Idle workers: $idleWorkers")
+
+      recordGauge("idleWorkers", idleWorkers.size)
+      recordGauge("pendingMetrics", pendingMetrics.size)
+      recordGauge("metrics", metrics.size)
 
       pendingMetrics ++= metrics filterNot (metric ⇒ pendingMetrics contains metric)
 
@@ -122,12 +127,14 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
   }
 
   private def removeBusyWorker(worker: ActorRef) = {
-    busyWorkers -= worker
-    if (busyWorkers.isEmpty) {
-      //no more busy workers. end of the tick
-      val timeElapsed = System.currentTimeMillis() - start
-      Monitoring.recordTime("totalTimeTick", timeElapsed)
-      log.info(s"Total time spent in Tick: $timeElapsed ms")
+    if (busyWorkers.contains(worker)) {
+      busyWorkers -= worker
+      if (busyWorkers.isEmpty) {
+        //no more busy workers. end of the tick
+        val timeElapsed = System.currentTimeMillis() - start
+        Monitoring.recordTime("totalTimeTick", timeElapsed)
+        log.info(s"Total time spent in Tick: $timeElapsed ms")
+      }
     }
   }
 
@@ -144,9 +151,13 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 }
 
 object Master {
+
   case object Tick
+
   case class PendingMetrics(metrics: Seq[Metric])
+
   case class Initialize(cronExpression: String, router: ActorRef)
+
   case class MasterConfig(cronExpression: String)
 
   def props: Props = Props(classOf[Master])

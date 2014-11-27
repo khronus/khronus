@@ -18,12 +18,11 @@ package com.despegar.metrik.cluster
 
 import akka.actor.{ ActorRef, Props, Actor, ActorLogging }
 import com.despegar.metrik.cluster.Worker.WorkError
-import com.despegar.metrik.model.TimeWindowChain
+import com.despegar.metrik.model.{ MonitoringSupport, Monitoring, TimeWindowChain, Metric }
 import scala.util.control.{ NoStackTrace, NonFatal }
 import scala.util.{ Failure, Success }
-import com.despegar.metrik.model.Metric
 
-class Worker extends Actor with ActorLogging with TimeWindowChainProvider {
+class Worker extends Actor with ActorLogging with TimeWindowChainProvider with MonitoringSupport {
   import context._
 
   def receive: Receive = idle
@@ -56,6 +55,7 @@ class Worker extends Actor with ActorLogging with TimeWindowChainProvider {
 
   override def postRestart(reason: Throwable): Unit = {
     super.postRestart(reason)
+    incrementCounter("workerRestarts")
     log.info(s"Restarted because of ${reason.getMessage}")
   }
 }
