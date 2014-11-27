@@ -36,7 +36,7 @@ class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport {
   def process(metric: Metric): Future[Seq[Any]] = {
 
     val windows: Seq[TimeWindow[_, _]] = metric.mtype match {
-      case MetricType.Timer   ⇒ histrogramsWindows
+      case MetricType.Timer | MetricType.Gauge   ⇒ histrogramsWindows
       case MetricType.Counter ⇒ countersWindows
     }
 
