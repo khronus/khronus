@@ -68,9 +68,9 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSuppo
 
   private def getSelectedFunctions(projections: Seq[Projection], metricType: String): Seq[Field] = {
     val allFunctionsByMetricType = metricType match {
-      case MetricType.Timer   ⇒ Functions.allHistogramFunctions
-      case MetricType.Counter ⇒ Functions.allCounterFunctions
-      case _                  ⇒ throw new UnsupportedOperationException(s"Unknown metric type: $metricType")
+      case MetricType.Timer | MetricType.Gauge ⇒ Functions.allHistogramFunctions
+      case MetricType.Counter                  ⇒ Functions.allCounterFunctions
+      case _                                   ⇒ throw new UnsupportedOperationException(s"Unknown metric type: $metricType")
     }
 
     val functions = projections.collect({

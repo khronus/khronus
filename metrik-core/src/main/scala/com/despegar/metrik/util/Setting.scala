@@ -95,9 +95,9 @@ class Settings(config: com.typesafe.config.Config, extendedSystem: ExtendedActor
 
   def getConfiguredWindows(metricType: String): Seq[FiniteDuration] = {
     metricType match {
-      case MetricType.Timer   ⇒ Histogram.ConfiguredWindows.toSeq
-      case MetricType.Counter ⇒ Counter.ConfiguredWindows.toSeq
-      case _                  ⇒ throw new UnsupportedOperationException(s"Unknown metric type $metricType")
+      case MetricType.Timer | MetricType.Gauge ⇒ Histogram.ConfiguredWindows.toSeq
+      case MetricType.Counter                  ⇒ Counter.ConfiguredWindows.toSeq
+      case _                                   ⇒ throw new UnsupportedOperationException(s"Unknown metric type $metricType")
     }
   }
 

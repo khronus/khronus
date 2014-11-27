@@ -98,9 +98,9 @@ trait InfluxQueryResolver extends MetaSupport {
 
   private def getStore(metricType: String) = {
     metricType match {
-      case MetricType.Timer | MetricType.Gauge   ⇒ getStatisticSummaryStore
-      case MetricType.Counter ⇒ getCounterSummaryStore
-      case _                  ⇒ throw new UnsupportedOperationException(s"Unknown metric type: $metricType")
+      case MetricType.Timer | MetricType.Gauge ⇒ getStatisticSummaryStore
+      case MetricType.Counter                  ⇒ getCounterSummaryStore
+      case _                                   ⇒ throw new UnsupportedOperationException(s"Unknown metric type: $metricType")
     }
   }
 
