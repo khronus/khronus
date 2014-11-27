@@ -36,9 +36,6 @@ case class Metric(name: String, mtype: String) {
 
 object SystemMetric {
   val systemSymbol = '~'
-  def apply(name: String, mtype: String): Metric = {
-    Metric(s"$systemSymbol$name", mtype)
-  }
   def isSystem(metricName: String) = {
     metricName.charAt(0) == systemSymbol
   }
