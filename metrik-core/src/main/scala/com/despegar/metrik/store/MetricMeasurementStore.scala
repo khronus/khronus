@@ -1,6 +1,6 @@
 package com.despegar.metrik.store
 
-import com.despegar.metrik.model.{Metric, MetricMeasurement, _}
+import com.despegar.metrik.model.{ Metric, MetricMeasurement, _ }
 import com.despegar.metrik.util.log.Logging
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -20,7 +20,6 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
     store(metricMeasurements)
   }
 
-
   private def store(metrics: List[MetricMeasurement]) = {
     log.info(s"Received ${metrics.length} metrics to be stored")
     metrics foreach storeMetric
@@ -34,9 +33,9 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
     val metric = metricMeasurement.asMetric
     log.debug(s"Storing metric $metric")
     metric.mtype match {
-      case MetricType.Timer ⇒ storeHistogramMetric(metric, metricMeasurement)
+      case MetricType.Timer   ⇒ storeHistogramMetric(metric, metricMeasurement)
       case MetricType.Counter ⇒ storeCounterMetric(metric, metricMeasurement)
-      case MetricType.Gauge ⇒ storeHistogramMetric(metric, metricMeasurement)
+      case MetricType.Gauge   ⇒ storeHistogramMetric(metric, metricMeasurement)
       case _ ⇒ {
         val msg = s"Discarding $metric. Unknown metric type: ${metric.mtype}"
         log.warn(msg)
@@ -90,6 +89,5 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
 
   //ok, this has to be improved. maybe scheduling a reload at some interval and only going to meta if not found
   private def isNew(metric: Metric) = !metaStore.contains(metric)
-
 
 }

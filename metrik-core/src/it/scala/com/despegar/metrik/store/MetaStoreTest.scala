@@ -10,7 +10,7 @@ class CassandraMetaStoreTest extends FunSuite with BaseIntegrationTest with Matc
 
   test("should store and retrieve metadata for metrics") {
     await { CassandraMetaStore.insert(Metric("metric1","histogram")) }
-    val metrics = await { CassandraMetaStore.retrieveMetrics }
+    val metrics = await { CassandraMetaStore.allMetrics() }
     metrics shouldEqual Seq(Metric("metric1","histogram"))
   }
   

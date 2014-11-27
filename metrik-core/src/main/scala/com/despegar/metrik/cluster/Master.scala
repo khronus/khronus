@@ -24,7 +24,7 @@ import us.theatr.akka.quartz.{ AddCronScheduleFailure, _ }
 import scala.concurrent.Future
 import scala.util.control.NonFatal
 import scala.util.{ Failure, Success }
-import com.despegar.metrik.model.{Monitoring, Metric}
+import com.despegar.metrik.model.{ Monitoring, Metric }
 
 class Master extends Actor with ActorLogging with RouterProvider with MetricFinder {
 

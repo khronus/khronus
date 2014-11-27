@@ -28,6 +28,7 @@ import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec, MultiNodeSpecCallbac
 import akka.routing.RoundRobinPool
 import akka.testkit.ImplicitSender
 import com.despegar.metrik.cluster.{RouterProvider, Master}
+import com.despegar.metrik.model.Metric
 import com.typesafe.config.ConfigFactory
 import org.scalatest.{BeforeAndAfterAll, MustMatchers, WordSpecLike}
 
@@ -80,7 +81,11 @@ class MetrikClusterSpec extends MultiNodeSpec(MetrikClusterSpecConfig) with STMu
   }
 }
 
-class TestMaster extends Master with LocalRouterProvider
+class TestMaster extends Master with LocalRouterProvider {
+  import scala.concurrent.Future
+
+  override def lookupMetrics: Future[Seq[Metric]] = Future.successful(Seq(Metric("a", "histogram")))
+}
 
 trait LocalRouterProvider extends RouterProvider {
   this: Actor ⇒

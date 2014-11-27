@@ -16,24 +16,33 @@
 
 package com.despegar.metrik.store
 
-import java.util.concurrent.Executors
+import java.util.concurrent.{ ConcurrentLinkedQueue, Executors, TimeUnit }
+
+import com.despegar.metrik.model.{ Metric, Timestamp }
+import com.despegar.metrik.util.log.Logging
+import com.netflix.astyanax.ColumnListMutation
 import com.netflix.astyanax.model.ColumnFamily
 import com.netflix.astyanax.serializers.StringSerializer
-import scala.collection.JavaConverters._
-import scala.concurrent.{ ExecutionContext, Future }
-import scala.util.Failure
-import com.despegar.metrik.model.Metric
 
-import com.despegar.metrik.model.Timestamp
-import com.despegar.metrik.util.log.Logging
+import scala.annotation.tailrec
+import scala.collection.JavaConverters._
+import scala.collection.mutable.Buffer
+import scala.concurrent.{ ExecutionContext, Future, Promise }
+import scala.util.{ Failure, Success }
 
 trait MetaStore extends Snapshot[Map[Metric, Timestamp]] {
   def update(metric: Metric, lastProcessedTimestamp: Timestamp): Future[Unit]
+
   def getLastProcessedTimestamp(metric: Metric): Future[Timestamp]
+
   def insert(metric: Metric): Future[Unit]
+
   def allMetrics: Future[Seq[Metric]]
+
   def searchInSnapshot(expression: String): Future[Seq[Metric]]
+
   def contains(metric: Metric): Boolean
+
   def getMetricType(metricName: String): String
 }
 
@@ -45,35 +54,72 @@ object CassandraMetaStore extends MetaStore with Logging {
 
   val columnFamily = ColumnFamily.newColumnFamily("meta", StringSerializer.get(), StringSerializer.get())
   val metricsKey = "metrics"
-
+  private val queue = new ConcurrentLinkedQueue[(Promise[Unit], (Metric, Timestamp))]()
   implicit val asyncExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(5))
+
+  val asyncUpdateExecutor = Executors.newScheduledThreadPool(1)
+  asyncUpdateExecutor.scheduleAtFixedRate(new Runnable() {
+    override def run = updateAsync
+  }, 1, 1, TimeUnit.SECONDS)
 
   def initialize = Cassandra.createColumnFamily(columnFamily)
 
   def insert(metric: Metric): Future[Unit] = {
-    put(metric, Timestamp(1))
+    put(Seq((metric, Timestamp(1))))
   }
 
   def update(metric: Metric, lastProcessedTimestamp: Timestamp): Future[Unit] = {
-    put(metric, lastProcessedTimestamp)
+    val promise = Promise[Unit]()
+    buffer(promise, (metric, lastProcessedTimestamp))
+    promise.future
   }
 
-  private def put(metric: Metric, timestamp: Timestamp): Future[Unit] = Future {
+  private def buffer(promise: Promise[Unit], tuple: (Metric, Timestamp)) = {
+    queue.offer((promise, tuple))
+  }
+
+  private def updateAsync = {
+    val elements = drain()
+    if (!elements.isEmpty) {
+      put(elements.map(element ⇒ element._2))
+      elements.foreach(element ⇒ element._1.complete(Success(Unit)))
+    }
+  }
+
+  @tailrec //TODO: refactorme
+  private def drain(elements: Buffer[(Promise[Unit], (Metric, Timestamp))] = Buffer[(Promise[Unit], (Metric, Timestamp))]()): Buffer[(Promise[Unit], (Metric, Timestamp))] = {
+    val element = queue.poll()
+    if (element != null) {
+      elements += element
+      drain(elements)
+    } else {
+      elements
+    }
+  }
+
+  private def put(batch: Seq[(Metric, Timestamp)]): Future[Unit] = Future {
     val mutationBatch = Cassandra.keyspace.prepareMutationBatch()
-    mutationBatch.withRow(columnFamily, metricsKey).putColumn(asString(metric), timestamp.ms)
+    val row: ColumnListMutation[String] = mutationBatch.withRow(columnFamily, metricsKey)
+    batch.foreach { tuple ⇒
+      val metric = tuple._1
+      val timestamp = tuple._2
+      row.putColumn(asString(metric), timestamp.ms)
+    }
     mutationBatch.execute()
-    log.debug(s"$metric - Stored meta successfully. Timestamp: $timestamp")
+    log.debug(s"Stored meta successfully.")
   } andThen {
-    case Failure(reason) ⇒ log.error(s"$metric - Failed to store meta", reason)
+    case Failure(reason) ⇒ log.error(s"Failed to store meta", reason)
   }
 
-  def searchInSnapshot(expression: String): Future[Seq[Metric]] = Future { getFromSnapshot.keys.filter(_.name.matches(expression)).toSeq }
+  def searchInSnapshot(expression: String): Future[Seq[Metric]] = Future {
+    getFromSnapshot.keys.filter(_.name.matches(expression)).toSeq
+  }
 
   def contains(metric: Metric): Boolean = getFromSnapshot.contains(metric)
 
   def allMetrics(): Future[Seq[Metric]] = retrieveMetrics.map(_.keys.toSeq)
 
-  def retrieveMetrics: Future[Map[Metric, Timestamp]] = Future {
+  private def retrieveMetrics: Future[Map[Metric, Timestamp]] = Future {
     val metrics = Cassandra.keyspace.prepareQuery(columnFamily).getKey(metricsKey).execute().getResult.asScala.map(c ⇒ (fromString(c.getName), Timestamp(c.getLongValue))).toMap
     log.info(s"Found ${metrics.size} metrics in meta")
     metrics
@@ -81,7 +127,14 @@ object CassandraMetaStore extends MetaStore with Logging {
     case Failure(reason) ⇒ log.error(s"Failed to retrieve metrics from meta", reason)
   }
 
-  def getLastProcessedTimestamp(metric: Metric): Future[Timestamp] = Future {
+  def getLastProcessedTimestamp(metric: Metric): Future[Timestamp] = {
+    getFromSnapshot.get(metric) match {
+      case Some(timestamp) ⇒ Future.successful(timestamp)
+      case None            ⇒ getLastProcessedTimestampFromCassandra(metric)
+    }
+  }
+
+  def getLastProcessedTimestampFromCassandra(metric: Metric): Future[Timestamp] = Future {
     Timestamp(Cassandra.keyspace.prepareQuery(columnFamily).getKey(metricsKey).getColumn(asString(metric)).execute().getResult.getLongValue)
   } andThen {
     case Failure(reason) ⇒ log.error(s"$metric - Failed to retrieve last processed timestamp from meta", reason)

@@ -28,7 +28,6 @@ trait Logging {
   def loggerName = this.getClass().getName()
   val log = Logger(LoggerFactory.getLogger(loggerName))
 
-
   def p(metric: Metric, duration: Duration) = s"[$metric-$duration]"
 
   def p(metric: Metric, ts: Long) = s"[$metric-${

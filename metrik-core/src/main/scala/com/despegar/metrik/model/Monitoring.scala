@@ -1,23 +1,23 @@
 package com.despegar.metrik.model
 
-import java.util.concurrent.{ConcurrentLinkedQueue, Executors, TimeUnit}
+import java.util.concurrent.{ ConcurrentLinkedQueue, Executors, TimeUnit }
 
 import com.despegar.metrik.store.MetricMeasurementStoreSupport
 
-import scala.collection.mutable.{Buffer, Map}
+import scala.collection.mutable.{ Buffer, Map }
 import scala.concurrent.ExecutionContext
 
 trait MonitoringSupport {
 
-  def recordTime(metricName: String, time: Long):Unit = Monitoring.recordTime(metricName, time)
+  def recordTime(metricName: String, time: Long): Unit = Monitoring.recordTime(metricName, time)
 
-  def recordGauge(metricName: String, value: Long):Unit = Monitoring.recordGauge(metricName, value)
+  def recordGauge(metricName: String, value: Long): Unit = Monitoring.recordGauge(metricName, value)
 
-  def incrementCounter(metricName: String):Unit = incrementCounter(metricName, 1)
+  def incrementCounter(metricName: String): Unit = incrementCounter(metricName, 1)
 
-  def incrementCounter(metricName: String, counts: Int):Unit = incrementCounter(metricName, counts.toLong)
+  def incrementCounter(metricName: String, counts: Int): Unit = incrementCounter(metricName, counts.toLong)
 
-  def incrementCounter(metricName: String, counts: Long):Unit = Monitoring.incrementCounter(metricName, counts)
+  def incrementCounter(metricName: String, counts: Long): Unit = Monitoring.incrementCounter(metricName, counts)
 
 }
 
@@ -36,16 +36,18 @@ object Monitoring extends MetricMeasurementStoreSupport {
 
   private def write(metrics: Seq[MonitoringMetric]) = {
     val rawMetricMeasurements = Map[String, Map[String, Map[Long, Buffer[Long]]]]()
-    metrics.foreach { metric =>
+    metrics.foreach { metric ⇒
       val mtypeMap = rawMetricMeasurements.getOrElseUpdate(metric.mtype, Map[String, Map[Long, Buffer[Long]]]())
       val metricMap = mtypeMap.getOrElseUpdate(metric.name, Map[Long, Buffer[Long]]())
       val values = metricMap.getOrElseUpdate(metric.timestamp, Buffer[Long]())
       values += metric.value
     }
-    val metricMeasurements = rawMetricMeasurements.collect { case (mtype, mtypeMap) =>
-      mtypeMap.collect { case (metricName, rawMeasurements) =>
-        MetricMeasurement(metricName, mtype, rawMeasurements.collect { case (ts, value) => Measurement(ts, value.toSeq)}.toList)
-      }
+    val metricMeasurements = rawMetricMeasurements.collect {
+      case (mtype, mtypeMap) ⇒
+        mtypeMap.collect {
+          case (metricName, rawMeasurements) ⇒
+            MetricMeasurement(s"~system.$metricName", mtype, rawMeasurements.collect { case (ts, value) ⇒ Measurement(ts, value.toSeq) }.toList)
+        }
     }.toList.flatten
 
     metricStore.storeMetricMeasurements(metricMeasurements)
@@ -84,7 +86,6 @@ object Monitoring extends MetricMeasurementStoreSupport {
   case class GaugeValue(name: String, value: Long, timestamp: Long) extends MonitoringMetric {
     val mtype = "gauge"
   }
-
 
   trait MonitoringMetric {
     def value: Long

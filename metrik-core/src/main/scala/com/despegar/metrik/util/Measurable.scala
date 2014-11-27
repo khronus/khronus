@@ -1,10 +1,10 @@
 package com.despegar.metrik.util
 
-import com.despegar.metrik.model.{Metric, MonitoringSupport}
+import com.despegar.metrik.model.{ Metric, MonitoringSupport }
 import com.despegar.metrik.util.log.Logging
 
 import scala.concurrent.duration.Duration
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Success
 
 trait Measurable extends Logging with MonitoringSupport {
@@ -30,7 +30,7 @@ trait Measurable extends Logging with MonitoringSupport {
 
   def measureFutureTime[T](label: String, metric: Metric, duration: Duration)(block: ⇒ Future[T])(implicit ec: ExecutionContext): Future[T] = {
     if (!metric.isSystem) {
-      measureFutureTime(formatLabel(label,metric,duration),  s"${p(metric, duration)} $label")(block)
+      measureFutureTime(formatLabel(label, metric, duration), s"${p(metric, duration)} $label")(block)
     } else {
       block
     }

@@ -19,13 +19,31 @@ package com.despegar.metrik.service
 import akka.actor._
 import akka.testkit._
 import com.despegar.metrik.service.HandShakeProtocol.Register
+import com.typesafe.config.ConfigFactory
 import org.scalatest._
 import spray.http.HttpResponse
 import spray.http.StatusCodes
 import spray.httpx.RequestBuilding
 import spray.routing.HttpServiceActor
 
-class MetrikHandlerSpec extends TestKit(ActorSystem("metrik-handler-spec")) with ImplicitSender with FunSpecLike with Matchers with RequestBuilding with BeforeAndAfterAll {
+class MetrikHandlerSpec extends TestKitBase with ImplicitSender with FunSpecLike with Matchers with RequestBuilding with BeforeAndAfterAll {
+
+  implicit lazy val system: ActorSystem = ActorSystem("metrik-handler-spec", ConfigFactory.parseString(
+    """
+      |akka {
+      |  loglevel = INFO
+      |  stdout-loglevel = DEBUG
+      |  event-handlers = ["akka.event.Logging$DefaultLogger"]
+      |}
+      |
+      |metrik {
+      |  master {
+      |    tick-expression = "0/1 * * * * ?"
+      |    discovery-start-delay = 1 second
+      |    discovery-interval = 2 seconds
+      |  }
+      |}
+    """.stripMargin))
 
   override def afterAll(): Unit = {
     TestKit.shutdownActorSystem(system)
