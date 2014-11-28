@@ -21,15 +21,15 @@ import java.util.concurrent.Executors
 import com.despegar.metrik.influx.service.Dashboard
 import com.despegar.metrik.store.Cassandra
 import com.despegar.metrik.util.KryoSerializer
-import com.netflix.astyanax.connectionpool.OperationResult
-import com.netflix.astyanax.model.{ ColumnFamily, ColumnList }
-import com.netflix.astyanax.serializers.StringSerializer
 import org.apache.commons.codec.binary.Base64
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ ExecutionContext, Future, Promise }
 import scala.util.control.NonFatal
 import com.despegar.metrik.util.log.Logging
+import scala.util.Failure
+import com.datastax.driver.core.utils.Bytes
+import java.nio.ByteBuffer
 
 trait DashboardResolver {
   def dashboardOperation(expression: String): Future[Seq[Dashboard]]
@@ -52,13 +52,17 @@ object InfluxDashboardResolver extends DashboardResolver with Logging {
   // extract Z3JhZmFuYTI= from (drop+series+"grafana.dashboard_Z3JhZmFuYTI=")
   private val DropDashboardPattern = "drop.*_(.*)\".*".r
 
-  private val Dispatcher = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(10))
+  implicit val Dispatcher = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(10))
 
-  val Row = "dashboards"
-  val Column = ColumnFamily.newColumnFamily("dashboards", StringSerializer.get(), StringSerializer.get())
-  val Serializer: KryoSerializer[Dashboard] = new KryoSerializer(Row, List(Dashboard.getClass))
+  import Cassandra._
+  val DashboardsKey = "dashboards"
+  private lazy val GetAllStmt = Cassandra.session.prepare("select name, content from dashboard where key = ?;")
+  private lazy val DeleteStmt = Cassandra.session.prepare("delete from dashboard where key = ? and name = ?;")
+  private lazy val InsertStmt = Cassandra.session.prepare("insert into dashboard (key, name, content) values (?, ?, ?);")
 
-  def initialize = Cassandra.createColumnFamily(Column)
+  val Serializer: KryoSerializer[Dashboard] = new KryoSerializer(DashboardsKey, List(Dashboard.getClass))
+
+  def initialize = Cassandra.session.execute(s"create table if not exists dashboard (key text, name text, content blob, primary key (key, name));")
 
   def dashboardOperation(expression: String): Future[Seq[Dashboard]] = expression match {
     case GetDashboardPattern(group) ⇒ {
@@ -79,42 +83,32 @@ object InfluxDashboardResolver extends DashboardResolver with Logging {
     }
   }
 
-  def lookup(expression: String): Future[Seq[Dashboard]] = executeWithinFuture {
+  def lookup(expression: String): Future[Seq[Dashboard]] = {
     log.debug(s"Looking for Dashboard with expression: $expression}")
 
-    val columns: OperationResult[ColumnList[String]] = Cassandra.keyspace.prepareQuery(Column).getKey(Row).execute()
-    columns.getResult.asScala.filter(_.getName.matches(expression)).map(column ⇒ Serializer.deserialize(column.getByteArrayValue))(collection.breakOut)
+    Cassandra.session.executeAsync(GetAllStmt.bind(DashboardsKey)).map(resultSet ⇒ {
+      val dashboards = resultSet.all().asScala.filter(_.getString("name").matches(expression)).map(row ⇒ Serializer.deserialize(Bytes.getArray(row.getBytes("content"))))
+      log.debug(s"Found ${dashboards.length} dashboards")
+      dashboards
+    }).andThen {
+      case Failure(reason) ⇒ log.error(s"Failed to retrieve dashboards", reason)
+    }
   }
 
-  def drop(dashboard: String): Future[Seq[Dashboard]] = executeWithinFuture {
-    log.info(s"Deleting dashboard: $dashboard")
+  def drop(dashboardName: String): Future[Seq[Dashboard]] = {
+    log.info(s"Deleting dashboard: $dashboardName")
 
-    Cassandra.keyspace.prepareColumnMutation(Column, Row, dashboard).deleteColumn().execute()
-    Seq.empty
+    Cassandra.session.executeAsync(DeleteStmt.bind(DashboardsKey, dashboardName)).map(_ ⇒ Seq.empty[Dashboard]).
+      andThen { case Failure(reason) ⇒ log.error(s"Failed to delete dashboard $dashboardName", reason) }
   }
 
   def store(dashboard: Dashboard): Future[String] = {
     val name = new String(Base64.decodeBase64(dashboard.name.split("_").last))
     log.debug(s"Storing dashboard with name: ${name}")
 
-    executeWithinFuture {
-      val mutation = Cassandra.keyspace.prepareMutationBatch()
-      mutation.withRow(Column, Row).putColumn(name, Serializer.serialize(dashboard))
-      mutation.execute
-      name
-    }
+    Cassandra.session.executeAsync(InsertStmt.bind(DashboardsKey, name, ByteBuffer.wrap(Serializer.serialize(dashboard)))).map(_ ⇒ name).
+      andThen { case Failure(reason) ⇒ log.error(s"Failed to save dashboard ${dashboard.name}", reason) }
   }
 
-  private def executeWithinFuture[T](thunk: ⇒ T): Future[T] = {
-    val p = Promise[T]()
-    try {
-      p.completeWith(Future(thunk)(Dispatcher))
-    } catch {
-      case NonFatal(reason) ⇒
-        log.error("Error trying to execute operation", reason)
-        p.failure(reason)
-    }
-    p.future
-  }
 }
 

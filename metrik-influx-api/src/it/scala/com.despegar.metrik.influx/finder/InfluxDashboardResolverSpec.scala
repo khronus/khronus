@@ -19,15 +19,12 @@ package com.despegar.metrik.influx.finder
 import org.scalatest.{ FunSuite, Matchers }
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import com.netflix.astyanax.model.ColumnFamily
-import com.netflix.astyanax.connectionpool.OperationResult
 import com.despegar.metrik.store.CassandraCounterBucketStore
 import com.despegar.metrik.influx.service.Dashboard
 import org.apache.commons.codec.binary.Base64
 
 class InfluxDashboardResolverSpec extends FunSuite with Matchers with BaseInfluxIntegrationSpec {
-
-  override def columnFamilies = Seq(InfluxDashboardResolver.Column)
+  override def tableNames: Seq[String] = Seq("dashboard")
 
   test("Store dashboard saves dashboard ok") {
     val plainName = "dashboardName"

@@ -20,7 +20,6 @@ import java.nio.ByteBuffer
 
 import com.despegar.metrik.model._
 import com.despegar.metrik.util.Settings
-import com.netflix.astyanax.model.Column
 import org.HdrHistogram.{ Histogram, SkinnyHistogram }
 
 import scala.concurrent.duration._
@@ -34,13 +33,11 @@ object CassandraHistogramBucketStore extends BucketStore[HistogramBucket] with L
 
   val windowDurations: Seq[Duration] = Settings().Histogram.WindowDurations
 
-  override def toBucket(windowDuration: Duration)(column: Column[UniqueTimestamp]) = {
-    val uniqueTimestamp = column.getName()
-    val histogram = deserializeHistogram(column.getByteBufferValue)
-    new HistogramBucket(Timestamp(uniqueTimestamp.measurementTimestamp).toBucketNumber(windowDuration), histogram)
+  override def toBucket(windowDuration: Duration, timestamp: Long, histogram: Array[Byte]) = {
+    new HistogramBucket(Timestamp(timestamp).toBucketNumber(windowDuration), deserializeHistogram(histogram))
   }
 
-  override def getColumnFamilyName(duration: Duration) = s"histogramBucket${duration.length}${duration.unit}"
+  override def tableName(duration: Duration) = s"histogramBucket${duration.length}${duration.unit}"
 
   def serializeBucket(metric: Metric, windowDuration: Duration, bucket: HistogramBucket): ByteBuffer = {
     val buffer = ByteBuffer.allocate(bucket.histogram.getEstimatedFootprintInBytes)
@@ -51,7 +48,7 @@ object CassandraHistogramBucketStore extends BucketStore[HistogramBucket] with L
     buffer
   }
 
-  private def deserializeHistogram(bytes: ByteBuffer): Histogram = SkinnyHistogram.decodeFromCompressedByteBuffer(bytes, 0)
+  private def deserializeHistogram(bytes: Array[Byte]): Histogram = SkinnyHistogram.decodeFromCompressedByteBuffer(ByteBuffer.wrap(bytes), 0)
 
   override def ttl(windowDuration: Duration): Int = Settings().Histogram.BucketRetentionPolicy
 

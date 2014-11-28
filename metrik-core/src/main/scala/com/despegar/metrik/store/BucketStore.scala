@@ -18,16 +18,16 @@ package com.despegar.metrik.store
 
 import java.nio.ByteBuffer
 import java.util.concurrent.Executors
-import com.despegar.metrik.model.{ UniqueTimestamp, Bucket, Metric, Timestamp }
+import com.despegar.metrik.model.{ Bucket, Metric, Timestamp }
 import com.despegar.metrik.util.Measurable
-import com.netflix.astyanax.ColumnListMutation
-import com.netflix.astyanax.model.{ Column, ColumnFamily }
-import com.netflix.astyanax.serializers.{ LongSerializer, StringSerializer }
 import scala.collection.JavaConverters._
-import scala.concurrent.duration._
+import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future }
-import scala.util.Failure
+import scala.util.{ Success, Failure }
 import com.despegar.metrik.util.log.Logging
+import com.datastax.driver.core.{ SimpleStatement, BatchStatement }
+import com.datastax.driver.core.utils.Bytes
+import java.util
 
 trait BucketStoreSupport[T <: Bucket] {
 
@@ -35,78 +35,88 @@ trait BucketStoreSupport[T <: Bucket] {
 }
 
 trait BucketStore[T <: Bucket] extends Logging with Measurable {
-  private val LIMIT = 30000
+
+  import Cassandra._
+
+  private val Limit = 30000
+  private val FetchSize = 1000
 
   def windowDurations: Seq[Duration]
 
-  lazy val columnFamilies = windowDurations.map(duration ⇒ (duration, ColumnFamily.newColumnFamily(getColumnFamilyName(duration), StringSerializer.get(), UniqueTimestamp.serializer))).toMap
+  def toBucket(windowDuration: Duration, timestamp: Long, counts: Array[Byte]): T
 
-  def getColumnFamilyName(duration: Duration): String
+  def serializeBucket(metric: Metric, windowDuration: Duration, bucket: T): ByteBuffer
 
-  def toBucket(windowDuration: Duration)(column: Column[UniqueTimestamp]): T
+  def tableName(duration: Duration): String
 
-  def initialize = columnFamilies.foreach(cf ⇒ Cassandra.createColumnFamily(cf._2, Map("comparator_type" -> "CompositeType(LongType, TimeUUIDType)")))
+  protected def ttl(windowDuration: Duration): Int
 
   implicit val asyncExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(50))
 
-  def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[Seq[(UniqueTimestamp, () ⇒ T)]] = {
-    Future {
-      executeSlice(metric, from, to, sourceWindow)
-    } map { _.map { column ⇒ (column.getName, () ⇒ toBucket(sourceWindow)(column)) }.toSeq }
-  }
+  lazy val tables: Map[Duration, String] = windowDurations.map(duration ⇒ (duration, tableName(duration))).toMap
+
+  def initialize = tables.values.foreach(tableName ⇒ {
+    log.info(s"Initializing table $tableName")
+    Cassandra.session.execute(s"create table if not exists $tableName (metric text, timestamp bigint, buckets list<blob>, primary key (metric, timestamp));")
+  })
 
   def store(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit] = {
     ifNotEmpty(buckets) {
       log.debug(s"${p(metric, windowDuration)} - Storing ${buckets.length} buckets")
-      mutate(metric, windowDuration, buckets) { (mutation, bucket) ⇒
-        val serializedBucket: ByteBuffer = serializeBucket(metric, windowDuration, bucket)
+
+      val updateStmt = Cassandra.session.prepare(s"update ${tables(windowDuration)} using ttl ${ttl(windowDuration)} set buckets = buckets + ? where metric = ? and timestamp = ? ; ")
+
+      val batchStmt = new BatchStatement();
+      buckets.foreach(bucket ⇒ {
+        val serializedBucket = serializeBucket(metric, windowDuration, bucket)
         log.info(s"${p(metric, windowDuration)} Storing a bucket of ${serializedBucket.limit()} bytes")
-        mutation.putColumn(UniqueTimestamp(bucket.timestamp), serializedBucket, ttl(windowDuration))
+        batchStmt.add(updateStmt.bind(Seq(serializedBucket).asJava, metric.name, Long.box(bucket.timestamp.ms)))
+      })
+
+      Cassandra.session.executeAsync(batchStmt).andThen {
+        case Failure(reason) ⇒ log.error(s"$metric - Storing metrics ${metric.name} failed", reason)
       }
     }
   }
 
-  def remove(metric: Metric, windowDuration: Duration, bucketTimestamps: Seq[UniqueTimestamp]): Future[Unit] = {
+  def remove(metric: Metric, windowDuration: Duration, bucketTimestamps: Seq[Timestamp]): Future[Unit] = {
     ifNotEmpty(bucketTimestamps) {
       log.debug(s"${p(metric, windowDuration)} - Removing ${bucketTimestamps.length} buckets")
-      mutate(metric, windowDuration, bucketTimestamps) { (mutation, uniqueTimestamp) ⇒
-        mutation.deleteColumn(uniqueTimestamp)
+
+      val deleteStmt = Cassandra.session.prepare(s"delete from ${tables(windowDuration)} where metric = ? and timestamp = ?;")
+      val batchStmt = new BatchStatement();
+      bucketTimestamps.foreach(bucket ⇒ batchStmt.add(deleteStmt.bind(metric.name, Long.box(bucket.ms))))
+
+      Cassandra.session.executeAsync(batchStmt).andThen {
+        case Failure(reason) ⇒ log.error(s"$metric - Removing metrics ${metric.name} failed", reason)
       }
     }
   }
 
-  def serializeBucket(metric: Metric, windowDuration: Duration, bucket: T): ByteBuffer
+  def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[Seq[(Timestamp, () ⇒ T)]] = measureTime("slice", metric, sourceWindow){
+    val queryStmt = s"select timestamp, buckets from ${tables(sourceWindow)} where metric = ? and timestamp >= ? and timestamp <= ? limit ?;"
 
-  private def executeSlice(metric: Metric, from: Timestamp, to: Timestamp, windowDuration: Duration): Iterable[Column[UniqueTimestamp]] = measureTime("slice", metric, windowDuration) {
-    val result = Cassandra.keyspace.prepareQuery(columnFamilies(windowDuration)).getKey(metric.name)
-      .withColumnRange(UniqueTimestamp.serializer.buildRange().
-        greaterThanEquals(from.ms).
-        lessThanEquals(to.ms).limit(LIMIT)).execute().getResult().asScala
+    val stmt = new SimpleStatement(queryStmt)
+    stmt.setFetchSize(FetchSize)
+    val preparedStmt = Cassandra.session.prepare(stmt).bind(metric.name, Long.box(from.ms), Long.box(to.ms), Int.box(Limit))
 
-    log.debug(s"${p(metric, windowDuration)} Found ${result.size} buckets slicing from ${date(from.ms)} to ${date(to.ms)}")
-    result
+    Cassandra.session.executeAsync(preparedStmt).map(resultSet ⇒ {
+      resultSet.asScala.flatMap(row ⇒ {
+        val ts = row.getLong("timestamp")
+        val buckets = row.getList("buckets", classOf[java.nio.ByteBuffer])
+        buckets.asScala.map(serializedBucket ⇒ (Timestamp(ts), () ⇒ toBucket(sourceWindow, ts, Bytes.getArray(serializedBucket))))
+      }).toSeq
+    })
   }
 
-  private def ifNotEmpty(col: Seq[Any])(f: ⇒ Future[Unit]): Future[Unit] = {
+  def ifNotEmpty(col: Seq[Any])(f: ⇒ Unit): Future[Unit] = {
     if (col.size > 0) {
-      f
+      Future {
+        f
+      }
     } else {
       Future.successful(())
     }
   }
-
-  private def mutate[T](metric: Metric, windowDuration: Duration, buckets: Seq[T])(f: (ColumnListMutation[UniqueTimestamp], T) ⇒ Unit) = {
-    Future {
-      val mutationBatch = Cassandra.keyspace.prepareMutationBatch()
-      val mutation = mutationBatch.withRow(columnFamilies(windowDuration), metric.name)
-      buckets.foreach(f(mutation, _))
-      mutationBatch.execute
-      log.trace(s"$metric - Mutation successful")
-    } andThen {
-      case Failure(reason) ⇒ log.error(s"$metric - Mutation failed", reason)
-    }
-  }
-
-  protected def ttl(windowDuration: Duration): Int
 
 }

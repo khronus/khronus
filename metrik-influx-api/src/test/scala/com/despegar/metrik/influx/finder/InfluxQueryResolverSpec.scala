@@ -83,12 +83,12 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
 
     val summary1 = CounterSummary(System.currentTimeMillis() - 1000, 100L)
     val summary2 = CounterSummary(System.currentTimeMillis(), 80L)
-    when(getCounterSummaryStore.readAll(FiniteDuration(30, TimeUnit.MINUTES), metricName, Slice(-1L, now), Int.MaxValue)).thenReturn(Future { Seq(summary1, summary2) })
+    when(getCounterSummaryStore.readAll(metricName, FiniteDuration(30, TimeUnit.MINUTES), Slice(-1L, now), true, Int.MaxValue)).thenReturn(Future { Seq(summary1, summary2) })
 
     val results = await(search(query))
 
     verify(metaStore, times(2)).getMetricType(metricName)
-    verify(getCounterSummaryStore).readAll(FiniteDuration(30, TimeUnit.MINUTES), metricName, Slice(-1L, now), Int.MaxValue)
+    verify(getCounterSummaryStore).readAll(metricName, FiniteDuration(30, TimeUnit.MINUTES), Slice(-1L, now), true, Int.MaxValue)
 
     results.size should be(1)
     results(0).name should be(metricName)
@@ -110,12 +110,12 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     when(metaStore.getMetricType(metricName)).thenReturn(MetricType.Counter)
 
     val summary = CounterSummary(System.currentTimeMillis() - 1000, 100L)
-    when(getCounterSummaryStore.readAll(FiniteDuration(30, TimeUnit.MINUTES), metricName, Slice(-1L, now), Int.MaxValue)).thenReturn(Future { Seq(summary) })
+    when(getCounterSummaryStore.readAll(metricName, FiniteDuration(30, TimeUnit.MINUTES), Slice(-1L, now), true, Int.MaxValue)).thenReturn(Future { Seq(summary) })
 
     val results = await(search(query))
 
     verify(metaStore, times(2)).getMetricType(metricName)
-    verify(getCounterSummaryStore).readAll(FiniteDuration(30, TimeUnit.MINUTES), metricName, Slice(-1L, now), Int.MaxValue)
+    verify(getCounterSummaryStore).readAll(metricName, FiniteDuration(30, TimeUnit.MINUTES), Slice(-1L, now), true, Int.MaxValue)
 
     results.size should be(1)
     assertInfluxSeries(results(0), metricName, Functions.Count.name, summary.timestamp.ms, summary.count)
@@ -130,12 +130,12 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     when(metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
 
     val summary = StatisticSummary(System.currentTimeMillis(), 50L, 80L, 90L, 95L, 99L, 999L, 3L, 1000L, 100L, 200L)
-    when(getStatisticSummaryStore.readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(to, from, true), 10)).thenReturn(Future { Seq(summary) })
+    when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), false, 10)).thenReturn(Future { Seq(summary) })
 
     val results = await(search(query))
 
     verify(metaStore, times(2)).getMetricType(metricName)
-    verify(getStatisticSummaryStore).readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(to, from, true), 10)
+    verify(getStatisticSummaryStore).readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), false, 10)
 
     // Select * makes 1 series for each function
     results.size should be(10)
@@ -162,12 +162,12 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     val query = s"""select * from "$metricName" where time >= $from and time <=  $to group by time (5m)"""
 
     when(metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
-    when(getStatisticSummaryStore.readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)).thenReturn(Future { Seq() })
+    when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq() })
 
     await(search(query))
 
     verify(metaStore, times(2)).getMetricType(metricName)
-    verify(getStatisticSummaryStore).readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)
+    verify(getStatisticSummaryStore).readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)
   }
 
   test("Select with unconfigured time window should use the nearest window") {
@@ -177,19 +177,19 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     when(metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
 
     var from = to - FiniteDuration(8, HOURS).toMillis
-    when(getStatisticSummaryStore.readAll(FiniteDuration(30, TimeUnit.SECONDS), metricName, Slice(from, to), Int.MaxValue)).thenReturn(Future { Seq() })
+    when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(30, TimeUnit.SECONDS), Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq() })
     await(search(s"""select * from "$metricName" where time >= $from and time <=  $to group by time(10s)"""))
-    verify(getStatisticSummaryStore).readAll(FiniteDuration(30, TimeUnit.SECONDS), metricName, Slice(from, to), Int.MaxValue)
+    verify(getStatisticSummaryStore).readAll(metricName, FiniteDuration(30, TimeUnit.SECONDS), Slice(from, to), true, Int.MaxValue)
 
     from = to - FiniteDuration(80, HOURS).toMillis
-    when(getStatisticSummaryStore.readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)).thenReturn(Future { Seq() })
+    when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq() })
     await(search(s"""select * from "$metricName" where time >= $from and time <=  $to group by time(6m)"""))
-    verify(getStatisticSummaryStore).readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)
+    verify(getStatisticSummaryStore).readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)
 
     from = to - FiniteDuration(500, HOURS).toMillis
-    when(getStatisticSummaryStore.readAll(FiniteDuration(30, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)).thenReturn(Future { Seq() })
+    when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(30, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq() })
     await(search(s"""select * from "$metricName" where time >= $from and time <=  $to group by time(5h)"""))
-    verify(getStatisticSummaryStore).readAll(FiniteDuration(30, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)
+    verify(getStatisticSummaryStore).readAll(metricName, FiniteDuration(30, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)
 
     verify(metaStore, times(6)).getMetricType(metricName)
 
@@ -203,12 +203,12 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     val query = s"""select * from "$metricName" where time >= $from and time <=  $to group by time (30m)"""
 
     when(metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
-    when(getStatisticSummaryStore.readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)).thenReturn(Future { Seq() })
+    when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq() })
 
     await(search(query))
 
     verify(metaStore, times(2)).getMetricType(metricName)
-    verify(getStatisticSummaryStore).readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)
+    verify(getStatisticSummaryStore).readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)
   }
 
   test("Select with a very high resolution adjust it to the best configured window") {
@@ -219,12 +219,12 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     val query = s"""select * from "$metricName" where time >= $from and time <=  $to group by time (30s)"""
 
     when(metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
-    when(getStatisticSummaryStore.readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)).thenReturn(Future { Seq() })
+    when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq() })
 
     await(search(query))
 
     verify(metaStore, times(2)).getMetricType(metricName)
-    verify(getStatisticSummaryStore).readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)
+    verify(getStatisticSummaryStore).readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)
   }
 
   test("Select without time bounds adjust window to the lowest configured resolution") {
@@ -234,12 +234,12 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     val query = s"""select * from "$metricName" where time <=  $to group by time (5m)"""
 
     when(metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
-    when(getStatisticSummaryStore.readAll(FiniteDuration(30, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)).thenReturn(Future { Seq() })
+    when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(30, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq() })
 
     await(search(query))
 
     verify(metaStore, times(2)).getMetricType(metricName)
-    verify(getStatisticSummaryStore).readAll(FiniteDuration(30, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)
+    verify(getStatisticSummaryStore).readAll(metricName, FiniteDuration(30, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)
   }
 
   test("Select with a very high resolution returns the lowest configured resolution outside boundaries") {
@@ -250,12 +250,12 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     val query = s"""select * from "$metricName" where time >= $from and time <=  $to group by time (5m)"""
 
     when(metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
-    when(getStatisticSummaryStore.readAll(FiniteDuration(30, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)).thenReturn(Future { Seq() })
+    when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(30, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq() })
 
     await(search(query))
 
     verify(metaStore, times(2)).getMetricType(metricName)
-    verify(getStatisticSummaryStore).readAll(FiniteDuration(30, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)
+    verify(getStatisticSummaryStore).readAll(metricName, FiniteDuration(30, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)
   }
 
   test("Select with a very bad resolution returns the highest configured resolution outside boundaries") {
@@ -266,12 +266,12 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     val query = s"""select * from "$metricName" where time >= $from and time <= $to group by time (5m)"""
 
     when(metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
-    when(getStatisticSummaryStore.readAll(FiniteDuration(30, TimeUnit.SECONDS), metricName, Slice(from, to), Int.MaxValue)).thenReturn(Future { Seq() })
+    when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(30, TimeUnit.SECONDS), Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq() })
 
     await(search(query))
 
     verify(metaStore, times(2)).getMetricType(metricName)
-    verify(getStatisticSummaryStore).readAll(FiniteDuration(30, TimeUnit.SECONDS), metricName, Slice(from, to), Int.MaxValue)
+    verify(getStatisticSummaryStore).readAll(metricName, FiniteDuration(30, TimeUnit.SECONDS), Slice(from, to), true, Int.MaxValue)
   }
 
   private def assertInfluxSeries(series: InfluxSeries, expectedName: String, expectedFunction: String, expectedMillis: Long, expectedValue: Long) = {
