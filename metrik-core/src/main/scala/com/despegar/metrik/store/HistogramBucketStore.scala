@@ -30,7 +30,7 @@ trait HistogramBucketSupport extends BucketStoreSupport[HistogramBucket] {
   override def bucketStore: BucketStore[HistogramBucket] = CassandraHistogramBucketStore
 }
 
-object CassandraHistogramBucketStore extends BucketStore[HistogramBucket] with Logging {
+object CassandraHistogramBucketStore extends BucketStore[HistogramBucket] with Logging with MonitoringSupport {
 
   val windowDurations: Seq[Duration] = Settings().Histogram.WindowDurations
 

@@ -47,5 +47,5 @@ trait Measurable extends Logging with MonitoringSupport {
     }
   }
 
-  private def formatLabel(label: String, metric: Metric, duration: Duration): String = s"$label.${metric.mtype}.${duration.length}${duration.unit}"
+  def formatLabel(label: String, metric: Metric, duration: Duration): String = s"$label.${metric.mtype}.${duration.length}${duration.unit}"
 }

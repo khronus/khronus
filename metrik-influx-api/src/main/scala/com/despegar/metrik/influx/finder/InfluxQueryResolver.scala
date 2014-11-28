@@ -32,9 +32,9 @@ import com.despegar.metrik.model.StatisticSummary
 import com.despegar.metrik.influx.parser.Field
 import com.despegar.metrik.influx.service.InfluxSeries
 import com.despegar.metrik.store.Slice
-import com.despegar.metrik.util.Settings
+import com.despegar.metrik.util.{ Measurable, Settings }
 
-trait InfluxQueryResolver extends MetaSupport {
+trait InfluxQueryResolver extends MetaSupport with Measurable {
   this: InfluxEndpoint ⇒
 
   import InfluxQueryResolver._
@@ -51,7 +51,7 @@ trait InfluxQueryResolver extends MetaSupport {
     metaStore.searchInSnapshot(expression).map(results ⇒ results.map(x ⇒ new InfluxSeries(x.name)))
   }
 
-  private def executeQuery(expression: String): Future[Seq[InfluxSeries]] = {
+  private def executeQuery(expression: String): Future[Seq[InfluxSeries]] = measureFutureTime("executeInfluxQuery", "executeInfluxQuery") {
     log.info(s"Executing query [$expression]")
 
     val influxCriteria = parser.parse(expression)
