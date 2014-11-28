@@ -39,6 +39,7 @@ object Dependencies {
   val commonsLang       =       "commons-lang"                    %   "commons-lang"                % "2.6"
   val parserCombinators =       "org.scala-lang.modules"          %%  "scala-parser-combinators"    % "1.0.2"
   val snappy            =       "org.xerial.snappy"               %   "snappy-java"                 % "1.1.1.6"
+  val akkaKryo          =       "com.github.romix.akka"           %%  "akka-kryo-serialization"     % "0.3.2"
   
 def compile(deps: ModuleID*): Seq[ModuleID]   = deps map (_ % "compile")
   def provided(deps: ModuleID*): Seq[ModuleID]  = deps map (_ % "provided")
