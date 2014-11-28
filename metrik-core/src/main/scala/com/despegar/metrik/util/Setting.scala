@@ -68,6 +68,12 @@ class Settings(config: com.typesafe.config.Config, extendedSystem: ExtendedActor
       val duration = dp.last
       HistogramTimeWindow(duration, previous, WindowDurations.last != duration)
     }.toSeq
+
+    val BucketLimit = histogramConfig.getInt("bucket-limit")
+    val BucketFetchSize = histogramConfig.getInt("bucket-fetch-size")
+    val SummaryLimit = histogramConfig.getInt("summary-limit")
+    val SummaryFetchSize = histogramConfig.getInt("summary-fetch-size")
+
   }
 
   object Counter {
@@ -82,6 +88,11 @@ class Settings(config: com.typesafe.config.Config, extendedSystem: ExtendedActor
       val duration = dp.last
       CounterTimeWindow(duration, previous, WindowDurations.last != duration)
     }.toSeq
+
+    val BucketLimit = counterConfig.getInt("bucket-limit")
+    val BucketFetchSize = counterConfig.getInt("bucket-fetch-size")
+    val SummaryLimit = counterConfig.getInt("summary-limit")
+    val SummaryFetchSize = counterConfig.getInt("summary-fetch-size")
   }
 
   private def adjustDuration(durationInMillis: Long): FiniteDuration = {

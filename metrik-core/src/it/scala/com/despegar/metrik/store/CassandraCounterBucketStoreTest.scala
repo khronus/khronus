@@ -8,7 +8,7 @@ import com.despegar.metrik.util.BaseIntegrationTest
 import com.despegar.metrik.model.{Metric, MetricType, CounterBucket}
 
 class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest with Matchers {
-  override val tableNames: Seq[String] = CassandraCounterBucketStore.tables.values.toSeq
+  override val tableNames: Seq[String] = CassandraCounterBucketStore.windowDurations.map(duration => CassandraCounterBucketStore.tableName(duration))
 
   val testMetric = Metric("testMetric", MetricType.Counter)
 

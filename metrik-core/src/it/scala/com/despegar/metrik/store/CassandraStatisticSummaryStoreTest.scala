@@ -7,7 +7,7 @@ import scala.concurrent.duration._
 import com.despegar.metrik.model.Metric
 
 class CassandraStatisticSummaryStoreTest extends FunSuite with BaseIntegrationTest with Matchers{
-  override val tableNames: Seq[String] = CassandraStatisticSummaryStore.tables.values.toSeq
+  override val tableNames: Seq[String] = CassandraStatisticSummaryStore.windowDurations.map(duration => CassandraStatisticSummaryStore.tableName(duration))
 
   test("An StatisticSummary should be capable of serialize and deserialize from Cassandra") {
     val summary = StatisticSummary(1,50,50,50,90,99,100,50,100,20,50)

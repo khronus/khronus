@@ -54,8 +54,10 @@ trait MetaSupport {
 object CassandraMetaStore extends MetaStore with Logging {
 
   val MetricsKey = "metrics"
+
+  private lazy val CreateTableStmt = s"create table if not exists meta (key text, metric text, timestamp bigint, primary key (key, metric));"
   private lazy val InsertStmt = Cassandra.session.prepare(s"insert into meta (key, metric, timestamp) values (?, ?, ?);")
-  private lazy val GetByKeyStmt = Cassandra.session.prepare(s"select metric from meta where key = ?;")
+  private lazy val GetByKeyStmt = Cassandra.session.prepare(s"select metric, timestamp from meta where key = ?;")
   private lazy val GetLastProcessedTimeStmt = Cassandra.session.prepare(s"select timestamp from meta where key = ? and metric = ?;")
 
   implicit val asyncExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(5))
@@ -70,7 +72,7 @@ object CassandraMetaStore extends MetaStore with Logging {
 
   import Cassandra._
 
-  def initialize = Cassandra.session.execute(s"create table if not exists meta (key text, metric text, timestamp bigint, primary key (key, metric));")
+  def initialize = Cassandra.session.execute(CreateTableStmt)
 
   def insert(metric: Metric): Future[Unit] = {
     put(Seq((metric, Timestamp(1))))
@@ -113,15 +115,17 @@ object CassandraMetaStore extends MetaStore with Logging {
 
   def allMetrics(): Future[Seq[Metric]] = retrieveMetrics.map(_.keys.toSeq)
 
-  private def retrieveMetrics: Future[Map[Metric, Timestamp]] = Future {
-    val metrics = Cassandra.keyspace.prepareQuery(columnFamily).getKey(metricsKey).execute().getResult.asScala.map(c ⇒ (fromString(c.getName), Timestamp(c.getLongValue))).toMap
-    log.info(s"Found ${metrics.size} metrics in meta")
-    metrics
-  } andThen {
-    case Failure(reason) ⇒ log.error(s"Failed to retrieve metrics from meta", reason)
-  }
+  def retrieveMetrics: Future[Map[Metric, Timestamp]] = Cassandra.session.executeAsync(GetByKeyStmt.bind(MetricsKey)).
+        map(resultSet ⇒ {
+        val metrics = resultSet.all().asScala.map(row ⇒ (fromString(row.getString("metric")), Timestamp(row.getLong("timestamp")))).toMap
+        log.info(s"Found ${metrics.size} metrics in meta")
+        metrics
+      }).
+        andThen { case Failure(reason) ⇒ log.error(s"Failed to retrieve metrics from meta", reason) }
 
-  def getLastProcessedTimestamp(metric: Metric): Future[Timestamp] = {
+
+
+      def getLastProcessedTimestamp(metric: Metric): Future[Timestamp] = {
     getFromSnapshot.get(metric) match {
       case Some(timestamp) ⇒ Future.successful(timestamp)
       case None            ⇒ getLastProcessedTimestampFromCassandra(metric)
@@ -148,21 +152,15 @@ object CassandraMetaStore extends MetaStore with Logging {
       .andThen { case Failure(reason) ⇒ log.error("Failed to store meta", reason) }
   }
 
-  def retrieveMetrics: Future[Seq[Metric]] =
-    Cassandra.session.executeAsync(GetByKeyStmt.bind(MetricsKey)).map(resultSet ⇒ {
-      val metrics = resultSet.all().asScala.map(row ⇒ fromString(row.getString("metric")))
-      log.info(s"Found ${metrics.length} metrics in meta")
-      metrics
-    }).andThen {
-      case Failure(reason) ⇒ log.error(s"Failed to retrieve metrics from meta", reason)
-    }
 
   def getLastProcessedTimestamp(metric: Metric): Future[Timestamp] =
-    Cassandra.session.executeAsync(GetLastProcessedTimeStmt.bind(MetricsKey, asString(metric))).map(resultSet ⇒ {
-      Timestamp(resultSet.one().getLong("timestamp"))
-    }).andThen {
-      case Failure(reason) ⇒ log.error(s"$metric - Failed to retrieve last processed timestamp from meta", reason)
-    }
+    Cassandra.session.executeAsync(GetLastProcessedTimeStmt.bind(MetricsKey, asString(metric))).
+      map(resultSet ⇒ Timestamp(resultSet.one().getLong("timestamp"))).
+      andThen { case Failure(reason) ⇒ log.error(s"$metric - Failed to retrieve last processed timestamp from meta", reason) }
+
+  def searchInSnapshot(expression: String): Future[Seq[Metric]] = Future {
+    getFromSnapshot.filter(_.name.matches(expression))
+  }
 
   private def asString(metric: Metric) = s"${metric.name}|${metric.mtype}"
 

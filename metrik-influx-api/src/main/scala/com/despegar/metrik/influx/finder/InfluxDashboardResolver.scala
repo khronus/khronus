@@ -86,19 +86,20 @@ object InfluxDashboardResolver extends DashboardResolver with Logging {
   def lookup(expression: String): Future[Seq[Dashboard]] = {
     log.debug(s"Looking for Dashboard with expression: $expression}")
 
-    Cassandra.session.executeAsync(GetAllStmt.bind(DashboardsKey)).map(resultSet ⇒ {
-      val dashboards = resultSet.all().asScala.filter(_.getString("name").matches(expression)).map(row ⇒ Serializer.deserialize(Bytes.getArray(row.getBytes("content"))))
-      log.debug(s"Found ${dashboards.length} dashboards")
-      dashboards
-    }).andThen {
-      case Failure(reason) ⇒ log.error(s"Failed to retrieve dashboards", reason)
-    }
+    Cassandra.session.executeAsync(GetAllStmt.bind(DashboardsKey)).
+      map(resultSet ⇒ {
+        val dashboards = resultSet.all().asScala.filter(_.getString("name").matches(expression)).map(row ⇒ Serializer.deserialize(Bytes.getArray(row.getBytes("content"))))
+        log.debug(s"Found ${dashboards.length} dashboards")
+        dashboards
+      }).
+      andThen { case Failure(reason) ⇒ log.error(s"Failed to retrieve dashboards", reason) }
   }
 
   def drop(dashboardName: String): Future[Seq[Dashboard]] = {
     log.info(s"Deleting dashboard: $dashboardName")
 
-    Cassandra.session.executeAsync(DeleteStmt.bind(DashboardsKey, dashboardName)).map(_ ⇒ Seq.empty[Dashboard]).
+    Cassandra.session.executeAsync(DeleteStmt.bind(DashboardsKey, dashboardName)).
+      map(_ ⇒ Seq.empty[Dashboard]).
       andThen { case Failure(reason) ⇒ log.error(s"Failed to delete dashboard $dashboardName", reason) }
   }
 
@@ -106,7 +107,8 @@ object InfluxDashboardResolver extends DashboardResolver with Logging {
     val name = new String(Base64.decodeBase64(dashboard.name.split("_").last))
     log.debug(s"Storing dashboard with name: ${name}")
 
-    Cassandra.session.executeAsync(InsertStmt.bind(DashboardsKey, name, ByteBuffer.wrap(Serializer.serialize(dashboard)))).map(_ ⇒ name).
+    Cassandra.session.executeAsync(InsertStmt.bind(DashboardsKey, name, ByteBuffer.wrap(Serializer.serialize(dashboard)))).
+      map(_ ⇒ name).
       andThen { case Failure(reason) ⇒ log.error(s"Failed to save dashboard ${dashboard.name}", reason) }
   }
 

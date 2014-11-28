@@ -20,6 +20,7 @@ import akka.actor.ActorSystem
 
 trait ActorSystemSupport {
   implicit def system = ActorSystemSupport.system
+
 }
 
 object ActorSystemSupport {
