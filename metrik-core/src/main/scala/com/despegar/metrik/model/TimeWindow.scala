@@ -49,10 +49,10 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
     val storeTemporalFuture = storeTemporalBuckets(resultingBuckets, metric)
 
     //calculate the statistic summaries (percentiles, min, max, etc...)
-    val statisticsSummaries = storeTemporalFuture flatMap { _ ⇒ resultingBuckets.map(buckets ⇒ buckets map (getSummary(_))) }
+    val statisticsSummaries = measureFutureTime("calculateSummaries", metric, duration) { storeTemporalFuture flatMap { _ ⇒ resultingBuckets.map(buckets ⇒ buckets map (getSummary(_))) } }
 
     //store the statistic summaries
-    val storeFuture = statisticsSummaries flatMap (summaries ⇒ summaryStore.store(metric, duration, summaries))
+    val storeFuture = measureFutureTime("storeSummaries", metric, duration) { statisticsSummaries flatMap (summaries ⇒ summaryStore.store(metric, duration, summaries)) }
 
     storeFuture
 
@@ -63,13 +63,14 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
   protected def getSummary(bucket: T): U
 
   private def storeTemporalBuckets(resultingBuckets: Future[Seq[T]], metric: Metric) = {
-    if (shouldStoreTemporalHistograms) {
+    if (shouldStoreTemporalHistograms) measureFutureTime("storeTemporalBuckets", metric, duration) {
       resultingBuckets flatMap { buckets ⇒
         bucketStore.store(metric, duration, buckets) andThen {
           case Failure(reason) ⇒ log.error(s"${p(metric, duration)} - Fail to store temporal buckets", reason)
         }
       }
-    } else {
+    }
+    else {
       Future.successful[Unit](log.debug(s"${p(metric, duration)} - Last window. No need to store buckets"))
     }
   }
@@ -87,11 +88,17 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
   protected def shouldStoreTemporalHistograms: Boolean
 
   private def retrievePreviousBuckets(metric: Metric, tick: Tick, lastProcessed: Future[BucketNumber]) = {
-    lastProcessed flatMap (bucketNumber ⇒
+    lastProcessed flatMap (bucketNumber ⇒ {
+      val start = System.currentTimeMillis()
       bucketStore.slice(metric, bucketNumber.startTimestamp(), tick.endTimestamp.alignedTo(duration) - 1, previousWindowDuration) andThen {
         case Success(previousBuckets) ⇒
+          if (previousBuckets.isEmpty) {
+            recordTime(formatLabel("emptySliceTime", metric, duration), System.currentTimeMillis() - start)
+          }
           log.debug(s"${p(metric, duration)} - Found ${previousBuckets.size} buckets of $previousWindowDuration")
-      })
+      }
+    })
+
   }
 
   private def groupInBucketsOfMyWindow(previousWindowBuckets: Future[Seq[(UniqueTimestamp, () ⇒ T)]], metric: Metric): Future[Map[BucketNumber, Seq[T]]] = {
