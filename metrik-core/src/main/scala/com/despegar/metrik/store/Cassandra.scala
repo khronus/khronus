@@ -94,22 +94,6 @@ object Cassandra extends Logging {
     session.execute(s"truncate $table;");
   }
 
-  // ---------------------------
-  /*
-  private var context = {
-    new AstyanaxContext.Builder().forCluster(settingsCassandra.ClusterName)
-      .forKeyspace(settingsCassandra.Keyspace)
-      .withAstyanaxConfiguration(new AstyanaxConfigurationImpl()
-        .setDiscoveryType(NodeDiscoveryType.RING_DESCRIBE))
-      .withConnectionPoolConfiguration(new ConnectionPoolConfigurationImpl("CassandraConnectionPool")
-        .setPort(settingsCassandra.Port)
-        .setSocketTimeout(settingsCassandra.SocketTimeout)
-        .setConnectTimeout(settingsCassandra.ConnectionTimeout)
-        .setMaxConnsPerHost(settingsCassandra.MaxConnectionsPerHost)
-        .setSeeds("localhost"))
-      .withConnectionPoolMonitor(new CountingConnectionPoolMonitor())
-      .buildKeyspace(ThriftFamilyFactory.getInstance())
-  }
-*/
-
 }
+
+case class Statements(insert: PreparedStatement, selects: Map[String, PreparedStatement], delete: Option[PreparedStatement])

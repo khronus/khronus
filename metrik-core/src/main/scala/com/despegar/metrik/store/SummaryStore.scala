@@ -35,29 +35,67 @@ trait SummaryStoreSupport[T <: Summary] {
 }
 
 trait SummaryStore[T <: Summary] extends Logging {
-  private val Limit = 1000
-  private val FetchSize = 200
 
-  def windowDurations: Seq[Duration]
+  import Cassandra._
 
-  def tableName(duration: Duration): String
-
-  def deserialize(timestamp: Long, buffer: Array[Byte]): T
-
-  def serializeSummary(summary: T): ByteBuffer
-
+  protected def tableName(duration: Duration): String
+  protected def windowDurations: Seq[Duration]
   protected def ttl(windowDuration: Duration): Int
+  protected def limit: Int
+  protected def fetchSize: Int
 
-  lazy val tables: Map[Duration, String] = windowDurations.map(duration ⇒ (duration, tableName(duration))).toMap
-
-  def initialize = tables.values.foreach(tableName ⇒ {
-    log.info(s"Initializing table $tableName")
-    Cassandra.session.execute(s"create table if not exists $tableName (metric text, timestamp bigint, summary blob, primary key (metric, timestamp));")
-  })
+  protected def deserialize(timestamp: Long, buffer: Array[Byte]): T
+  protected def serializeSummary(summary: T): ByteBuffer
 
   implicit val asyncExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(50))
 
-  import Cassandra._
+  val QueryAsc = "queryAsc"
+  val QueryDesc = "queryDesc"
+
+  lazy val stmtPerWindow: Map[Duration, Statements] = windowDurations.map(windowDuration ⇒ {
+    val insert = Cassandra.session.prepare(s"insert into ${tableName(windowDuration)} (metric, timestamp, summary) values (?, ?, ?) using ttl ${ttl(windowDuration)};")
+
+    val simpleStmt = new SimpleStatement(s"select timestamp, summary from ${tableName(windowDuration)} where metric = ? and timestamp >= ? and timestamp <= ? order by timestamp asc limit ?;")
+    simpleStmt.setFetchSize(fetchSize)
+    val selectAsc = Cassandra.session.prepare(simpleStmt)
+
+    val simpleStmtDesc = new SimpleStatement(s"select timestamp, summary from ${tableName(windowDuration)} where metric = ? and timestamp >= ? and timestamp <= ? order by timestamp desc limit ? ;")
+    simpleStmtDesc.setFetchSize(fetchSize)
+    val selectDesc = Cassandra.session.prepare(simpleStmtDesc)
+
+    (windowDuration, Statements(insert, Map(QueryAsc -> selectAsc, QueryDesc -> selectDesc), None))
+  }).toMap
+
+  def initialize = windowDurations.foreach(window ⇒ {
+    log.info(s"Initializing table ${tableName(window)}")
+    Cassandra.session.execute(s"create table if not exists ${tableName(window)} (metric text, timestamp bigint, summary blob, primary key (metric, timestamp));")
+  })
+
+  def store(metric: Metric, windowDuration: Duration, summaries: Seq[T]): Future[Unit] = {
+    ifNotEmpty(summaries) {
+      log.debug(s"$metric - Storing ${summaries.size} summaries ($summaries) of $windowDuration")
+
+      val batchStmt = new BatchStatement();
+      summaries.foreach(summary ⇒ batchStmt.add(stmtPerWindow(windowDuration).insert.bind(metric.name, Long.box(summary.timestamp.ms), serializeSummary(summary))))
+
+      Cassandra.session.executeAsync(batchStmt)
+    }
+  }
+
+  def sliceUntilNow(metric: Metric, windowDuration: Duration): Future[Seq[T]] = {
+    val slice = Slice(to = now)
+    readAll(metric.name, windowDuration, slice)
+  }
+
+  def readAll(metric: String, windowDuration: Duration, slice: Slice, ascendingOrder: Boolean = true, count: Int = limit): Future[Seq[T]] = {
+    log.info(s"Reading from Cassandra: Cf: $windowDuration - Metric: $metric - From: ${slice.from} - To: ${slice.to} - ascendingOrder: $ascendingOrder - Max results: $count")
+
+    val queryKey = if (ascendingOrder) QueryAsc else QueryDesc
+    val boundStmt = stmtPerWindow(windowDuration).selects(queryKey).bind(metric, Long.box(slice.from), Long.box(slice.to), Int.box(count))
+
+    Cassandra.session.executeAsync(boundStmt).map(
+      resultSet ⇒ resultSet.asScala.map(row ⇒ deserialize(row.getLong("timestamp"), Bytes.getArray(row.getBytes("summary")))).toSeq)
+  }
 
   private def now = System.currentTimeMillis()
 
@@ -69,38 +107,6 @@ trait SummaryStore[T <: Summary] extends Logging {
     } else {
       Future.successful(())
     }
-  }
-
-  def store(metric: Metric, windowDuration: Duration, summaries: Seq[T]): Future[Unit] = {
-    ifNotEmpty(summaries) {
-      log.debug(s"$metric - Storing ${summaries.size} summaries ($summaries) of $windowDuration")
-
-      val insertStmt = Cassandra.session.prepare(s"insert into ${tables(windowDuration)} (metric, timestamp, summary) values (?, ?, ?) using ttl ${ttl(windowDuration)}; ")
-      val batchStmt = new BatchStatement();
-
-      summaries.foreach(summary ⇒ batchStmt.add(insertStmt.bind(metric.name, Long.box(summary.timestamp.ms), serializeSummary(summary))))
-
-      Cassandra.session.executeAsync(batchStmt)
-    }
-  }
-
-  def sliceUntilNow(metric: Metric, windowDuration: Duration): Future[Seq[T]] = {
-    val slice = Slice(to = now)
-    readAll(metric.name, windowDuration, slice)
-  }
-
-  def readAll(metric: String, windowDuration: Duration, slice: Slice, ascendingOrder: Boolean = true, count: Int = Limit): Future[Seq[T]] = {
-    log.info(s"Reading from Cassandra: Cf: $windowDuration - Metric: $metric - From: ${slice.from} - To: ${slice.to} - ascendingOrder: $ascendingOrder - Max results: $count")
-
-    val order = if (ascendingOrder) "asc" else "desc"
-    val query = s"select timestamp, summary from ${tables(windowDuration)} where metric = ? and timestamp >= ? and timestamp <= ? order by timestamp $order limit ?;"
-
-    val stmt = new SimpleStatement(query)
-    stmt.setFetchSize(FetchSize)
-    val preparedStmt = Cassandra.session.prepare(stmt).bind(metric, Long.box(slice.from), Long.box(slice.to), Int.box(count))
-
-    Cassandra.session.executeAsync(preparedStmt).map(
-      resultSet ⇒ resultSet.asScala.map(row ⇒ deserialize(row.getLong("timestamp"), Bytes.getArray(row.getBytes("summary")))).toSeq)
   }
 
 }

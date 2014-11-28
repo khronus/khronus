@@ -31,10 +31,13 @@ trait StatisticSummarySupport extends SummaryStoreSupport[StatisticSummary] {
 }
 
 object CassandraStatisticSummaryStore extends SummaryStore[StatisticSummary] with Logging {
-  //create a table for every bucket duration
+
   val windowDurations: Seq[Duration] = Settings().Histogram.WindowDurations
+  override val limit = Settings().Histogram.SummaryLimit
+  override val fetchSize = Settings().Histogram.SummaryFetchSize
 
   override def tableName(duration: Duration) = s"statisticSummary${duration.length}${duration.unit}"
+  override def ttl(windowDuration: Duration): Int = Settings().Histogram.SummaryRetentionPolicy
 
   override def serializeSummary(summary: StatisticSummary): ByteBuffer = {
     val baos = new ByteArrayOutputStream()
@@ -73,8 +76,6 @@ object CassandraStatisticSummaryStore extends SummaryStore[StatisticSummary] wit
     val mean = input.readVarLong(true)
     StatisticSummary(timestamp, p50, p80, p90, p95, p99, p999, min, max, count, mean)
   }
-
-  override def ttl(windowDuration: Duration): Int = Settings().Histogram.SummaryRetentionPolicy
 
 }
 

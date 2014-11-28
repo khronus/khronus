@@ -31,9 +31,17 @@ class SettingTest extends FunSuite with MockitoSugar with Matchers {
       |metrik {
       |  histogram {
       |    windows = [30 seconds, 1 minute]
+      |    bucket-limit = 30000
+      |    bucket-fetch-size = 1000
+      |    summary-limit = 1000
+      |    summary-fetch-size = 200
       |  }
       |  counter {
       |    windows = [30 seconds]
+      |    bucket-limit = 30000
+      |    bucket-fetch-size = 1000
+      |    summary-limit = 1000
+      |    summary-fetch-size = 200
       |  }
       |}
     """.stripMargin))
