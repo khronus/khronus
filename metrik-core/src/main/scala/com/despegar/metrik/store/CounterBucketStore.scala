@@ -22,7 +22,6 @@ import java.nio.ByteBuffer
 import com.despegar.metrik.model.{ Timestamp, _ }
 import com.despegar.metrik.util.Settings
 import com.esotericsoftware.kryo.io.{ UnsafeInput, UnsafeOutput }
-import com.netflix.astyanax.model.Column
 
 import scala.concurrent.duration._
 
@@ -34,12 +33,10 @@ object CassandraCounterBucketStore extends BucketStore[CounterBucket] {
 
   val windowDurations: Seq[Duration] = Settings().Counter.WindowDurations
 
-  override def getColumnFamilyName(duration: Duration): String = s"counterBucket${duration.length}${duration.unit}"
+  override def tableName(duration: Duration): String = s"counterBucket${duration.length}${duration.unit}"
 
-  override def toBucket(windowDuration: Duration)(column: Column[UniqueTimestamp]): CounterBucket = {
-    val uniqueTimestamp = column.getName()
-    val counts = deserializeCounts(column.getByteBufferValue)
-    new CounterBucket(Timestamp(uniqueTimestamp.measurementTimestamp).toBucketNumber(windowDuration), counts)
+  override def toBucket(windowDuration: Duration, timestamp: Long, counts: Array[Byte]) = {
+    new CounterBucket(Timestamp(timestamp).toBucketNumber(windowDuration), deserializeCounts(counts))
   }
 
   override def serializeBucket(metric: Metric, windowDuration: Duration, bucket: CounterBucket): ByteBuffer = {
@@ -55,8 +52,8 @@ object CassandraCounterBucketStore extends BucketStore[CounterBucket] {
     buffer
   }
 
-  private def deserializeCounts(buffer: ByteBuffer): Long = {
-    val input = new UnsafeInput(buffer.array())
+  private def deserializeCounts(buffer: Array[Byte]): Long = {
+    val input = new UnsafeInput(buffer)
     val version = input.readByte()
     if (version == 1) {
       //TODO: versioned

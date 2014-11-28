@@ -20,21 +20,20 @@ import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FunSuite}
 import com.despegar.metrik.store.Cassandra
 import scala.concurrent.{Await, Future}
 import scala.util.Try
-import com.netflix.astyanax.model.ColumnFamily
-import com.netflix.astyanax.connectionpool.OperationResult
 import scala.concurrent.duration._
 
 trait BaseInfluxIntegrationSpec extends FunSuite with BeforeAndAfterAll with BeforeAndAfter {
+  def tableNames: Seq[String] = Seq.empty[String]
 
   override def beforeAll = {
     Cassandra.initialize
     InfluxDashboardResolver.initialize
 
-    truncateColumnFamilies
+    truncateTables
   }
 
   after {
-    truncateColumnFamilies
+    truncateTables
   }
 
   override protected def afterAll() = {
@@ -43,9 +42,8 @@ trait BaseInfluxIntegrationSpec extends FunSuite with BeforeAndAfterAll with Bef
 
   def await[T](f: => Future[T]):T = Await.result(f, 3 seconds)
 
-  def truncateColumnFamilies = Try {
-    columnFamilies.foreach(cf => Cassandra.keyspace.truncateColumnFamily(cf))
+  def truncateTables = Try {
+    tableNames.foreach(table => Cassandra.truncate(table))
   }
 
-  def columnFamilies = Seq.empty[ColumnFamily[String, String]]
 }

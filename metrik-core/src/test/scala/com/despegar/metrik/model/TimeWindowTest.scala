@@ -12,7 +12,7 @@ trait TimeWindowTest[T <: Bucket] {
     buckets.map(bucket ⇒ () ⇒ bucket)
   }
 
-  protected def uniqueTimestamps(buckets: Seq[T]): Seq[UniqueTimestamp] = {
-    buckets.map(bucket ⇒ UniqueTimestamp(bucket.timestamp))
+  protected def uniqueTimestamps(buckets: Seq[T]): Seq[Timestamp] = {
+    buckets.map(bucket ⇒ bucket.timestamp)
   }
 }

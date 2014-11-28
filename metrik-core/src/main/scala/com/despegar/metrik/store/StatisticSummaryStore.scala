@@ -26,17 +26,15 @@ import com.esotericsoftware.kryo.io.{ UnsafeInput, UnsafeOutput }
 import scala.concurrent.duration._
 import com.despegar.metrik.util.log.Logging
 
-case class ColumnRange(from: Long, to: Long, reversed: Boolean, count: Int)
-
 trait StatisticSummarySupport extends SummaryStoreSupport[StatisticSummary] {
   override def summaryStore: SummaryStore[StatisticSummary] = CassandraStatisticSummaryStore
 }
 
 object CassandraStatisticSummaryStore extends SummaryStore[StatisticSummary] with Logging {
-  //create column family definition for every bucket duration
+  //create a table for every bucket duration
   val windowDurations: Seq[Duration] = Settings().Histogram.WindowDurations
 
-  override def getColumnFamilyName(duration: Duration) = s"statisticSummary${duration.length}${duration.unit}"
+  override def tableName(duration: Duration) = s"statisticSummary${duration.length}${duration.unit}"
 
   override def serializeSummary(summary: StatisticSummary): ByteBuffer = {
     val baos = new ByteArrayOutputStream()
@@ -57,8 +55,8 @@ object CassandraStatisticSummaryStore extends SummaryStore[StatisticSummary] wit
     ByteBuffer.wrap(baos.toByteArray)
   }
 
-  override def deserialize(timestamp: Long, buffer: ByteBuffer): StatisticSummary = {
-    val input = new UnsafeInput(buffer.array())
+  override def deserialize(timestamp: Long, buffer: Array[Byte]): StatisticSummary = {
+    val input = new UnsafeInput(buffer)
     val version = input.readByte()
     if (version == 1) {
       //TODO: versioned

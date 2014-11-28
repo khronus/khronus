@@ -4,8 +4,6 @@ import com.despegar.metrik.model.BucketNumber._
 import com.despegar.metrik.model.Timestamp._
 import com.despegar.metrik.model.{HistogramBucket, Metric, Timestamp}
 import com.despegar.metrik.util.BaseIntegrationTest
-import com.netflix.astyanax.connectionpool.OperationResult
-import com.netflix.astyanax.model.ColumnFamily
 import org.HdrHistogram.Histogram
 import org.scalatest.{FunSuite, Matchers}
 
@@ -13,6 +11,7 @@ import scala.concurrent.duration._
 import scala.util.Random
 
 class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTest with Matchers {
+  override val tableNames: Seq[String] = CassandraHistogramBucketStore.tables.values.toSeq
 
   val testMetric = Metric("testMetric", "histogram")
 
@@ -78,10 +77,6 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
 
   private def fill(histogram: Histogram) = {
     (1 to 10000) foreach { i => histogram.recordValue(Random.nextInt(200))}
-  }
-
-  override def foreachColumnFamily(f: ColumnFamily[String, _] => OperationResult[_]) = {
-    CassandraHistogramBucketStore.columnFamilies.values.foreach { cf => val or = f(cf); or.getResult}
   }
 
 }

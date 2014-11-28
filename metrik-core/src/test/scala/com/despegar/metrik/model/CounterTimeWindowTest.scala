@@ -137,7 +137,7 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar with TimeWindowTe
     verify(window.summaryStore, never()).store(any[Metric], any[FiniteDuration], any[Seq[CounterSummary]])
 
     //verify that not remove anything
-    verify(window.bucketStore, never()).remove(any[Metric], any[FiniteDuration], any[Seq[UniqueTimestamp]])
+    verify(window.bucketStore, never()).remove(any[Metric], any[FiniteDuration], any[Seq[Timestamp]])
   }
 
   test("with previous buckets should not remove them upon failure of temporal buckets store") {

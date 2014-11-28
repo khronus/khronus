@@ -30,10 +30,10 @@ trait CounterSummaryStoreSupport extends SummaryStoreSupport[CounterSummary] {
 }
 
 object CassandraCounterSummaryStore extends SummaryStore[CounterSummary] {
-  //create column family definition for every bucket duration
+  //create a table for every bucket duration
   val windowDurations: Seq[Duration] = Settings().Histogram.WindowDurations
 
-  override def getColumnFamilyName(duration: Duration) = s"counterSummary${duration.length}${duration.unit}"
+  override def tableName(duration: Duration) = s"counterSummary${duration.length}${duration.unit}"
 
   override def serializeSummary(summary: CounterSummary): ByteBuffer = {
     val baos = new ByteArrayOutputStream()
@@ -46,8 +46,8 @@ object CassandraCounterSummaryStore extends SummaryStore[CounterSummary] {
     ByteBuffer.wrap(baos.toByteArray)
   }
 
-  override def deserialize(timestamp: Long, buffer: ByteBuffer): CounterSummary = {
-    val input = new UnsafeInput(buffer.array())
+  override def deserialize(timestamp: Long, buffer: Array[Byte]): CounterSummary = {
+    val input = new UnsafeInput(buffer)
     val version = input.read
     if (version == 1) {
       //TODO: versioned

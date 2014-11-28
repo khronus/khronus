@@ -93,8 +93,8 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
       })
   }
 
-  private def groupInBucketsOfMyWindow(previousWindowBuckets: Future[Seq[(UniqueTimestamp, () ⇒ T)]], metric: Metric): Future[Map[BucketNumber, Seq[T]]] = {
-    previousWindowBuckets map (buckets ⇒ buckets.groupBy(tuple ⇒ Timestamp(tuple._1.measurementTimestamp).toBucketNumber(duration)).mapValues(
+  private def groupInBucketsOfMyWindow(previousWindowBuckets: Future[Seq[(Timestamp, () ⇒ T)]], metric: Metric): Future[Map[BucketNumber, Seq[T]]] = {
+    previousWindowBuckets map (buckets ⇒ buckets.groupBy(tuple ⇒ tuple._1.toBucketNumber(duration)).mapValues(
       seq ⇒ seq.view.map(t ⇒ t._2()))) andThen {
       case Success(buckets) ⇒
         if (!buckets.isEmpty) {

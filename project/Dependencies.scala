@@ -10,7 +10,6 @@ object Dependencies {
 
   val akkaV             =       "2.3.6"
   val sprayV            =       "1.3.1"
-  val astyanaxVersion   =       "1.56.49"
 
   val sprayCan          =       "io.spray"                        %%  "spray-can"                   % sprayV
   val sprayClient       =       "io.spray"                        %%  "spray-client"                % sprayV
@@ -29,14 +28,13 @@ object Dependencies {
   val hdrHistogram      =       "org.hdrhistogram"                %   "HdrHistogram"                % "2.0.3"
   val specs2            =       "org.specs2"          	          %%  "specs2-core"   		          % "2.3.11"
   val mockito           =       "org.mockito"         	          %   "mockito-all"   		          % "1.9.5"
-  val astyanaxCore      =       "com.netflix.astyanax"	          %	  "astyanax-core"               %	astyanaxVersion excludeAll(ExclusionRule(name = "log4j"), ExclusionRule(name = "slf4j-log4j12"))
-  val astyanaxThrift    =       "com.netflix.astyanax"	          %	  "astyanax-thrift"             %	astyanaxVersion excludeAll(ExclusionRule(name = "log4j"), ExclusionRule(name = "slf4j-log4j12"))
-  val astyanaxCassandra =       "com.netflix.astyanax"	          %	  "astyanax-cassandra"          %	astyanaxVersion excludeAll(ExclusionRule(name = "log4j"), ExclusionRule(name = "slf4j-log4j12"))
+  val cassandraDriver   =       "com.datastax.cassandra"          %   "cassandra-driver-core"       % "2.1.3"
   val kryo              =       "com.esotericsoftware.kryo"       %   "kryo"                        % "2.24.0"
   val scalaLogging      =       "com.typesafe.scala-logging"      %%  "scala-logging"               % "3.1.0"
   val slf4j             =       "org.slf4j"                       %   "slf4j-api"                   % "1.7.7"
   val logbackClassic    =       "ch.qos.logback"                  %   "logback-classic"             % "1.1.2"
   val commonsLang       =       "commons-lang"                    %   "commons-lang"                % "2.6"
+  val commonsCodec      =       "commons-codec"                   %   "commons-codec"               % "1.9"
   val parserCombinators =       "org.scala-lang.modules"          %%  "scala-parser-combinators"    % "1.0.2"
   val snappy            =       "org.xerial.snappy"               %   "snappy-java"                 % "1.1.1.6"
   

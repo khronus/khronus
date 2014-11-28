@@ -17,20 +17,24 @@
 package com.despegar.metrik.store
 
 import java.util.concurrent.Executors
-import com.netflix.astyanax.model.ColumnFamily
-import com.netflix.astyanax.serializers.StringSerializer
 import scala.collection.JavaConverters._
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Failure
 import com.despegar.metrik.model.Metric
 import com.despegar.metrik.model.Timestamp
 import com.despegar.metrik.util.log.Logging
+import com.despegar.metrik.util.Settings
+import com.datastax.driver.core.querybuilder.QueryBuilder
 
 trait MetaStore extends Snapshot[Seq[Metric]] {
   def update(metric: Metric, lastProcessedTimestamp: Timestamp): Future[Unit]
+
   def getLastProcessedTimestamp(metric: Metric): Future[Timestamp]
+
   def insert(metric: Metric): Future[Unit]
+
   def retrieveMetrics: Future[Seq[Metric]]
+
   def searchInSnapshot(expression: String): Future[Seq[Metric]]
 
   def getMetricType(metricName: String): String = {
@@ -45,12 +49,16 @@ trait MetaSupport {
 
 object CassandraMetaStore extends MetaStore with Logging {
 
-  val columnFamily = ColumnFamily.newColumnFamily("meta", StringSerializer.get(), StringSerializer.get())
-  val metricsKey = "metrics"
+  val MetricsKey = "metrics"
+  private lazy val InsertStmt = Cassandra.session.prepare(s"insert into meta (key, metric, timestamp) values (?, ?, ?);")
+  private lazy val GetByKeyStmt = Cassandra.session.prepare(s"select metric from meta where key = ?;")
+  private lazy val GetLastProcessedTimeStmt = Cassandra.session.prepare(s"select timestamp from meta where key = ? and metric = ?;")
 
   implicit val asyncExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(5))
 
-  def initialize = Cassandra.createColumnFamily(columnFamily)
+  import Cassandra._
+
+  def initialize = Cassandra.session.execute(s"create table if not exists meta (key text, metric text, timestamp bigint, primary key (key, metric));")
 
   def insert(metric: Metric): Future[Unit] = {
     put(metric, Timestamp(1))
@@ -60,30 +68,33 @@ object CassandraMetaStore extends MetaStore with Logging {
     put(metric, lastProcessedTimestamp)
   }
 
-  private def put(metric: Metric, timestamp: Timestamp): Future[Unit] = Future {
-    val mutationBatch = Cassandra.keyspace.prepareMutationBatch()
-    mutationBatch.withRow(columnFamily, metricsKey).putColumn(asString(metric), timestamp.ms)
-    mutationBatch.execute()
-    log.debug(s"$metric - Stored meta successfully. Timestamp: $timestamp")
-  } andThen {
-    case Failure(reason) ⇒ log.error(s"$metric - Failed to store meta", reason)
+  private def put(metric: Metric, timestamp: Timestamp): Future[Unit] = {
+    val preparedStmt = InsertStmt.bind(MetricsKey, asString(metric), Long.box(timestamp.ms))
+
+    Cassandra.session.executeAsync(preparedStmt)
+      .map(_ ⇒ log.debug(s"$metric - Stored meta successfully. Timestamp: $timestamp"))
+      .andThen { case Failure(reason) ⇒ log.error(s"$metric - Failed to store meta", reason) }
   }
 
-  def searchInSnapshot(expression: String): Future[Seq[Metric]] = Future { getFromSnapshot.filter(_.name.matches(expression)) }
-
-  def retrieveMetrics: Future[Seq[Metric]] = Future {
-    val metrics = Cassandra.keyspace.prepareQuery(columnFamily).getKey(metricsKey).execute().getResult.asScala.map(c ⇒ fromString(c.getName)).toSeq
-    log.info(s"Found ${metrics.length} metrics in meta")
-    metrics
-  } andThen {
-    case Failure(reason) ⇒ log.error(s"Failed to retrieve metrics from meta", reason)
+  def searchInSnapshot(expression: String): Future[Seq[Metric]] = Future {
+    getFromSnapshot.filter(_.name.matches(expression))
   }
 
-  def getLastProcessedTimestamp(metric: Metric): Future[Timestamp] = Future {
-    Timestamp(Cassandra.keyspace.prepareQuery(columnFamily).getKey(metricsKey).getColumn(asString(metric)).execute().getResult.getLongValue)
-  } andThen {
-    case Failure(reason) ⇒ log.error(s"$metric - Failed to retrieve last processed timestamp from meta", reason)
-  }
+  def retrieveMetrics: Future[Seq[Metric]] =
+    Cassandra.session.executeAsync(GetByKeyStmt.bind(MetricsKey)).map(resultSet ⇒ {
+      val metrics = resultSet.all().asScala.map(row ⇒ fromString(row.getString("metric")))
+      log.info(s"Found ${metrics.length} metrics in meta")
+      metrics
+    }).andThen {
+      case Failure(reason) ⇒ log.error(s"Failed to retrieve metrics from meta", reason)
+    }
+
+  def getLastProcessedTimestamp(metric: Metric): Future[Timestamp] =
+    Cassandra.session.executeAsync(GetLastProcessedTimeStmt.bind(MetricsKey, asString(metric))).map(resultSet ⇒ {
+      Timestamp(resultSet.one().getLong("timestamp"))
+    }).andThen {
+      case Failure(reason) ⇒ log.error(s"$metric - Failed to retrieve last processed timestamp from meta", reason)
+    }
 
   private def asString(metric: Metric) = s"${metric.name}|${metric.mtype}"
 

@@ -39,7 +39,7 @@ object Projects extends Build {
     .settings(Revolver.settings: _*)
     .settings(assemblySettings: _*)
     .settings(libraryDependencies ++=
-    compile(sprayClient, sprayCan, sprayRouting, sprayJson, akkaActor, akkaRemote, akkaCluster, akkaContrib, akkaQuartz, hdrHistogram, astyanaxCore, astyanaxThrift, astyanaxCassandra, kryo, scalaLogging, slf4j, logbackClassic, commonsLang, akkaSlf4j) ++
+    compile(sprayClient, sprayCan, sprayRouting, sprayJson, akkaActor, akkaRemote, akkaCluster, akkaContrib, akkaQuartz, hdrHistogram, cassandraDriver, kryo, scalaLogging, slf4j, logbackClassic, commonsLang, akkaSlf4j) ++
       test(sprayTestKit, mockito, akkaTestKit, multiNodeTestKit, scalaTest, specs2, mockito) ++
       it(scalaTest))
 
@@ -57,7 +57,7 @@ object Projects extends Build {
     .settings(basicSettings: _*)
     .settings(formatSettings: _*)
     .settings(libraryDependencies ++=
-      compile(parserCombinators, sprayClient, sprayCan, sprayRouting, sprayJson, akkaActor) ++
+      compile(parserCombinators, sprayClient, sprayCan, sprayRouting, sprayJson, akkaActor, commonsCodec) ++
       test(sprayTestKit, mockito, akkaTestKit, scalaTest, specs2, mockito))
 
   val noPublishing = Seq(publish :=(), publishLocal :=(), publishArtifact := false)

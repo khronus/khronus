@@ -59,12 +59,11 @@ trait InfluxQueryResolver extends MetaSupport {
     val metricName: String = influxCriteria.table.name
     val metricType = metaStore.getMetricType(metricName)
 
-    val slice = buildSlice(influxCriteria.filters, influxCriteria.orderAsc)
+    val slice = buildSlice(influxCriteria.filters)
     val timeWindow = adjustResolution(slice, influxCriteria.groupBy.duration, metricType)
-
     val maxResults: Int = influxCriteria.limit.getOrElse(Int.MaxValue)
 
-    getStore(metricType).readAll(timeWindow, metricName, slice, maxResults).map {
+    getStore(metricType).readAll(metricName, timeWindow, slice, influxCriteria.orderAsc, maxResults).map {
       results ⇒ toInfluxSeries(results, influxCriteria.projections, metricName)
     }
   }
@@ -128,7 +127,7 @@ trait InfluxQueryResolver extends MetaSupport {
     }.toSeq
   }
 
-  private def buildSlice(filters: List[Filter], ascendingOrder: Boolean): Slice = {
+  private def buildSlice(filters: List[Filter]): Slice = {
     var from = -1L
     var to = now
     filters foreach {
@@ -143,10 +142,7 @@ trait InfluxQueryResolver extends MetaSupport {
       case StringFilter(_, _, _) ⇒ //TODO
     }
 
-    if (ascendingOrder)
-      Slice(from, to, false)
-    else
-      Slice(to, from, true)
+    Slice(from, to)
   }
 
   protected def now = System.currentTimeMillis()

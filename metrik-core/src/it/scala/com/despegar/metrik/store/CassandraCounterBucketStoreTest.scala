@@ -1,7 +1,5 @@
 package com.despegar.metrik.store
 
-import com.netflix.astyanax.connectionpool.OperationResult
-import com.netflix.astyanax.model.ColumnFamily
 import scala.concurrent.duration._
 import com.despegar.metrik.model.Timestamp._
 import com.despegar.metrik.model.BucketNumber._
@@ -10,12 +8,9 @@ import com.despegar.metrik.util.BaseIntegrationTest
 import com.despegar.metrik.model.{Metric, MetricType, CounterBucket}
 
 class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest with Matchers {
+  override val tableNames: Seq[String] = CassandraCounterBucketStore.tables.values.toSeq
 
   val testMetric = Metric("testMetric", MetricType.Counter)
-
-  override def foreachColumnFamily(f: ColumnFamily[String,_] => OperationResult[_]) = {
-    CassandraCounterBucketStore.columnFamilies.values.foreach{ cf => val or = f(cf); or.getResult }
-  }
 
   test("should store and retrieve buckets properly") {
     val counter = new CounterBucket((250L, 30 seconds), 200L)
@@ -26,6 +21,7 @@ class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest 
     val bucketFromCassandra = bucketsFromCassandra(0)
 
     counter shouldEqual bucketFromCassandra._2()
+
   }
 
   test("should not retrieve buckets from the future") {
@@ -57,4 +53,5 @@ class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest 
 
     bucketsFromCassandra should be ('empty)
   }
+
 }
