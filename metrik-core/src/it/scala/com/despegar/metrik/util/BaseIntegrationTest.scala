@@ -20,9 +20,9 @@ trait BaseIntegrationTest extends FunSuite with BeforeAndAfterAll with BeforeAnd
    truncateTables
   }
 
-  override protected def afterAll() = {}
+  override protected def afterAll() = { }
 
-  def await[T](f: => Future[T]): T = Await.result(f, 10 seconds)
+  def await[T](f: => Future[T]): T = Await.result(f, 20 seconds)
 
   def truncateTables = Try {
     tableNames.foreach(table => Cassandra.truncate(table))

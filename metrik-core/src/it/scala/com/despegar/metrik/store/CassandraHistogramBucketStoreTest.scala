@@ -11,6 +11,8 @@ import scala.concurrent.duration._
 import scala.util.Random
 
 class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTest with Matchers {
+
+
   override val tableNames: Seq[String] = CassandraHistogramBucketStore.windowDurations.map(duration => CassandraHistogramBucketStore.tableName(duration))
 
   val testMetric = Metric("testMetric", "histogram")
@@ -53,26 +55,19 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
   }
 
   test("should remove buckets") {
+    implicit val context = scala.concurrent.ExecutionContext.Implicits.global
+
     val bucket1 = new HistogramBucket((1, 30 seconds), HistogramBucket.newHistogram)
     val bucket2 = new HistogramBucket((2, 30 seconds), HistogramBucket.newHistogram)
 
-    await {
-      CassandraHistogramBucketStore.store(testMetric, 30 seconds, Seq(bucket1, bucket2))
+    for {
+      storeResult <- CassandraHistogramBucketStore.store(testMetric, 30 seconds, Seq(bucket1, bucket2))
+      storedTuples <- CassandraHistogramBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)
+      removeResult <- CassandraHistogramBucketStore.remove(testMetric, 30 seconds, storedTuples.map(_._1))
+      bucketTuplesFromCassandra <- CassandraHistogramBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)
+    } yield {
+      bucketTuplesFromCassandra should be('empty)
     }
-
-    val storedTuples = await {
-      CassandraHistogramBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)
-    }
-
-    await {
-      CassandraHistogramBucketStore.remove(testMetric, 30 seconds, storedTuples.map(_._1))
-    }
-
-    val bucketTuplesFromCassandra = await {
-      CassandraHistogramBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)
-    }
-
-    bucketTuplesFromCassandra should be('empty)
   }
 
   private def fill(histogram: Histogram) = {
