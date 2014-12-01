@@ -38,13 +38,11 @@ class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest 
 
     val buckets = Seq(bucketFromThePast, bucketFromTheFuture)
 
-    for {
-      storeResult <- CassandraCounterBucketStore.store(testMetric, 30 seconds, buckets)
-      bucketsFromCassandra <- CassandraCounterBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)
-    } yield {
-      bucketsFromCassandra should have length 1
-      bucketsFromCassandra(0)._2() shouldEqual bucketFromThePast
-    }
+    await {CassandraCounterBucketStore.store(testMetric, 30 seconds, buckets)}
+    val bucketsFromCassandra = await {CassandraCounterBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)}
+
+    bucketsFromCassandra should have length 1
+    bucketsFromCassandra(0)._2() shouldEqual bucketFromThePast
   }
 
   test("should remove buckets") {
@@ -52,14 +50,12 @@ class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest 
     val bucket1 = new CounterBucket((250L, 30 seconds), 200L)
     val bucket2 = new CounterBucket((250L, 30 seconds), 200L)
 
-    for {
-      storeResult <- CassandraCounterBucketStore.store(testMetric, 30 seconds, Seq(bucket1, bucket2))
-      storedBuckets <- CassandraCounterBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)
-      removeResult <- CassandraCounterBucketStore.remove(testMetric, 30 seconds, storedBuckets.map(_._1))
-      bucketsFromCassandra <- CassandraCounterBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)
-    } yield {
-      bucketsFromCassandra should be('empty)
-    }
+    await {CassandraCounterBucketStore.store(testMetric, 30 seconds, Seq(bucket1, bucket2))}
+    val storedBuckets = await {CassandraCounterBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)}
+    await {CassandraCounterBucketStore.remove(testMetric, 30 seconds, storedBuckets.map(_._1))}
+    val bucketsFromCassandra = await {CassandraCounterBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)}
+
+    bucketsFromCassandra should be('empty)
   }
 
 }

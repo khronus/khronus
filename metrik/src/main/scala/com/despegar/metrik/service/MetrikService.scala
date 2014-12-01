@@ -36,10 +36,6 @@ trait MetrikService {
   handlerActor ! Register(VersionActor.Path, versionActor)
 
   Cassandra.initialize
-  sys.addShutdownHook({
-    system.shutdown()
-    Cassandra.close
-  })
 
   system.eventStream.publish(MetrikStarted(handlerActor))
 }

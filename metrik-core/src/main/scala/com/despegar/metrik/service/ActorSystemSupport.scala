@@ -17,12 +17,19 @@
 package com.despegar.metrik.service
 
 import akka.actor.ActorSystem
+import com.despegar.metrik.util.log.Logging
 
 trait ActorSystemSupport {
   implicit def system = ActorSystemSupport.system
 
 }
 
-object ActorSystemSupport {
+object ActorSystemSupport extends Logging {
   val system = ActorSystem("metrik-system")
+
+  sys.addShutdownHook({
+    log.info("Shutting down metrik actor system")
+    system.shutdown()
+  })
+
 }

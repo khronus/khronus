@@ -47,5 +47,7 @@ object Settings {
       .setPreference(DoubleIndentClassDeclaration, true)
 
   lazy val eclipseSettings = Seq(EclipseKeys.configurations := Set(Compile, Test, IntegrationTest), EclipseKeys.createSrc := EclipseCreateSrc.Default + EclipseCreateSrc.Resource)
-  lazy val itExtraSettings = Seq(parallelExecution in IntegrationTest := false)
+  lazy val itExtraSettings = Seq(
+    parallelExecution in IntegrationTest := false
+  )
 }
