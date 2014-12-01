@@ -60,10 +60,23 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
     val bucket1 = new HistogramBucket((1, 30 seconds), HistogramBucket.newHistogram)
     val bucket2 = new HistogramBucket((2, 30 seconds), HistogramBucket.newHistogram)
 
-    await {CassandraHistogramBucketStore.store(testMetric, 30 seconds, Seq(bucket1, bucket2))}
-    val storedTuples = await {CassandraHistogramBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)}
-    await {CassandraHistogramBucketStore.remove(testMetric, 30 seconds, storedTuples.map(_._1))}
-    val bucketTuplesFromCassandra = await {CassandraHistogramBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)}
+    await {
+      CassandraHistogramBucketStore.store(testMetric, 30 seconds, Seq(bucket1, bucket2))
+    }
+
+    val storedTuples = await {
+      CassandraHistogramBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)
+    }
+
+	storedTuples should have length 2
+
+    await {
+      CassandraHistogramBucketStore.remove(testMetric, 30 seconds, storedTuples.map(_._1))
+    }
+
+    val bucketTuplesFromCassandra = await {
+      CassandraHistogramBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)
+    }
 
     bucketTuplesFromCassandra should be('empty)
   }

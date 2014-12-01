@@ -25,9 +25,8 @@ import com.datastax.driver.core._
 import scala.concurrent.{ Promise, Future }
 import com.google.common.util.concurrent.{ FutureCallback, Futures };
 
-object Cassandra extends Logging {
-
-  lazy val settingsCassandra = Settings().Cassandra
+object CassandraCluster extends Logging {
+  lazy val settingsCassandra = Settings().CassandraCluster
 
   private lazy val poolingOptions = new PoolingOptions().setMaxConnectionsPerHost(HostDistance.LOCAL, settingsCassandra.MaxConnectionsPerHost)
   private lazy val socketOptions = new SocketOptions().setConnectTimeoutMillis(settingsCassandra.ConnectionTimeout).setReadTimeoutMillis(settingsCassandra.SocketTimeout)
@@ -39,39 +38,37 @@ object Cassandra extends Logging {
     withPoolingOptions(poolingOptions).
     withSocketOptions(socketOptions).build();
 
-  lazy val session: Session = cluster.connect(settingsCassandra.Keyspace)
+  def connect() = cluster.connect()
 
-  def initialize = {
-    createSchemaIfNotExists
-
-    CassandraMetaStore.initialize
-    CassandraHistogramBucketStore.initialize
-    CassandraCounterBucketStore.initialize
-    CassandraStatisticSummaryStore.initialize
-    CassandraCounterSummaryStore.initialize
-
-  }
-
-  private def createSchemaIfNotExists = withSession { session ⇒
-    log.info(s"Initializing schema: ${settingsCassandra.Keyspace}")
-    session.execute(s"create keyspace if not exists ${settingsCassandra.Keyspace} with replication = {'class':'SimpleStrategy', 'replication_factor':1};");
-  }
-
-  private def withSession(f: Session ⇒ Unit): Unit = {
-    val session = cluster.connect()
-    try {
-      f(session)
-    } finally {
-      log.info("Closing cassandra connection to system keyspace")
-      session.close()
-    }
-  }
+  def close() = cluster.close()
 
   sys.addShutdownHook(close)
+
+}
+
+abstract class CassandraSupport(keyspace: String) extends Logging {
+
+  lazy val session: Session = CassandraCluster.connect()
+
+  def initialize: Unit = {
+    createSchemaIfNotExists
+  }
+
+  def getRF: Int
+
+  def createSchemaIfNotExists = {
+    log.info(s"Initializing schema: $keyspace")
+    session.execute(s"create keyspace if not exists $keyspace with replication = {'class':'SimpleStrategy', 'replication_factor': $getRF};")
+    session.execute(s"USE $keyspace;")
+  }
+
   def close: Unit = {
-    log.info("Closing cassandra connection")
+    log.info(s"Closing cassandra session for keyspace $keyspace")
     session.close()
-    cluster.close()
+  }
+
+  def truncate(table: String) = Try {
+    session.execute(s"truncate $table;");
   }
 
   import scala.language.implicitConversions
@@ -90,11 +87,38 @@ object Cassandra extends Logging {
       })
     p.future
   }
+}
 
-  def truncate(table: String) = Try {
-    session.execute(s"truncate $table;");
+object CassandraMeta extends CassandraSupport("meta") {
+
+  override def initialize: Unit = {
+    super.initialize
+    CassandraMetaStore.initialize
   }
 
+  override def getRF: Int = Settings().CassandraMeta.ReplicationFactor
+}
+
+object CassandraBuckets extends CassandraSupport("buckets") {
+
+  override def initialize: Unit = {
+    super.initialize
+    CassandraHistogramBucketStore.initialize
+    CassandraCounterBucketStore.initialize
+  }
+
+  override def getRF: Int = Settings().CassandraBuckets.ReplicationFactor
+}
+
+object CassandraSummaries extends CassandraSupport("summaries") {
+
+  override def initialize: Unit = {
+    super.initialize
+    CassandraStatisticSummaryStore.initialize
+    CassandraCounterSummaryStore.initialize
+  }
+
+  override def getRF: Int = Settings().CassandraSummaries.ReplicationFactor
 }
 
 case class Statements(insert: PreparedStatement, selects: Map[String, PreparedStatement], delete: Option[PreparedStatement])

@@ -56,9 +56,9 @@ object CassandraMetaStore extends MetaStore with Logging {
   val MetricsKey = "metrics"
 
   private lazy val CreateTableStmt = s"create table if not exists meta (key text, metric text, timestamp bigint, primary key (key, metric));"
-  private lazy val InsertStmt = Cassandra.session.prepare(s"insert into meta (key, metric, timestamp) values (?, ?, ?);")
-  private lazy val GetByKeyStmt = Cassandra.session.prepare(s"select metric, timestamp from meta where key = ?;")
-  private lazy val GetLastProcessedTimeStmt = Cassandra.session.prepare(s"select timestamp from meta where key = ? and metric = ?;")
+  private lazy val InsertStmt = CassandraMeta.session.prepare(s"insert into meta (key, metric, timestamp) values (?, ?, ?);")
+  private lazy val GetByKeyStmt = CassandraMeta.session.prepare(s"select metric from meta where key = ?;")
+  private lazy val GetLastProcessedTimeStmt = CassandraMeta.session.prepare(s"select timestamp from meta where key = ? and metric = ?;")
 
   implicit val asyncExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(5))
 
@@ -70,9 +70,9 @@ object CassandraMetaStore extends MetaStore with Logging {
   }, 1, 1, TimeUnit.SECONDS)
 
 
-  import Cassandra._
+  import CassandraMeta._
 
-  def initialize = Cassandra.session.execute(CreateTableStmt)
+  def initialize = CassandraMeta.session.execute(CreateTableStmt)
 
   def insert(metric: Metric): Future[Unit] = {
     put(Seq((metric, Timestamp(1))))
@@ -115,7 +115,7 @@ object CassandraMetaStore extends MetaStore with Logging {
 
   def allMetrics(): Future[Seq[Metric]] = retrieveMetrics.map(_.keys.toSeq)
 
-  def retrieveMetrics: Future[Map[Metric, Timestamp]] = Cassandra.session.executeAsync(GetByKeyStmt.bind(MetricsKey)).
+  def retrieveMetrics: Future[Map[Metric, Timestamp]] = CassandraMeta.session.executeAsync(GetByKeyStmt.bind(MetricsKey)).
         map(resultSet ⇒ {
         val metrics = resultSet.all().asScala.map(row ⇒ (fromString(row.getString("metric")), Timestamp(row.getLong("timestamp")))).toMap
         log.info(s"Found ${metrics.size} metrics in meta")
@@ -124,8 +124,7 @@ object CassandraMetaStore extends MetaStore with Logging {
         andThen { case Failure(reason) ⇒ log.error(s"Failed to retrieve metrics from meta", reason) }
 
 
-
-      def getLastProcessedTimestamp(metric: Metric): Future[Timestamp] = {
+  def getLastProcessedTimestamp(metric: Metric): Future[Timestamp] = {
     getFromSnapshot.get(metric) match {
       case Some(timestamp) ⇒ Future.successful(timestamp)
       case None            ⇒ getLastProcessedTimestampFromCassandra(metric)
@@ -154,7 +153,7 @@ object CassandraMetaStore extends MetaStore with Logging {
 
 
   def getLastProcessedTimestamp(metric: Metric): Future[Timestamp] =
-    Cassandra.session.executeAsync(GetLastProcessedTimeStmt.bind(MetricsKey, asString(metric))).
+    CassandraMeta.session.executeAsync(GetLastProcessedTimeStmt.bind(MetricsKey, asString(metric))).
       map(resultSet ⇒ Timestamp(resultSet.one().getLong("timestamp"))).
       andThen { case Failure(reason) ⇒ log.error(s"$metric - Failed to retrieve last processed timestamp from meta", reason) }
 
