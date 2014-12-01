@@ -36,9 +36,7 @@ trait BaseInfluxIntegrationSpec extends FunSuite with BeforeAndAfterAll with Bef
     truncateTables
   }
 
-  override protected def afterAll() = {
-    //Metrik.system.shutdown()
-  }
+  override protected def afterAll() = { }
 
   def await[T](f: => Future[T]):T = Await.result(f, 3 seconds)
 

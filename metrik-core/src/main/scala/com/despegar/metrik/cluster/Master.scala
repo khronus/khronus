@@ -32,6 +32,8 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
   import com.despegar.metrik.cluster.Master._
   import context._
 
+  var heartbeatScheduler: Option[Cancellable] = _
+  var tickActorRef: Option[ActorRef] = _
   var idleWorkers = Set[ActorRef]()
   var busyWorkers = Set[ActorRef]()
 
@@ -50,8 +52,8 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
       log.info(s"Initializing master ${self.path}")
       val router = createRouter()
 
-      scheduleHeartbeat(router)
-      scheduleTick()
+      heartbeatScheduler = scheduleHeartbeat(router)
+      tickActorRef = scheduleTick()
 
       become(initialized(router))
 
@@ -140,15 +142,27 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
     }
   }
 
-  def scheduleHeartbeat(router: ActorRef) {
-    log.info("Scheduling Heartbeat in order to discover workers periodically")
-    system.scheduler.schedule(settings.DiscoveryStartDelay, settings.DiscoveryInterval, router, Broadcast(Heartbeat))
+  override def postStop(): Unit = {
+    super.postStop()
+
+    log.info("Cancelling heartbeat scheduler")
+    heartbeatScheduler.map({ case scheduler: Cancellable ⇒ scheduler.cancel() })
+
+    log.info("Stopping tick actor ref")
+    tickActorRef.map({ case actor: ActorRef ⇒ stop(actor) })
+
   }
 
-  def scheduleTick() {
+  def scheduleHeartbeat(router: ActorRef): Option[Cancellable] = {
+    log.info("Scheduling Heartbeat in order to discover workers periodically")
+    Some(system.scheduler.schedule(settings.DiscoveryStartDelay, settings.DiscoveryInterval, router, Broadcast(Heartbeat)))
+  }
+
+  def scheduleTick(): Option[ActorRef] = {
     log.info(s"Scheduling tick at ${settings.TickCronExpression}")
     val tickScheduler = actorOf(Props[QuartzActor])
     tickScheduler ! AddCronSchedule(self, settings.TickCronExpression, Tick, true)
+    Some(tickScheduler)
   }
 }
 

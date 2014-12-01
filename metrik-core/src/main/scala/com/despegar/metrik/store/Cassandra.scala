@@ -67,6 +67,7 @@ object Cassandra extends Logging {
     }
   }
 
+  sys.addShutdownHook(close)
   def close: Unit = {
     log.info("Closing cassandra connection")
     session.close()
