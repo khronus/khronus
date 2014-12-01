@@ -18,7 +18,7 @@ package com.despegar.metrik.service
 
 import akka.io.IO
 import com.despegar.metrik.service.HandShakeProtocol.{ MetrikStarted, Register }
-import com.despegar.metrik.store.Cassandra
+import com.despegar.metrik.store.{ CassandraBuckets, CassandraMeta, CassandraSummaries }
 import com.despegar.metrik.util.Settings
 import spray.can.Http
 
@@ -35,7 +35,9 @@ trait MetrikService {
   handlerActor ! Register(MetrikActor.Path, metrikActor)
   handlerActor ! Register(VersionActor.Path, versionActor)
 
-  Cassandra.initialize
+  CassandraMeta.initialize
+  CassandraBuckets.initialize
+  CassandraSummaries.initialize
 
   system.eventStream.publish(MetrikStarted(handlerActor))
 }

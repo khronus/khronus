@@ -21,6 +21,8 @@ import akka.actor
 import akka.event.Logging
 import com.despegar.metrik.influx.finder.InfluxDashboardResolver
 import com.despegar.metrik.influx.service.InfluxActor
+import com.despegar.metrik.influx.store.CassandraDashboards
+import com.despegar.metrik.service.ActorSystemSupport
 import com.despegar.metrik.service.HandShakeProtocol.{ Register, MetrikStarted }
 
 class Influx(system: ExtendedActorSystem) extends Extension {
@@ -33,9 +35,16 @@ class Influx(system: ExtendedActorSystem) extends Extension {
   val influxSubscriber = system.actorOf(InfluxSubscriber.props(influxActor), "influx-subscriber")
 
   system.eventStream.subscribe(influxSubscriber, classOf[MetrikStarted])
+
+  object Settings {
+    val rf = system.settings.config.getConfig("metrik.cassandra.dashboards").getInt("rf")
+  }
+
 }
 
 object Influx extends ExtensionId[Influx] with ExtensionIdProvider {
+  def apply() = super.apply(ActorSystemSupport.system)
+
   override def lookup: ExtensionId[_ <: actor.Extension] = Influx
   override def createExtension(system: ExtendedActorSystem): Influx = new Influx(system)
 }
@@ -44,7 +53,7 @@ class InfluxSubscriber(influxActor: ActorRef) extends Actor {
   def receive: Receive = {
     case MetrikStarted(handler) ⇒
       handler ! Register(InfluxActor.Path, influxActor)
-      InfluxDashboardResolver.initialize
+      CassandraDashboards.initialize
   }
 }
 

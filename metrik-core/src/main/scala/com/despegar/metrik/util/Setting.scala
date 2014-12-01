@@ -45,15 +45,29 @@ class Settings(config: com.typesafe.config.Config, extendedSystem: ExtendedActor
     val MaxResolutionPoints: Int = config.getInt("metrik.dashboards.max-resolution-points")
   }
 
-  object Cassandra {
-    private val cassandraCfg = config.getConfig("metrik.cassandra")
-    val ClusterName = cassandraCfg.getString("cluster")
-    val Keyspace = cassandraCfg.getString("keyspace")
+  object CassandraCluster {
+    private val cassandraCfg = config.getConfig("metrik.cassandra.cluster")
+    val ClusterName = cassandraCfg.getString("name")
     val MaxConnectionsPerHost = cassandraCfg.getInt("max-connections-per-host")
     val SocketTimeout = cassandraCfg.getDuration("socket-timeout", MILLISECONDS).toInt
     val ConnectionTimeout = cassandraCfg.getDuration("connection-timeout", MILLISECONDS).toInt
     val Port = cassandraCfg.getInt("port")
     val Seeds = cassandraCfg.getString("seeds").split(",").toSeq
+  }
+
+  object CassandraMeta {
+    private val cassandraCfg = config.getConfig("metrik.cassandra.meta")
+    val ReplicationFactor = cassandraCfg.getInt("rf")
+  }
+
+  object CassandraBuckets {
+    private val cassandraCfg = config.getConfig("metrik.cassandra.buckets")
+    val ReplicationFactor = cassandraCfg.getInt("rf")
+  }
+
+  object CassandraSummaries {
+    private val cassandraCfg = config.getConfig("metrik.cassandra.summaries")
+    val ReplicationFactor = cassandraCfg.getInt("rf")
   }
 
   object Histogram {

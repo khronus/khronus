@@ -36,7 +36,7 @@ trait SummaryStoreSupport[T <: Summary] {
 
 trait SummaryStore[T <: Summary] extends Logging {
 
-  import Cassandra._
+  import CassandraSummaries._
 
   protected def tableName(duration: Duration): String
   protected def windowDurations: Seq[Duration]
@@ -53,22 +53,22 @@ trait SummaryStore[T <: Summary] extends Logging {
   val QueryDesc = "queryDesc"
 
   lazy val stmtPerWindow: Map[Duration, Statements] = windowDurations.map(windowDuration ⇒ {
-    val insert = Cassandra.session.prepare(s"insert into ${tableName(windowDuration)} (metric, timestamp, summary) values (?, ?, ?) using ttl ${ttl(windowDuration)};")
+    val insert = CassandraSummaries.session.prepare(s"insert into ${tableName(windowDuration)} (metric, timestamp, summary) values (?, ?, ?) using ttl ${ttl(windowDuration)};")
 
     val simpleStmt = new SimpleStatement(s"select timestamp, summary from ${tableName(windowDuration)} where metric = ? and timestamp >= ? and timestamp <= ? order by timestamp asc limit ?;")
     simpleStmt.setFetchSize(fetchSize)
-    val selectAsc = Cassandra.session.prepare(simpleStmt)
+    val selectAsc = CassandraSummaries.session.prepare(simpleStmt)
 
     val simpleStmtDesc = new SimpleStatement(s"select timestamp, summary from ${tableName(windowDuration)} where metric = ? and timestamp >= ? and timestamp <= ? order by timestamp desc limit ? ;")
     simpleStmtDesc.setFetchSize(fetchSize)
-    val selectDesc = Cassandra.session.prepare(simpleStmtDesc)
+    val selectDesc = CassandraSummaries.session.prepare(simpleStmtDesc)
 
     (windowDuration, Statements(insert, Map(QueryAsc -> selectAsc, QueryDesc -> selectDesc), None))
   }).toMap
 
   def initialize = windowDurations.foreach(window ⇒ {
     log.info(s"Initializing table ${tableName(window)}")
-    Cassandra.session.execute(s"create table if not exists ${tableName(window)} (metric text, timestamp bigint, summary blob, primary key (metric, timestamp));")
+    CassandraSummaries.session.execute(s"create table if not exists ${tableName(window)} (metric text, timestamp bigint, summary blob, primary key (metric, timestamp)) with gc_grace_seconds = 0;")
   })
 
   def store(metric: Metric, windowDuration: Duration, summaries: Seq[T]): Future[Unit] = {
@@ -78,7 +78,7 @@ trait SummaryStore[T <: Summary] extends Logging {
       val batchStmt = new BatchStatement();
       summaries.foreach(summary ⇒ batchStmt.add(stmtPerWindow(windowDuration).insert.bind(metric.name, Long.box(summary.timestamp.ms), serializeSummary(summary))))
 
-      Cassandra.session.executeAsync(batchStmt)
+      CassandraSummaries.session.executeAsync(batchStmt)
     }
   }
 
@@ -93,7 +93,7 @@ trait SummaryStore[T <: Summary] extends Logging {
     val queryKey = if (ascendingOrder) QueryAsc else QueryDesc
     val boundStmt = stmtPerWindow(windowDuration).selects(queryKey).bind(metric, Long.box(slice.from), Long.box(slice.to), Int.box(count))
 
-    Cassandra.session.executeAsync(boundStmt).map(
+    CassandraSummaries.session.executeAsync(boundStmt).map(
       resultSet ⇒ resultSet.asScala.map(row ⇒ deserialize(row.getLong("timestamp"), Bytes.getArray(row.getBytes("summary")))).toSeq)
   }
 
