@@ -17,7 +17,7 @@
 package com.despegar.metrik.store
 
 import java.nio.ByteBuffer
-import java.util.concurrent.Executors
+import java.util.concurrent.{ ExecutorService, Executors }
 import com.despegar.metrik.model.{ Bucket, Metric, Timestamp }
 import com.despegar.metrik.util.Measurable
 import scala.collection.JavaConverters._
@@ -47,7 +47,9 @@ trait BucketStore[T <: Bucket] extends Logging with Measurable {
   protected def toBucket(windowDuration: Duration, timestamp: Long, counts: Array[Byte]): T
   protected def serializeBucket(metric: Metric, windowDuration: Duration, bucket: T): ByteBuffer
 
-  implicit val asyncExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(50))
+  implicit val pool: ExecutorService = Executors.newFixedThreadPool(50)
+
+  implicit val asyncExecutionContext: ExecutionContext = ExecutionContext.fromExecutor(pool)
 
   val SliceQuery = "sliceQuery"
 
@@ -78,8 +80,9 @@ trait BucketStore[T <: Bucket] extends Logging with Measurable {
         batchStmt.add(stmtPerWindow(windowDuration).insert.bind(Seq(serializedBucket).asJava, metric.name, Long.box(bucket.timestamp.ms)))
       })
 
-      CassandraBuckets.session.executeAsync(batchStmt).andThen {
-        case Failure(reason) ⇒ log.error(s"$metric - Storing metrics ${metric.name} failed", reason)
+      toFutureUnit {
+        CassandraBuckets.session.executeAsync(batchStmt).
+          andThen { case Failure(reason) ⇒ log.error(s"$metric - Storing metrics ${metric.name} failed", reason) }
       }
     }
   }
@@ -91,8 +94,9 @@ trait BucketStore[T <: Bucket] extends Logging with Measurable {
       val batchStmt = new BatchStatement();
       bucketTimestamps.foreach(bucket ⇒ batchStmt.add(stmtPerWindow(windowDuration).delete.get.bind(metric.name, Long.box(bucket.ms))))
 
-      CassandraBuckets.session.executeAsync(batchStmt).andThen {
-        case Failure(reason) ⇒ log.error(s"$metric - Removing metrics ${metric.name} failed", reason)
+      toFutureUnit {
+        CassandraBuckets.session.executeAsync(batchStmt).
+          andThen { case Failure(reason) ⇒ log.error(s"$metric - Removing metrics ${metric.name} failed", reason) }
       }
     }
   }
@@ -109,11 +113,9 @@ trait BucketStore[T <: Bucket] extends Logging with Measurable {
     })
   }
 
-  def ifNotEmpty(col: Seq[Any])(f: ⇒ Unit): Future[Unit] = {
+  def ifNotEmpty(col: Seq[Any])(f: Future[Unit]): Future[Unit] = {
     if (col.size > 0) {
-      Future {
-        f
-      }
+      f
     } else {
       Future.successful(())
     }

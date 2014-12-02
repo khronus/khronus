@@ -27,6 +27,7 @@ import scala.concurrent.{ ExecutionContext, Future }
 import com.despegar.metrik.util.log.Logging
 import com.datastax.driver.core.{ SimpleStatement, BatchStatement }
 import com.datastax.driver.core.utils.Bytes
+import scala.util.Failure
 
 case class Slice(from: Long = -1L, to: Long)
 
@@ -78,7 +79,10 @@ trait SummaryStore[T <: Summary] extends Logging {
       val batchStmt = new BatchStatement();
       summaries.foreach(summary ⇒ batchStmt.add(stmtPerWindow(windowDuration).insert.bind(metric.name, Long.box(summary.timestamp.ms), serializeSummary(summary))))
 
-      CassandraSummaries.session.executeAsync(batchStmt)
+      toFutureUnit {
+        CassandraSummaries.session.executeAsync(batchStmt).
+          andThen { case Failure(reason) ⇒ log.error(s"$metric - Storing summary of $windowDuration failed", reason) }
+      }
     }
   }
 
@@ -99,11 +103,9 @@ trait SummaryStore[T <: Summary] extends Logging {
 
   private def now = System.currentTimeMillis()
 
-  def ifNotEmpty(col: Seq[Any])(f: ⇒ Unit): Future[Unit] = {
+  def ifNotEmpty(col: Seq[Any])(f: Future[Unit]): Future[Unit] = {
     if (col.size > 0) {
-      Future {
-        f
-      }
+      f
     } else {
       Future.successful(())
     }

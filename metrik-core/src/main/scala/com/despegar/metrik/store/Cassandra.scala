@@ -22,7 +22,7 @@ import scala.collection.JavaConverters._
 import scala.util.Try
 import com.despegar.metrik.util.log.Logging
 import com.datastax.driver.core._
-import scala.concurrent.{ Promise, Future }
+import scala.concurrent.{ ExecutionContext, Promise, Future }
 import com.google.common.util.concurrent.{ FutureCallback, Futures };
 
 object CassandraCluster extends Logging {
@@ -86,6 +86,10 @@ abstract class CassandraSupport(keyspace: String) extends Logging {
         def onFailure(t: Throwable) = p failure t
       })
     p.future
+  }
+
+  def toFutureUnit(future: Future[ResultSet])(implicit executionContext: ExecutionContext): Future[Unit] = {
+    future.map { case _ ⇒ () }
   }
 }
 
