@@ -16,17 +16,15 @@
 
 package com.despegar.metrik.store
 
-import com.datastax.driver.core._
 import com.datastax.driver.core.policies.{ TokenAwarePolicy, LoggingRetryPolicy, DefaultRetryPolicy, RoundRobinPolicy }
 import com.despegar.metrik.util.Settings
 import com.despegar.metrik.util.log.Logging
-import com.google.common.util.concurrent.FutureCallback
-
-import scala.concurrent.Future
-import scala.util.Try;
 import com.datastax.driver.core._
-import scala.concurrent.{ ExecutionContext, Promise, Future }
-import com.google.common.util.concurrent.{ FutureCallback, Futures };
+import scala.concurrent.ExecutionContext
+import com.google.common.util.concurrent.{ FutureCallback, Futures }
+
+import scala.concurrent.{ Future, Promise }
+import scala.util.Try;
 
 object CassandraCluster extends Logging {
   lazy val settingsCassandra = Settings().CassandraCluster

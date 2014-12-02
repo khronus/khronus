@@ -23,9 +23,9 @@ import com.despegar.metrik.util.Measurable
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future }
-import scala.util.Failure
+import scala.util.{ Success, Failure }
 import com.despegar.metrik.util.log.Logging
-import com.datastax.driver.core.{ SimpleStatement, BatchStatement }
+import com.datastax.driver.core.{ PreparedStatement, SimpleStatement, BatchStatement }
 import com.datastax.driver.core.utils.Bytes
 
 trait BucketStoreSupport[T <: Bucket] {
@@ -86,9 +86,7 @@ trait BucketStore[T <: Bucket] extends Logging with Measurable {
 
       toFutureUnit {
         CassandraBuckets.session.executeAsync(batchStmt).
-          andThen {
-            case Failure(reason) ⇒ log.error(s"$metric - Storing metrics ${metric.name} failed", reason)
-          }
+          andThen { case Failure(reason) ⇒ log.error(s"$metric - Storing metrics ${metric.name} failed", reason) }
       }
     }
   }
@@ -102,9 +100,7 @@ trait BucketStore[T <: Bucket] extends Logging with Measurable {
 
       toFutureUnit {
         CassandraBuckets.session.executeAsync(batchStmt).
-          andThen {
-            case Failure(reason) ⇒ log.error(s"$metric - Removing metrics ${metric.name} failed", reason)
-          }
+          andThen { case Failure(reason) ⇒ log.error(s"$metric - Removing metrics ${metric.name} failed", reason) }
       }
     }
   }

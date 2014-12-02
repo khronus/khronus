@@ -19,6 +19,11 @@ trait Snapshot[T] extends Logging {
     pool.shutdown()
   })
 
+  sys.addShutdownHook({
+    log.info("Shutting down snapshot pool")
+    pool.shutdown()
+  })
+
   private def reload() = new Runnable {
     override def run(): Unit = {
       getFreshData() onComplete {
