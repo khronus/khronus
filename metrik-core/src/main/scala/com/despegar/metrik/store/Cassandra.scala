@@ -16,27 +16,32 @@
 
 package com.despegar.metrik.store
 
-import com.despegar.metrik.util.Settings
-
-import scala.collection.JavaConverters._
-import scala.util.Try
-import com.despegar.metrik.util.log.Logging
 import com.datastax.driver.core._
-import scala.concurrent.{ Promise, Future }
-import com.google.common.util.concurrent.{ FutureCallback, Futures };
+import com.datastax.driver.core.policies.{ TokenAwarePolicy, LoggingRetryPolicy, DefaultRetryPolicy, RoundRobinPolicy }
+import com.despegar.metrik.util.Settings
+import com.despegar.metrik.util.log.Logging
+import com.google.common.util.concurrent.{ FutureCallback, Futures }
+
+import scala.concurrent.{ Future, Promise }
+import scala.util.Try;
 
 object CassandraCluster extends Logging {
   lazy val settingsCassandra = Settings().CassandraCluster
 
   private lazy val poolingOptions = new PoolingOptions().setMaxConnectionsPerHost(HostDistance.LOCAL, settingsCassandra.MaxConnectionsPerHost)
   private lazy val socketOptions = new SocketOptions().setConnectTimeoutMillis(settingsCassandra.ConnectionTimeout).setReadTimeoutMillis(settingsCassandra.SocketTimeout)
+  private lazy val loadBalancingPolicy = new TokenAwarePolicy(new RoundRobinPolicy)
+  private lazy val retryPolicy = new LoggingRetryPolicy(DefaultRetryPolicy.INSTANCE)
 
   private lazy val cluster: Cluster = Cluster.builder().
     withClusterName(settingsCassandra.ClusterName).
     addContactPoints(settingsCassandra.Seeds: _*).
     withPort(settingsCassandra.Port).
     withPoolingOptions(poolingOptions).
-    withSocketOptions(socketOptions).build();
+    withSocketOptions(socketOptions).
+    withLoadBalancingPolicy(loadBalancingPolicy).
+    withRetryPolicy(retryPolicy).
+    build();
 
   def connect() = cluster.connect()
 
