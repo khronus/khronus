@@ -20,9 +20,9 @@ import com.datastax.driver.core._
 import com.datastax.driver.core.policies.{ TokenAwarePolicy, LoggingRetryPolicy, DefaultRetryPolicy, RoundRobinPolicy }
 import com.despegar.metrik.util.Settings
 import com.despegar.metrik.util.log.Logging
-import com.google.common.util.concurrent.{ FutureCallback, Futures }
+import com.google.common.util.concurrent.FutureCallback
 
-import scala.concurrent.{ Future, Promise }
+import scala.concurrent.Future
 import scala.util.Try;
 import com.datastax.driver.core._
 import scala.concurrent.{ ExecutionContext, Promise, Future }
@@ -91,13 +91,16 @@ abstract class CassandraSupport(keyspace: String) extends Logging {
     Futures.addCallback(f,
       new FutureCallback[ResultSet] {
         def onSuccess(r: ResultSet) = p success r
+
         def onFailure(t: Throwable) = p failure t
       })
     p.future
   }
 
   def toFutureUnit(future: Future[ResultSet])(implicit executionContext: ExecutionContext): Future[Unit] = {
-    future.map { case _ ⇒ () }
+    future.map {
+      case _ ⇒ ()
+    }
   }
 }
 

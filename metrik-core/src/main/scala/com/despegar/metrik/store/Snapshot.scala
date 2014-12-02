@@ -13,9 +13,7 @@ trait Snapshot[T] extends Logging {
   var snapshot: T = _
 
   private val pool = Executors.newScheduledThreadPool(1)
-
   pool.scheduleAtFixedRate(reload(), 1, 5, TimeUnit.SECONDS)
-
   sys.addShutdownHook({
     log.info("Shutting down snapshot pool")
     pool.shutdown()

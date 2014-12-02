@@ -6,6 +6,7 @@ import com.despegar.metrik.store.MetricMeasurementStoreSupport
 
 import scala.collection.mutable.{ Buffer, Map }
 import scala.concurrent.ExecutionContext
+import com.despegar.metrik.util.log.Logging
 
 trait MonitoringSupport {
 
@@ -21,16 +22,20 @@ trait MonitoringSupport {
 
 }
 
-object Monitoring extends MetricMeasurementStoreSupport {
+object Monitoring extends MetricMeasurementStoreSupport with Logging {
 
   val queue = new ConcurrentLinkedQueue[MonitoringMetric]()
 
-  val scheduler = Executors.newScheduledThreadPool(1)
   implicit val executor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(1))
 
+  val scheduler = Executors.newScheduledThreadPool(1)
   scheduler.scheduleAtFixedRate(new Runnable() {
     override def run() = flush
   }, 0, 5, TimeUnit.SECONDS)
+  sys.addShutdownHook({
+    log.info("Shutting down asyncUpdateExecutor[Monitoring] pool")
+    scheduler.shutdown()
+  })
 
   def flush() = write(drained(queue))
 
