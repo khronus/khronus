@@ -31,6 +31,8 @@ import com.despegar.metrik.model.Timestamp
 import com.despegar.metrik.util.log.Logging
 import com.datastax.driver.core.BatchStatement
 
+case class MetricMetadata(metric: Metric, timestamp: Timestamp)
+
 trait MetaStore extends Snapshot[Map[Metric, Timestamp]] {
   def update(metric: Metric, lastProcessedTimestamp: Timestamp): Future[Unit]
 
@@ -62,7 +64,7 @@ object CassandraMetaStore extends MetaStore with Logging {
 
   implicit val asyncExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(5))
 
-  private val queue = new ConcurrentLinkedQueue[(Promise[Unit], (Metric, Timestamp))]()
+  private val queue = new ConcurrentLinkedQueue[(Promise[Unit], MetricMetadata)]()
 
   val asyncUpdateExecutor = Executors.newScheduledThreadPool(1)
   asyncUpdateExecutor.scheduleAtFixedRate(new Runnable() {
@@ -78,17 +80,17 @@ object CassandraMetaStore extends MetaStore with Logging {
   def initialize = CassandraMeta.session.execute(CreateTableStmt)
 
   def insert(metric: Metric): Future[Unit] = {
-    put(Seq((metric, Timestamp(1))))
+    put(Seq(MetricMetadata(metric, Timestamp(1))))
   }
 
   def update(metric: Metric, lastProcessedTimestamp: Timestamp): Future[Unit] = {
     val promise = Promise[Unit]()
-    buffer(promise, (metric, lastProcessedTimestamp))
+    buffer(promise, MetricMetadata(metric, lastProcessedTimestamp))
     promise.future
   }
 
-  private def buffer(promise: Promise[Unit], tuple: (Metric, Timestamp)) = {
-    queue.offer((promise, tuple))
+  private def buffer(promise: Promise[Unit], metricMetadata: MetricMetadata) = {
+    queue.offer((promise, metricMetadata))
   }
 
   private def updateAsync = {
@@ -100,7 +102,7 @@ object CassandraMetaStore extends MetaStore with Logging {
   }
 
   @tailrec //TODO: refactorme
-  private def drain(elements: Buffer[(Promise[Unit], (Metric, Timestamp))] = Buffer[(Promise[Unit], (Metric, Timestamp))]()): Buffer[(Promise[Unit], (Metric, Timestamp))] = {
+  private def drain(elements: Buffer[(Promise[Unit], MetricMetadata)] = Buffer[(Promise[Unit], MetricMetadata)]()): Buffer[(Promise[Unit], MetricMetadata)] = {
     val element = queue.poll()
     if (element != null) {
       elements += element
@@ -142,13 +144,10 @@ object CassandraMetaStore extends MetaStore with Logging {
         case Failure(reason) ⇒ log.error(s"$metric - Failed to retrieve last processed timestamp from meta", reason)
       }
 
-  private def put(metrics: Seq[(Metric, Timestamp)]): Future[Unit] = {
+  private def put(metrics: Seq[MetricMetadata]): Future[Unit] = {
     val batchStmt = new BatchStatement();
     metrics.foreach {
-      tuple ⇒
-        val metric = tuple._1
-        val timestamp = tuple._2
-        batchStmt.add(InsertStmt.bind(MetricsKey, asString(metric), Long.box(timestamp.ms)))
+      metricMetadata ⇒ batchStmt.add(InsertStmt.bind(MetricsKey, asString(metricMetadata.metric), Long.box(metricMetadata.timestamp.ms)))
     }
 
     CassandraMeta.session.executeAsync(batchStmt)
