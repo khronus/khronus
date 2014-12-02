@@ -24,6 +24,9 @@ import com.google.common.util.concurrent.{ FutureCallback, Futures }
 
 import scala.concurrent.{ Future, Promise }
 import scala.util.Try;
+import com.datastax.driver.core._
+import scala.concurrent.{ ExecutionContext, Promise, Future }
+import com.google.common.util.concurrent.{ FutureCallback, Futures };
 
 object CassandraCluster extends Logging {
   lazy val settingsCassandra = Settings().CassandraCluster
@@ -91,6 +94,10 @@ abstract class CassandraSupport(keyspace: String) extends Logging {
         def onFailure(t: Throwable) = p failure t
       })
     p.future
+  }
+
+  def toFutureUnit(future: Future[ResultSet])(implicit executionContext: ExecutionContext): Future[Unit] = {
+    future.map { case _ ⇒ () }
   }
 }
 
