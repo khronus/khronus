@@ -46,12 +46,13 @@ object Monitoring extends MetricMeasurementStoreSupport with Logging {
     val metricMeasurements = rawMetricMeasurements.collect {
       case (mtype, mtypeMap) ⇒
         mtypeMap.collect {
-          case (metricName, rawMeasurements) ⇒
-            MetricMeasurement(s"~system.$metricName", mtype, rawMeasurements.collect { case (ts, value) ⇒ Measurement(ts, value.toSeq) }.toList)
+          case (metricName, rawMeasurements) ⇒ {
+            val measures = MetricMeasurement(s"~system.$metricName", mtype, rawMeasurements.collect { case (ts, value) ⇒ Measurement(ts, value.toSeq) }.toList)
+            if (metricName.equalsIgnoreCase("metricsReceived")) log.info(s"Measures publish by monitor: $measures")
+            measures
+          }
         }
     }.toList.flatten
-
-    log.info(s"Measures publish by monitor: $metricMeasurements")
 
     metricStore.storeMetricMeasurements(metricMeasurements)
   }
