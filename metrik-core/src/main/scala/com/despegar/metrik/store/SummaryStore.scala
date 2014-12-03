@@ -19,7 +19,7 @@ package com.despegar.metrik.store
 import java.nio.ByteBuffer
 import java.util.concurrent.Executors
 
-import com.despegar.metrik.model.{ StatisticSummary, Metric, Summary }
+import com.despegar.metrik.model.{ ExtraLog, StatisticSummary, Metric, Summary }
 import com.netflix.astyanax.model.{ ColumnList, ColumnFamily }
 import com.netflix.astyanax.serializers.{ LongSerializer, StringSerializer }
 
@@ -71,6 +71,7 @@ trait SummaryStore[T <: Summary] extends Logging {
 
   def store(metric: Metric, windowDuration: Duration, summaries: Seq[T]): Future[Unit] = {
     ifNotEmpty(summaries) {
+      ExtraLog.logthis(metric, summaries, windowDuration)
       log.debug(s"$metric - Storing ${summaries.size} summaries ($summaries) of $windowDuration")
       val mutation = Cassandra.keyspace.prepareMutationBatch()
       val columns = mutation.withRow(columnFamilies(windowDuration), getKey(metric, windowDuration))

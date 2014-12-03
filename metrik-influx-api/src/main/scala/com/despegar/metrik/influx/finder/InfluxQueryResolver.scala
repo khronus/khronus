@@ -65,7 +65,11 @@ trait InfluxQueryResolver extends MetaSupport with Measurable {
     val maxResults: Int = influxCriteria.limit.getOrElse(Int.MaxValue)
 
     getStore(metricType).readAll(timeWindow, metricName, slice, maxResults).map {
-      results ⇒ toInfluxSeries(results, influxCriteria.projections, metricName)
+      results ⇒
+        {
+          ExtraLog.logthis(metricName, results)
+          toInfluxSeries(results, influxCriteria.projections, metricName)
+        }
     }
   }
 
