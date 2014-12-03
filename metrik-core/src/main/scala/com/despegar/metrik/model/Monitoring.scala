@@ -3,13 +3,13 @@ package com.despegar.metrik.model
 import java.util.concurrent.{ ConcurrentLinkedQueue, Executors, TimeUnit }
 
 import com.despegar.metrik.store.MetricMeasurementStoreSupport
+import com.despegar.metrik.util.Settings
 
 import scala.collection.mutable.{ Buffer, Map }
 import scala.concurrent.ExecutionContext
 import com.despegar.metrik.util.log.Logging
 
 trait MonitoringSupport {
-
   def recordTime(metricName: String, time: Long): Unit = Monitoring.recordTime(metricName, time)
 
   def recordGauge(metricName: String, value: Long): Unit = Monitoring.recordGauge(metricName, value)
@@ -28,14 +28,23 @@ object Monitoring extends MetricMeasurementStoreSupport with Logging {
 
   implicit val executor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(1))
 
-  val scheduler = Executors.newScheduledThreadPool(1)
-  scheduler.scheduleAtFixedRate(new Runnable() {
-    override def run() = flush
-  }, 0, 5, TimeUnit.SECONDS)
-  sys.addShutdownHook({
-    log.info("Shutting down asyncUpdateExecutor[Monitoring] pool")
-    scheduler.shutdown()
-  })
+  val enabled = Settings.InternalMetrics.Enabled
+
+  val schedule = enabled {
+    val scheduler = Executors.newScheduledThreadPool(1)
+    scheduler.scheduleAtFixedRate(new Runnable() {
+      override def run() = flush
+    }, 0, 5, TimeUnit.SECONDS)
+
+    sys.addShutdownHook({
+      log.info("Shutting down asyncUpdateExecutor[Monitoring] pool")
+      scheduler.shutdown()
+    })
+  }
+
+  def enabled(block: ⇒ Unit): Unit = {
+    if (enabled) block
+  }
 
   def flush() = write(drained(queue))
 
@@ -68,15 +77,15 @@ object Monitoring extends MetricMeasurementStoreSupport with Logging {
     metrics
   }
 
-  def recordTime(metricName: String, value: Long) = {
+  def recordTime(metricName: String, value: Long) = enabled {
     queue.offer(TimerValue(metricName, value, System.currentTimeMillis()))
   }
 
-  def recordGauge(metricName: String, value: Long) = {
+  def recordGauge(metricName: String, value: Long) = enabled {
     queue.offer(GaugeValue(metricName, value, System.currentTimeMillis()))
   }
 
-  def incrementCounter(metricName: String, counts: Long) = {
+  def incrementCounter(metricName: String, counts: Long) = enabled {
     queue.offer(Counter(metricName, counts, System.currentTimeMillis()))
   }
 

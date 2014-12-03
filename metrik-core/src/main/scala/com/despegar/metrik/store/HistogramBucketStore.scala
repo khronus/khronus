@@ -31,9 +31,9 @@ trait HistogramBucketSupport extends BucketStoreSupport[HistogramBucket] {
 
 object CassandraHistogramBucketStore extends BucketStore[HistogramBucket] with Logging with MonitoringSupport {
 
-  val windowDurations: Seq[Duration] = Settings().Histogram.WindowDurations
-  override val limit: Int = Settings().Histogram.BucketLimit
-  override val fetchSize: Int = Settings().Histogram.BucketFetchSize
+  val windowDurations: Seq[Duration] = Settings.Histogram.WindowDurations
+  override val limit: Int = Settings.Histogram.BucketLimit
+  override val fetchSize: Int = Settings.Histogram.BucketFetchSize
 
   override def toBucket(windowDuration: Duration, timestamp: Long, histogram: Array[Byte]) = {
     new HistogramBucket(Timestamp(timestamp).toBucketNumber(windowDuration), deserializeHistogram(histogram))
@@ -52,6 +52,6 @@ object CassandraHistogramBucketStore extends BucketStore[HistogramBucket] with L
 
   private def deserializeHistogram(bytes: Array[Byte]): Histogram = SkinnyHistogram.decodeFromCompressedByteBuffer(ByteBuffer.wrap(bytes), 0)
 
-  override def ttl(windowDuration: Duration): Int = Settings().Histogram.BucketRetentionPolicy
+  override def ttl(windowDuration: Duration): Int = Settings.Histogram.BucketRetentionPolicy
 
 }

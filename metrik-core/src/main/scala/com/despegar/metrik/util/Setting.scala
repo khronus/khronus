@@ -19,11 +19,14 @@ package com.despegar.metrik.util
 import akka.actor._
 import com.despegar.metrik.model.{ MetricType, CounterTimeWindow, HistogramTimeWindow }
 import com.despegar.metrik.service.ActorSystemSupport
+import com.typesafe.config.{ ConfigFactory, Config }
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.{ FiniteDuration, _ }
 
-class Settings(config: com.typesafe.config.Config, extendedSystem: ExtendedActorSystem) extends Extension {
+object Settings {
+
+  val config = ConfigFactory.load()
 
   object Master {
     val TickCronExpression = config.getString("metrik.master.tick-expression")
@@ -43,6 +46,10 @@ class Settings(config: com.typesafe.config.Config, extendedSystem: ExtendedActor
   object Dashboard {
     val MinResolutionPoints: Int = config.getInt("metrik.dashboards.min-resolution-points")
     val MaxResolutionPoints: Int = config.getInt("metrik.dashboards.max-resolution-points")
+  }
+
+  object InternalMetrics {
+    val Enabled: Boolean = config.getBoolean("metrik.internal-metrics.enabled")
   }
 
   object CassandraCluster {
@@ -128,11 +135,3 @@ class Settings(config: com.typesafe.config.Config, extendedSystem: ExtendedActor
 
 }
 
-object Settings extends ExtensionId[Settings] with ExtensionIdProvider {
-
-  def apply() = super.apply(ActorSystemSupport.system)
-
-  override def lookup = Settings
-
-  override def createExtension(system: ExtendedActorSystem) = new Settings(system.settings.config, system)
-}

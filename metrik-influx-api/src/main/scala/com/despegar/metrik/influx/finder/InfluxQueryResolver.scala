@@ -85,9 +85,9 @@ trait InfluxQueryResolver extends MetaSupport with Measurable {
     }
   }
 
-  protected lazy val maxResolution: Int = Settings().Dashboard.MaxResolutionPoints
-  protected lazy val minResolution: Int = Settings().Dashboard.MinResolutionPoints
-  protected def getConfiguredWindows(metricType: String): Seq[FiniteDuration] = Settings().getConfiguredWindows(metricType)
+  protected lazy val maxResolution: Int = Settings.Dashboard.MaxResolutionPoints
+  protected lazy val minResolution: Int = Settings.Dashboard.MinResolutionPoints
+  protected def getConfiguredWindows(metricType: String): Seq[FiniteDuration] = Settings.getConfiguredWindows(metricType)
 
   private def resolution(slice: Slice, timeWindow: FiniteDuration) = {
     Math.abs(slice.to - slice.from) / timeWindow.toMillis

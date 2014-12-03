@@ -27,7 +27,7 @@ trait MetrikService {
 
   val handlerActor = system.actorOf(MetrikHandler.props, MetrikHandler.Name)
 
-  IO(Http) ! Http.Bind(handlerActor, Settings(system).Http.Interface, Settings(system).Http.Port)
+  IO(Http) ! Http.Bind(handlerActor, Settings.Http.Interface, Settings.Http.Port)
 
   val metrikActor = system.actorOf(MetrikActor.props, MetrikActor.Name)
   val versionActor = system.actorOf(VersionActor.props, VersionActor.Name)

@@ -39,7 +39,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
   var pendingMetrics = Seq[Metric]()
 
-  val settings = Settings(system).Master
+  val settings = Settings.Master
 
   var start: Long = _
 
@@ -136,7 +136,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
       if (busyWorkers.isEmpty) {
         //no more busy workers. end of the tick
         val timeElapsed = System.currentTimeMillis() - start
-        Monitoring.recordTime("totalTimeTick", timeElapsed)
+        recordTime("totalTimeTick", timeElapsed)
         log.info(s"Total time spent in Tick: $timeElapsed ms")
       }
     }

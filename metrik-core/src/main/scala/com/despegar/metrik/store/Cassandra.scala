@@ -27,7 +27,7 @@ import scala.concurrent.{ Future, Promise }
 import scala.util.Try;
 
 object CassandraCluster extends Logging {
-  lazy val settingsCassandra = Settings().CassandraCluster
+  lazy val settingsCassandra = Settings.CassandraCluster
 
   private lazy val poolingOptions = new PoolingOptions().setMaxConnectionsPerHost(HostDistance.LOCAL, settingsCassandra.MaxConnectionsPerHost)
   private lazy val socketOptions = new SocketOptions().setConnectTimeoutMillis(settingsCassandra.ConnectionTimeout).setReadTimeoutMillis(settingsCassandra.SocketTimeout)
@@ -109,7 +109,7 @@ object CassandraMeta extends CassandraSupport("meta") {
     CassandraMetaStore.initialize
   }
 
-  override def getRF: Int = Settings().CassandraMeta.ReplicationFactor
+  override def getRF: Int = Settings.CassandraMeta.ReplicationFactor
 }
 
 object CassandraBuckets extends CassandraSupport("buckets") {
@@ -120,7 +120,7 @@ object CassandraBuckets extends CassandraSupport("buckets") {
     CassandraCounterBucketStore.initialize
   }
 
-  override def getRF: Int = Settings().CassandraBuckets.ReplicationFactor
+  override def getRF: Int = Settings.CassandraBuckets.ReplicationFactor
 }
 
 object CassandraSummaries extends CassandraSupport("summaries") {
@@ -131,7 +131,7 @@ object CassandraSummaries extends CassandraSupport("summaries") {
     CassandraCounterSummaryStore.initialize
   }
 
-  override def getRF: Int = Settings().CassandraSummaries.ReplicationFactor
+  override def getRF: Int = Settings.CassandraSummaries.ReplicationFactor
 }
 
 case class Statements(insert: PreparedStatement, selects: Map[String, PreparedStatement], delete: Option[PreparedStatement])

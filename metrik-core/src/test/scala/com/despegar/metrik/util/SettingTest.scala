@@ -26,33 +26,13 @@ import scala.concurrent.duration._
 
 class SettingTest extends FunSuite with MockitoSugar with Matchers {
 
-  implicit lazy val system: ActorSystem = ActorSystem("TestSystem", ConfigFactory.parseString(
-    """
-      |metrik {
-      |  histogram {
-      |    windows = [30 seconds, 1 minute]
-      |    bucket-limit = 30000
-      |    bucket-fetch-size = 1000
-      |    summary-limit = 1000
-      |    summary-fetch-size = 200
-      |  }
-      |  counter {
-      |    windows = [30 seconds]
-      |    bucket-limit = 30000
-      |    bucket-fetch-size = 1000
-      |    summary-limit = 1000
-      |    summary-fetch-size = 200
-      |  }
-      |}
-    """.stripMargin))
-
   test("should configure histogram time windows properly") {
-    Settings(system).Histogram.TimeWindows shouldBe (Seq(HistogramTimeWindow(30 seconds, 1 millis),
+    Settings.Histogram.TimeWindows shouldBe (Seq(HistogramTimeWindow(30 seconds, 1 millis),
       HistogramTimeWindow(1 minute, 30 seconds, false)))
   }
 
   test("should configure counter time windows properly") {
-    Settings(system).Counter.TimeWindows shouldBe (Seq(CounterTimeWindow(30 seconds, 1 millis, false)))
+    Settings.Counter.TimeWindows shouldBe (Seq(CounterTimeWindow(30 seconds, 1 millis, false)))
   }
 
 }
