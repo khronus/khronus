@@ -60,6 +60,7 @@ object Settings {
     val ConnectionTimeout = cassandraCfg.getDuration("connection-timeout", MILLISECONDS).toInt
     val Port = cassandraCfg.getInt("port")
     val Seeds = cassandraCfg.getString("seeds").split(",").toSeq
+    val KeyspaceNameSuffix = cassandraCfg.getString("keyspace-name-suffix")
   }
 
   object CassandraMeta {

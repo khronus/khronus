@@ -63,9 +63,10 @@ abstract class CassandraSupport(keyspace: String) extends Logging {
   def getRF: Int
 
   def createSchemaIfNotExists = {
-    log.info(s"Initializing schema: $keyspace")
-    session.execute(s"create keyspace if not exists $keyspace with replication = {'class':'SimpleStrategy', 'replication_factor': $getRF};")
-    session.execute(s"USE $keyspace;")
+    val keyspacePlusSuffix = keyspace + Settings.CassandraCluster.KeyspaceNameSuffix
+    log.info(s"Initializing schema: $keyspacePlusSuffix")
+    session.execute(s"create keyspace if not exists $keyspacePlusSuffix with replication = {'class':'SimpleStrategy', 'replication_factor': $getRF};")
+    session.execute(s"USE $keyspacePlusSuffix;")
   }
 
   def close: Unit = {
