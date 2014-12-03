@@ -3,6 +3,7 @@ package com.despegar.metrik.model
 import java.util.concurrent.{ ConcurrentLinkedQueue, Executors, TimeUnit }
 
 import com.despegar.metrik.store.MetricMeasurementStoreSupport
+import com.despegar.metrik.util.log.Logging
 
 import scala.collection.mutable.{ Buffer, Map }
 import scala.concurrent.ExecutionContext
@@ -21,7 +22,7 @@ trait MonitoringSupport {
 
 }
 
-object Monitoring extends MetricMeasurementStoreSupport {
+object Monitoring extends MetricMeasurementStoreSupport with Logging {
 
   val queue = new ConcurrentLinkedQueue[MonitoringMetric]()
 
@@ -49,6 +50,8 @@ object Monitoring extends MetricMeasurementStoreSupport {
             MetricMeasurement(s"~system.$metricName", mtype, rawMeasurements.collect { case (ts, value) ⇒ Measurement(ts, value.toSeq) }.toList)
         }
     }.toList.flatten
+
+    log.info(s"Measures publish by monitor: $metricMeasurements")
 
     metricStore.storeMetricMeasurements(metricMeasurements)
   }

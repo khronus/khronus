@@ -43,7 +43,7 @@ object SystemMetric {
 
 case class MetricMeasurement(name: String, mtype: String, measurements: List[Measurement]) {
 
-  override def toString = s"Metric($name,$mtype)"
+  override def toString = s"Metric($name,$mtype,$measurements)"
 
   def asMetric = Metric(name, mtype)
 
