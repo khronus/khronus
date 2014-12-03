@@ -227,6 +227,22 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     verify(getStatisticSummaryStore).readAll(FiniteDuration(5, TimeUnit.MINUTES), metricName, Slice(from, to), Int.MaxValue)
   }
 
+  test("Select with a very high resolution forced should use the nearest window") {
+    // 80 h  / 30 seconds = 9600 points (Too much points!)
+    val metricName = "histogramMetric"
+    val to = System.currentTimeMillis()
+    val from = to - FiniteDuration(80, HOURS).toMillis
+    val query = s"""select * from "$metricName" where time >= $from and time <=  $to force group by time (30s)"""
+
+    when(metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
+    when(getStatisticSummaryStore.readAll(FiniteDuration(30, TimeUnit.SECONDS), metricName, Slice(from, to), Int.MaxValue)).thenReturn(Future { Seq() })
+
+    await(search(query))
+
+    verify(metaStore, times(2)).getMetricType(metricName)
+    verify(getStatisticSummaryStore).readAll(FiniteDuration(30, TimeUnit.SECONDS), metricName, Slice(from, to), Int.MaxValue)
+  }
+
   test("Select without time bounds adjust window to the lowest configured resolution") {
     val metricName = "histogramMetric"
     val to = System.currentTimeMillis()

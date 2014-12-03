@@ -60,7 +60,7 @@ trait InfluxQueryResolver extends MetaSupport with Measurable {
     val metricType = metaStore.getMetricType(metricName)
 
     val slice = buildSlice(influxCriteria.filters, influxCriteria.orderAsc)
-    val timeWindow = adjustResolution(slice, influxCriteria.groupBy.duration, metricType)
+    val timeWindow = adjustResolution(slice, influxCriteria.groupBy, metricType)
 
     val maxResults: Int = influxCriteria.limit.getOrElse(Int.MaxValue)
 
@@ -69,20 +69,25 @@ trait InfluxQueryResolver extends MetaSupport with Measurable {
     }
   }
 
-  private def adjustResolution(slice: Slice, desiredTimeWindow: FiniteDuration, metricType: String): FiniteDuration = {
+  private def adjustResolution(slice: Slice, groupBy: GroupBy, metricType: String): FiniteDuration = {
     val sortedWindows = getConfiguredWindows(metricType).sortBy(_.toMillis).reverse
+    val desiredTimeWindow = groupBy.duration
     val nearestConfiguredWindow = sortedWindows.foldLeft(sortedWindows.last)((nearest, next) ⇒ if (millisBetween(desiredTimeWindow, next) < millisBetween(desiredTimeWindow, nearest)) next else nearest)
 
-    val points = resolution(slice, nearestConfiguredWindow)
-    if (points <= maxResolution & points >= minResolution)
+    if (groupBy.forceResolution) {
       nearestConfiguredWindow
-    else {
-      sortedWindows.foldLeft(sortedWindows.head)((adjustedWindow, next) ⇒ {
-        val points = resolution(slice, next)
-        if (points >= minResolution & points <= maxResolution)
-          next
-        else if (points < minResolution) next else adjustedWindow
-      })
+    } else {
+      val points = resolution(slice, nearestConfiguredWindow)
+      if (points <= maxResolution & points >= minResolution)
+        nearestConfiguredWindow
+      else {
+        sortedWindows.foldLeft(sortedWindows.head)((adjustedWindow, next) ⇒ {
+          val points = resolution(slice, next)
+          if (points >= minResolution & points <= maxResolution)
+            next
+          else if (points < minResolution) next else adjustedWindow
+        })
+      }
     }
   }
 
