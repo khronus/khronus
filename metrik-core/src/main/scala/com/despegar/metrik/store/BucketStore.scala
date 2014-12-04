@@ -105,7 +105,7 @@ trait BucketStore[T <: Bucket] extends Logging with Measurable {
     }
   }
 
-  def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[Seq[(Timestamp, () ⇒ T)]] = measureTime("slice", metric, sourceWindow) {
+  def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[Seq[(Timestamp, () ⇒ T)]] = measureFutureTime("slice", metric, sourceWindow) {
     val boundStmt = stmtPerWindow(sourceWindow).selects(SliceQuery).bind(metric.name, Long.box(from.ms), Long.box(to.ms), Int.box(limit))
 
     CassandraBuckets.session.executeAsync(boundStmt).map(resultSet ⇒ {
