@@ -21,10 +21,10 @@ import java.nio.ByteBuffer
 
 import com.despegar.metrik.model.StatisticSummary
 import com.despegar.metrik.util.Settings
-import com.esotericsoftware.kryo.io.{ UnsafeInput, UnsafeOutput }
+import com.despegar.metrik.util.log.Logging
+import com.esotericsoftware.kryo.io.{ Input, Output }
 
 import scala.concurrent.duration._
-import com.despegar.metrik.util.log.Logging
 
 case class ColumnRange(from: Long, to: Long, reversed: Boolean, count: Int)
 
@@ -40,7 +40,7 @@ object CassandraStatisticSummaryStore extends SummaryStore[StatisticSummary] wit
 
   override def serializeSummary(summary: StatisticSummary): ByteBuffer = {
     val baos = new ByteArrayOutputStream()
-    val output = new UnsafeOutput(baos)
+    val output = new Output(baos)
     output.writeByte(1) //version
     output.writeVarLong(summary.p50, true)
     output.writeVarLong(summary.p80, true)
@@ -58,7 +58,7 @@ object CassandraStatisticSummaryStore extends SummaryStore[StatisticSummary] wit
   }
 
   override def deserialize(timestamp: Long, buffer: ByteBuffer): StatisticSummary = {
-    val input = new UnsafeInput(buffer.array())
+    val input = new Input(buffer.array())
     val version = input.readByte()
     if (version == 1) {
       //TODO: versioned
