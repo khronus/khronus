@@ -419,7 +419,8 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     when(parser.metaStore.getMetricType(metricName)).thenReturn(MetricType.Timer)
 
     // Configured windows should be parsed ok
-    val influxCriteriaResult30s = parser.parse(s"""select count(value) as counter from "$metricName" group by time(30s)""")
+    val influxCriteriaResult30s = parser.parse(s"""select count(value) as counter from "$metricName" force group by time(30s)""")
+    influxCriteriaResult30s.groupBy.forceResolution should be(true)
     influxCriteriaResult30s.groupBy.duration.length should be(30)
     influxCriteriaResult30s.groupBy.duration.unit should be(TimeUnit.SECONDS)
 

@@ -34,7 +34,7 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSuppo
 
   val functions = Functions.allNames
 
-  lexical.reserved += ("select", "as", "from", "where", "or", "and", "group_by_time", "limit", "between", "null", "date", "time", "now", "order", "asc", "desc", "percentiles",
+  lexical.reserved += ("select", "as", "from", "where", "or", "and", "group_by_time", "limit", "between", "null", "date", "time", "now", "order", "asc", "desc", "percentiles", "force",
     TimeSuffixes.Seconds, TimeSuffixes.Minutes, TimeSuffixes.Hours, TimeSuffixes.Days, TimeSuffixes.Weeks)
 
   lexical.reserved ++= functions
@@ -171,8 +171,13 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSuppo
     case _                    ⇒ number.toLong
   }
 
+  def isForceResolution(force: Option[String]) = force match {
+    case Some(_) ⇒ true
+    case _       ⇒ false
+  }
+
   private def groupByParser: Parser[GroupBy] =
-    "group_by_time" ~> "(" ~> timeWindowParser <~ ")" ^^ { case timeWindowDuration ⇒ GroupBy(timeWindowDuration) }
+    opt("force") ~ "group_by_time" ~ "(" ~ timeWindowParser ~ ")" ^^ { case force ~ _ ~ _ ~ timeWindowDuration ~ _ ⇒ GroupBy(isForceResolution(force), timeWindowDuration) }
 
   private def timeWindowParser: Parser[FiniteDuration] =
     (numericLit ~ opt(".") ~ opt(numericLit) ~ (TimeSuffixes.Seconds | TimeSuffixes.Minutes | TimeSuffixes.Hours)) ^^ {

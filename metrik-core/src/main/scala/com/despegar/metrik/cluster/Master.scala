@@ -72,13 +72,15 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
     }
 
     case PendingMetrics(metrics) ⇒ {
-      log.info(s"Metrics received: ${metrics.size}, Pending metrics: ${pendingMetrics.size} and ${idleWorkers.size} idle workers")
+      val metricsSize = metrics.size
+      log.info(s"Metrics received: $metricsSize, Pending metrics: ${pendingMetrics.size} and ${idleWorkers.size} idle workers")
       log.debug(s"Pending metrics: $pendingMetrics workers idle: $idleWorkers")
       log.debug(s"Idle workers: $idleWorkers")
 
       recordGauge("idleWorkers", idleWorkers.size)
       recordGauge("pendingMetrics", pendingMetrics.size)
-      recordGauge("metrics", metrics.size)
+      recordGauge("metrics", metricsSize)
+      recordGauge("metricsReceived", metricsSize)
 
       pendingMetrics ++= metrics filterNot (metric ⇒ pendingMetrics contains metric)
 

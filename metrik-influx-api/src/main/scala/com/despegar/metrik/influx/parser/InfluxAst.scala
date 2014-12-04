@@ -52,7 +52,7 @@ object Operators {
 }
 
 // GROUP BY
-case class GroupBy(duration: FiniteDuration) {
+case class GroupBy(forceResolution: Boolean = false, duration: FiniteDuration) {
   override def toString = s"group by $duration"
 }
 
