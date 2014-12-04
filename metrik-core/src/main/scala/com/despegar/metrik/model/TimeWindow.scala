@@ -52,7 +52,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
     val statisticsSummaries = measureFutureTime("calculateSummaries", metric, duration) { storeTemporalFuture flatMap { _ ⇒ resultingBuckets.map(buckets ⇒ buckets map (getSummary(_))) } }
 
     //store the statistic summaries
-    val storeFuture = measureFutureTime("storeSummaries", metric, duration) { statisticsSummaries flatMap (summaries ⇒ summaryStore.store(metric, duration, summaries)) }
+    val storeFuture = statisticsSummaries flatMap (summaries ⇒ summaryStore.store(metric, duration, summaries))
 
     storeFuture
 

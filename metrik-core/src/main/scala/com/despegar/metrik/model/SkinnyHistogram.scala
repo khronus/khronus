@@ -3,7 +3,7 @@ package org.HdrHistogram
 import java.nio.ByteBuffer
 import java.util.zip.{ Deflater, Inflater }
 
-import com.esotericsoftware.kryo.io.{ UnsafeInput, UnsafeOutput }
+import com.esotericsoftware.kryo.io.{ Output, Input, UnsafeInput, UnsafeOutput }
 
 class SkinnyHistogram(lowestValue: Long, maxValue: Long, precision: Int) extends Histogram(lowestValue, maxValue, precision) {
 
@@ -29,8 +29,7 @@ class SkinnyHistogram(lowestValue: Long, maxValue: Long, precision: Int) extends
   }
 
   override def encodeIntoByteBuffer(buffer: ByteBuffer): Int = {
-    val output = new UnsafeOutput(buffer.array())
-    output.supportVarInts(true)
+    val output = new Output(buffer.array())
     output.writeVarInt(numberOfSignificantValueDigits, true)
     output.writeVarLong(lowestDiscernibleValue, true)
     output.writeLong(highestTrackableValue)
@@ -89,8 +88,7 @@ object SkinnyHistogram {
   }
 
   def decodeFromByteBuffer(buffer: ByteBuffer): Histogram = {
-    val input = new UnsafeInput(buffer.array(), 0, buffer.limit())
-    input.setVarIntsEnabled(true)
+    val input = new Input(buffer.array(), 0, buffer.limit())
     val significantValueDigits = input.readVarInt(true)
     val lowest = input.readVarLong(true)
     val highest = input.readLong()

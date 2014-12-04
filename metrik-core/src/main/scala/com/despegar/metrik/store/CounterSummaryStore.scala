@@ -21,7 +21,7 @@ import java.nio.ByteBuffer
 
 import com.despegar.metrik.model.CounterSummary
 import com.despegar.metrik.util.Settings
-import com.esotericsoftware.kryo.io.{ UnsafeInput, UnsafeOutput }
+import com.esotericsoftware.kryo.io.{ Input, Output, UnsafeInput, UnsafeOutput }
 
 import scala.concurrent.duration._
 
@@ -40,7 +40,7 @@ object CassandraCounterSummaryStore extends SummaryStore[CounterSummary] {
 
   override def serializeSummary(summary: CounterSummary): ByteBuffer = {
     val baos = new ByteArrayOutputStream()
-    val output = new UnsafeOutput(baos)
+    val output = new Output(baos)
     output.writeByte(1)
     output.writeVarLong(summary.count, true)
     output.flush()
@@ -50,8 +50,8 @@ object CassandraCounterSummaryStore extends SummaryStore[CounterSummary] {
   }
 
   override def deserialize(timestamp: Long, buffer: Array[Byte]): CounterSummary = {
-    val input = new UnsafeInput(buffer)
-    val version = input.read
+    val input = new Input(buffer)
+    val version: Int = input.readByte
     if (version == 1) {
       //TODO: versioned
     }

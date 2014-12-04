@@ -20,7 +20,7 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 
 import com.despegar.metrik.model.StatisticSummary
-import com.despegar.metrik.util.Settings
+import com.despegar.metrik.util.{ Measurable, Settings }
 import com.esotericsoftware.kryo.io.{ Input, Output }
 
 import scala.concurrent.duration._
@@ -30,7 +30,7 @@ trait StatisticSummarySupport extends SummaryStoreSupport[StatisticSummary] {
   override def summaryStore: SummaryStore[StatisticSummary] = CassandraStatisticSummaryStore
 }
 
-object CassandraStatisticSummaryStore extends SummaryStore[StatisticSummary] with Logging {
+object CassandraStatisticSummaryStore extends SummaryStore[StatisticSummary] with Logging with Measurable {
 
   val windowDurations: Seq[Duration] = Settings.Histogram.WindowDurations
   override val limit = Settings.Histogram.SummaryLimit
@@ -55,7 +55,9 @@ object CassandraStatisticSummaryStore extends SummaryStore[StatisticSummary] wit
     output.writeVarLong(summary.mean, true)
     output.flush()
     baos.flush()
-    ByteBuffer.wrap(baos.toByteArray)
+    val byteArray = baos.toByteArray
+    recordGauge("statisticSummarySerializedBytes", byteArray.length)
+    ByteBuffer.wrap(byteArray)
   }
 
   override def deserialize(timestamp: Long, buffer: Array[Byte]): StatisticSummary = {

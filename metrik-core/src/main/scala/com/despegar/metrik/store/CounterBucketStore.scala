@@ -20,7 +20,8 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 
 import com.despegar.metrik.model.{ Timestamp, _ }
-import com.despegar.metrik.util.Settings
+import com.despegar.metrik.store.CassandraHistogramBucketStore._
+import com.despegar.metrik.util.{ Measurable, Settings }
 import com.esotericsoftware.kryo.io.{ UnsafeInput, UnsafeOutput }
 
 import scala.concurrent.duration._
@@ -29,7 +30,7 @@ trait CounterBucketStoreSupport extends BucketStoreSupport[CounterBucket] {
   override def bucketStore: BucketStore[CounterBucket] = CassandraCounterBucketStore
 }
 
-object CassandraCounterBucketStore extends BucketStore[CounterBucket] {
+object CassandraCounterBucketStore extends BucketStore[CounterBucket] with Measurable {
 
   val windowDurations: Seq[Duration] = Settings.Counter.WindowDurations
   override val limit: Int = Settings.Counter.BucketLimit
@@ -49,7 +50,9 @@ object CassandraCounterBucketStore extends BucketStore[CounterBucket] {
     output.flush()
     baos.flush()
     output.close()
-    val buffer = ByteBuffer.wrap(baos.toByteArray)
+    val array: Array[Byte] = baos.toByteArray
+    val buffer = ByteBuffer.wrap(array)
+    recordGauge(formatLabel("serializedBucketBytes", metric, windowDuration), array.length)
     output.close()
     buffer
   }

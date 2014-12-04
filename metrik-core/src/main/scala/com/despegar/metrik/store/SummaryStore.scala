@@ -20,6 +20,7 @@ import java.nio.ByteBuffer
 import java.util.concurrent.Executors
 
 import com.despegar.metrik.model.{ Metric, Summary }
+import com.despegar.metrik.util.Measurable
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
@@ -35,7 +36,7 @@ trait SummaryStoreSupport[T <: Summary] {
   def summaryStore: SummaryStore[T]
 }
 
-trait SummaryStore[T <: Summary] extends Logging {
+trait SummaryStore[T <: Summary] extends Logging with Measurable {
 
   import CassandraSummaries._
 
@@ -74,14 +75,16 @@ trait SummaryStore[T <: Summary] extends Logging {
 
   def store(metric: Metric, windowDuration: Duration, summaries: Seq[T]): Future[Unit] = {
     ifNotEmpty(summaries) {
-      log.debug(s"$metric - Storing ${summaries.size} summaries ($summaries) of $windowDuration")
+      measureFutureTime("storeSummaries", metric, windowDuration) {
+        log.debug(s"$metric - Storing ${summaries.size} summaries ($summaries) of $windowDuration")
 
-      val batchStmt = new BatchStatement();
-      summaries.foreach(summary ⇒ batchStmt.add(stmtPerWindow(windowDuration).insert.bind(metric.name, Long.box(summary.timestamp.ms), serializeSummary(summary))))
+        val batchStmt = new BatchStatement();
+        summaries.foreach(summary ⇒ batchStmt.add(stmtPerWindow(windowDuration).insert.bind(metric.name, Long.box(summary.timestamp.ms), serializeSummary(summary))))
 
-      toFutureUnit {
-        CassandraSummaries.session.executeAsync(batchStmt).
-          andThen { case Failure(reason) ⇒ log.error(s"$metric - Storing summary of $windowDuration failed", reason) }
+        toFutureUnit {
+          CassandraSummaries.session.executeAsync(batchStmt).
+            andThen { case Failure(reason) ⇒ log.error(s"$metric - Storing summary of $windowDuration failed", reason) }
+        }
       }
     }
   }

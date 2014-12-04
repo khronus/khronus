@@ -19,7 +19,7 @@ package com.despegar.metrik.store
 import java.nio.ByteBuffer
 
 import com.despegar.metrik.model._
-import com.despegar.metrik.util.Settings
+import com.despegar.metrik.util.{ Measurable, Settings }
 import org.HdrHistogram.{ Histogram, SkinnyHistogram }
 
 import scala.concurrent.duration._
@@ -29,7 +29,7 @@ trait HistogramBucketSupport extends BucketStoreSupport[HistogramBucket] {
   override def bucketStore: BucketStore[HistogramBucket] = CassandraHistogramBucketStore
 }
 
-object CassandraHistogramBucketStore extends BucketStore[HistogramBucket] with Logging with MonitoringSupport {
+object CassandraHistogramBucketStore extends BucketStore[HistogramBucket] with Logging with Measurable {
 
   val windowDurations: Seq[Duration] = Settings.Histogram.WindowDurations
   override val limit: Int = Settings.Histogram.BucketLimit
@@ -45,6 +45,7 @@ object CassandraHistogramBucketStore extends BucketStore[HistogramBucket] with L
     val buffer = ByteBuffer.allocate(bucket.histogram.getEstimatedFootprintInBytes)
     val bytesEncoded = bucket.histogram.encodeIntoCompressedByteBuffer(buffer)
     log.debug(s"$metric- Histogram of $windowDuration with ${bucket.histogram.getTotalCount()} measures encoded and compressed into $bytesEncoded bytes")
+    recordGauge(formatLabel("serializedBucketBytes", metric, windowDuration), bytesEncoded)
     buffer.limit(bytesEncoded)
     buffer.rewind()
     buffer
