@@ -18,18 +18,15 @@ package com.despegar.metrik.store
 
 import java.util.concurrent.{ ConcurrentLinkedQueue, TimeUnit }
 
-import scala.annotation.tailrec
-import scala.collection.mutable.Buffer
-import scala.concurrent.Promise
-import scala.util.Success
-import java.util.concurrent.Executors
-import scala.collection.JavaConverters._
-import scala.concurrent.{ ExecutionContext, Future }
-import scala.util.Failure
-import com.despegar.metrik.model.Metric
-import com.despegar.metrik.model.Timestamp
-import com.despegar.metrik.util.log.Logging
 import com.datastax.driver.core.BatchStatement
+import com.despegar.metrik.model.{ Metric, Timestamp }
+import com.despegar.metrik.util.log.Logging
+
+import scala.annotation.tailrec
+import scala.collection.JavaConverters._
+import scala.collection.mutable.Buffer
+import scala.concurrent.{ Future, Promise }
+import scala.util.{ Failure, Success }
 
 case class MetricMetadata(metric: Metric, timestamp: Timestamp)
 
@@ -62,20 +59,17 @@ object CassandraMetaStore extends MetaStore with Logging {
   private lazy val GetByKeyStmt = CassandraMeta.session.prepare(s"select metric, timestamp from meta where key = ?;")
   private lazy val GetLastProcessedTimeStmt = CassandraMeta.session.prepare(s"select timestamp from meta where key = ? and metric = ?;")
 
-  implicit val asyncExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(5))
+  implicit val asyncExecutionContext = executionContext("meta-worker", 5)
 
   private val queue = new ConcurrentLinkedQueue[(Promise[Unit], MetricMetadata)]()
 
-  val asyncUpdateExecutor = Executors.newScheduledThreadPool(1)
+  val asyncUpdateExecutor = scheduledThreadPool("meta-writer-worker")
+
   asyncUpdateExecutor.scheduleAtFixedRate(new Runnable() {
     override def run = updateAsync
   }, 1, 1, TimeUnit.SECONDS)
-  sys.addShutdownHook({
-    log.info("Shutting down asyncUpdateExecutor[MetaStore] pool")
-    asyncUpdateExecutor.shutdown()
-  })
 
-  import CassandraMeta._
+  import com.despegar.metrik.store.CassandraMeta._
 
   def initialize = CassandraMeta.session.execute(CreateTableStmt)
 
@@ -174,4 +168,6 @@ object CassandraMetaStore extends MetaStore with Logging {
   }
 
   override def context = asyncExecutionContext
+
+  override val snapshotName = "meta"
 }

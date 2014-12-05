@@ -55,18 +55,19 @@ class MasterSpec extends TestKitBase with ImplicitSender
   "The Master actor" should {
 
     "send a Broadcast to heartbeat all workers every discovery-interval" in new ScheduledMasterProbeWorkerFixture {
+      val timeout: FiniteDuration = 200 millis
 
       withDelay(1000) {
         // First heartbeat is after discovery-start-delay
-        workerProbe1.expectMsg(100 millis, Heartbeat)
-        workerProbe2.expectMsg(100 millis, Heartbeat)
+        workerProbe1.expectMsg(timeout, Heartbeat)
+        workerProbe2.expectMsg(timeout, Heartbeat)
       }
 
       for (_ ← 1 to 2) {
         withDelay(2000) {
           // Other hertbeats are after each discovery-interval
-          workerProbe1.expectMsg(100 millis, Heartbeat)
-          workerProbe2.expectMsg(100 millis, Heartbeat)
+          workerProbe1.expectMsg(timeout, Heartbeat)
+          workerProbe2.expectMsg(timeout, Heartbeat)
         }
       }
 
@@ -298,6 +299,7 @@ class MasterSpec extends TestKitBase with ImplicitSender
   }
 
   trait DummyMetricFinder extends MetricFinder {
+
     import scala.concurrent.Future
 
     override def lookupMetrics: Future[Seq[Metric]] = Future(Seq(Metric("a", "histogram"), Metric("b", "histogram"), Metric("c", "histogram"), Metric("d", "histogram"), Metric("e", "histogram")))

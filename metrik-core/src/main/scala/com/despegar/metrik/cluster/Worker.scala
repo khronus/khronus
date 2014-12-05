@@ -41,11 +41,11 @@ class Worker extends Actor with ActorLogging with TimeWindowChainProvider with M
   }
 
   def process(metric: Metric, requestor: ActorRef) {
-    log.info(s"Starting to process: $metric")
+    log.debug(s"Starting to process: $metric")
 
     timeWindowChain.process(metric) onComplete {
       case Success(_) ⇒
-        log.info(s"Worker ${self.path} has processed $metric successfully")
+        log.debug(s"Worker ${self.path} has processed $metric successfully")
         requestor ! WorkDone(self)
       case Failure(NonFatal(reason)) ⇒
         log.error(reason, s"Error processing $metric")

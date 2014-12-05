@@ -1,10 +1,10 @@
 package com.despegar.metrik.store
 
 import com.despegar.metrik.model.{ Metric, MetricMeasurement, _ }
+import com.despegar.metrik.util.ConcurrencySupport
 import com.despegar.metrik.util.log.Logging
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration._
 
 trait MetricMeasurementStoreSupport {
@@ -15,7 +15,10 @@ trait MetricMeasurementStore {
   def storeMetricMeasurements(metricMeasurements: List[MetricMeasurement])
 }
 
-object CassandraMetricMeasurementStore extends MetricMeasurementStore with BucketSupport with MetaSupport with Logging {
+object CassandraMetricMeasurementStore extends MetricMeasurementStore with BucketSupport with MetaSupport with Logging with ConcurrencySupport {
+
+  implicit val executionContext: ExecutionContext = executionContext("metric-receiver-worker")
+
   def storeMetricMeasurements(metricMeasurements: List[MetricMeasurement]) = {
     store(metricMeasurements)
   }
@@ -33,9 +36,8 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
     val metric = metricMeasurement.asMetric
     log.debug(s"Storing metric $metric")
     metric.mtype match {
-      case MetricType.Timer   ⇒ storeHistogramMetric(metric, metricMeasurement)
-      case MetricType.Counter ⇒ storeCounterMetric(metric, metricMeasurement)
-      case MetricType.Gauge   ⇒ storeHistogramMetric(metric, metricMeasurement)
+      case MetricType.Timer | MetricType.Gauge ⇒ storeHistogramMetric(metric, metricMeasurement)
+      case MetricType.Counter                  ⇒ storeCounterMetric(metric, metricMeasurement)
       case _ ⇒ {
         val msg = s"Discarding $metric. Unknown metric type: ${metric.mtype}"
         log.warn(msg)

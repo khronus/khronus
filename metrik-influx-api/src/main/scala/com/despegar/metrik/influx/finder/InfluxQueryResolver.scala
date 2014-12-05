@@ -16,29 +16,21 @@
 
 package com.despegar.metrik.influx.finder
 
-import com.despegar.metrik.influx.parser._
-import com.despegar.metrik.influx.service.{ InfluxSeries, InfluxEndpoint }
-import com.despegar.metrik.model._
-import com.despegar.metrik.store._
-import scala.concurrent.ExecutionContext.Implicits.global
+import com.despegar.metrik.influx.parser.{ Field, StringFilter, TimeFilter, _ }
+import com.despegar.metrik.influx.service.{ InfluxEndpoint, InfluxSeries }
+import com.despegar.metrik.model.{ CounterSummary, StatisticSummary, _ }
+import com.despegar.metrik.store.{ Slice, _ }
+import com.despegar.metrik.util.{ ConcurrencySupport, Measurable, Settings }
 
-import scala.concurrent.Future
-import scala.concurrent.duration.FiniteDuration
 import scala.collection.concurrent.TrieMap
-import com.despegar.metrik.model.CounterSummary
-import com.despegar.metrik.influx.parser.TimeFilter
-import com.despegar.metrik.influx.parser.StringFilter
-import com.despegar.metrik.model.StatisticSummary
-import com.despegar.metrik.influx.parser.Field
-import com.despegar.metrik.influx.service.InfluxSeries
-import com.despegar.metrik.store.Slice
-import com.despegar.metrik.util.{ Measurable, Settings }
+import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.duration.FiniteDuration
 
-trait InfluxQueryResolver extends MetaSupport with Measurable {
+trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySupport {
   this: InfluxEndpoint ⇒
 
-  import InfluxQueryResolver._
-
+  import com.despegar.metrik.influx.finder.InfluxQueryResolver._
+  implicit val executionContext: ExecutionContext = executionContext("influx-query-resolver-worker")
   lazy val parser = new InfluxQueryParser
 
   def search(search: String): Future[Seq[InfluxSeries]] = search match {
@@ -93,6 +85,7 @@ trait InfluxQueryResolver extends MetaSupport with Measurable {
 
   protected lazy val maxResolution: Int = Settings.Dashboard.MaxResolutionPoints
   protected lazy val minResolution: Int = Settings.Dashboard.MinResolutionPoints
+
   protected def getConfiguredWindows(metricType: String): Seq[FiniteDuration] = Settings.getConfiguredWindows(metricType)
 
   private def resolution(slice: Slice, timeWindow: FiniteDuration) = {
@@ -110,6 +103,7 @@ trait InfluxQueryResolver extends MetaSupport with Measurable {
   }
 
   protected def getStatisticSummaryStore: SummaryStore[StatisticSummary] = CassandraStatisticSummaryStore
+
   protected def getCounterSummaryStore: SummaryStore[CounterSummary] = CassandraCounterSummaryStore
 
   private def toInfluxSeries(summaries: Seq[Summary], functions: Seq[Field], metricName: String): Seq[InfluxSeries] = {

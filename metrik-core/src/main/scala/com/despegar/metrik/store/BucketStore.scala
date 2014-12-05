@@ -18,24 +18,26 @@ package com.despegar.metrik.store
 
 import java.nio.ByteBuffer
 import java.util.concurrent.{ ExecutorService, Executors }
+
+import com.datastax.driver.core.utils.Bytes
+import com.datastax.driver.core.{ BatchStatement, SimpleStatement }
 import com.despegar.metrik.model.{ Bucket, Metric, Timestamp }
-import com.despegar.metrik.util.Measurable
+import com.despegar.metrik.util.{ ConcurrencySupport, Measurable }
+import com.despegar.metrik.util.log.Logging
+
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future }
-import scala.util.{ Success, Failure }
-import com.despegar.metrik.util.log.Logging
-import com.datastax.driver.core.{ PreparedStatement, SimpleStatement, BatchStatement }
-import com.datastax.driver.core.utils.Bytes
+import scala.util.Failure
 
 trait BucketStoreSupport[T <: Bucket] {
 
   def bucketStore: BucketStore[T]
 }
 
-trait BucketStore[T <: Bucket] extends Logging with Measurable {
+trait BucketStore[T <: Bucket] extends Logging with Measurable with ConcurrencySupport {
 
-  import CassandraBuckets._
+  import com.despegar.metrik.store.CassandraBuckets._
 
   protected def tableName(duration: Duration): String
 
@@ -51,9 +53,7 @@ trait BucketStore[T <: Bucket] extends Logging with Measurable {
 
   protected def serializeBucket(metric: Metric, windowDuration: Duration, bucket: T): ByteBuffer
 
-  implicit val pool: ExecutorService = Executors.newFixedThreadPool(50)
-
-  implicit val asyncExecutionContext: ExecutionContext = ExecutionContext.fromExecutor(pool)
+  implicit val asyncExecutionContext: ExecutionContext = executionContext("bucket-store-worker", 50)
 
   val SliceQuery = "sliceQuery"
 

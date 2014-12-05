@@ -19,15 +19,16 @@ package com.despegar.metrik.model
 import com.despegar.metrik.model.CounterBucket._
 import com.despegar.metrik.model.HistogramBucket._
 import com.despegar.metrik.store._
-import com.despegar.metrik.util.Measurable
 import com.despegar.metrik.util.log.Logging
+import com.despegar.metrik.util.{ ConcurrencySupport, Measurable }
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
 import scala.concurrent.duration.Duration
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.{ Failure, Success }
 
-abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[T] with SummaryStoreSupport[U] with MetaSupport with Logging with Measurable {
+abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[T] with SummaryStoreSupport[U] with MetaSupport with Logging with Measurable with ConcurrencySupport {
+
+  implicit val executionContext: ExecutionContext = executionContext("time-window-worker")
 
   def process(metric: Metric, tick: Tick): scala.concurrent.Future[Unit] = measureFutureTime("processWindow", metric, duration) {
     log.debug(s"${p(metric, duration)} - Processing time window for ${Tick(tick.bucketNumber ~ duration)}")
@@ -55,9 +56,6 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
     val storeFuture = statisticsSummaries flatMap (summaries ⇒ summaryStore.store(metric, duration, summaries))
 
     storeFuture
-
-    //remove previous histogram buckets
-    //storeFuture flatMap { _ ⇒ previousWindowBuckets flatMap (windowTuples ⇒ bucketStore.remove(metric, previousWindowDuration, windowTuples.map(_._1))) }
   }
 
   protected def getSummary(bucket: T): U

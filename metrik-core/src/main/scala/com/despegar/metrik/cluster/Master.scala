@@ -94,7 +94,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
         val worker = idleWorkers.head
         val pending = pendingMetrics.head
 
-        log.info(s"Dispatching $pending to ${worker.path}")
+        log.debug(s"Dispatching $pending to ${worker.path}")
         incrementCounter("dispatch")
         worker ! Work(pending)
 
@@ -113,7 +113,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
     case WorkDone(worker) ⇒
       if (pendingMetrics.nonEmpty) {
         val pending = pendingMetrics.head
-        log.info(s"Fast-Dispatching $pending to ${worker.path}")
+        log.debug(s"Fast-Dispatching $pending to ${worker.path}")
         incrementCounter("fastDispatch")
         worker ! Work(pending)
         pendingMetrics = pendingMetrics.tail

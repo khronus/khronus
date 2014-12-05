@@ -20,7 +20,7 @@ import java.nio.ByteBuffer
 import java.util.concurrent.Executors
 
 import com.despegar.metrik.model.{ Metric, Summary }
-import com.despegar.metrik.util.Measurable
+import com.despegar.metrik.util.{ ConcurrencySupport, Measurable }
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
@@ -36,7 +36,7 @@ trait SummaryStoreSupport[T <: Summary] {
   def summaryStore: SummaryStore[T]
 }
 
-trait SummaryStore[T <: Summary] extends Logging with Measurable {
+trait SummaryStore[T <: Summary] extends Logging with Measurable with ConcurrencySupport {
 
   import CassandraSummaries._
 
@@ -49,7 +49,7 @@ trait SummaryStore[T <: Summary] extends Logging with Measurable {
   protected def deserialize(timestamp: Long, buffer: Array[Byte]): T
   protected def serializeSummary(summary: T): ByteBuffer
 
-  implicit val asyncExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(50))
+  implicit val asyncExecutionContext = executionContext("summary-store-worker", 50)
 
   val QueryAsc = "queryAsc"
   val QueryDesc = "queryDesc"

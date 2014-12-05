@@ -20,9 +20,8 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 
 import com.despegar.metrik.model.{ Timestamp, _ }
-import com.despegar.metrik.store.CassandraHistogramBucketStore._
 import com.despegar.metrik.util.{ Measurable, Settings }
-import com.esotericsoftware.kryo.io.{ UnsafeInput, UnsafeOutput }
+import com.esotericsoftware.kryo.io.{ Input, Output }
 
 import scala.concurrent.duration._
 
@@ -44,7 +43,7 @@ object CassandraCounterBucketStore extends BucketStore[CounterBucket] with Measu
 
   override def serializeBucket(metric: Metric, windowDuration: Duration, bucket: CounterBucket): ByteBuffer = {
     val baos = new ByteArrayOutputStream()
-    val output = new UnsafeOutput(baos)
+    val output = new Output(baos)
     output.writeByte(1)
     output.writeVarLong(bucket.counts, true)
     output.flush()
@@ -58,7 +57,7 @@ object CassandraCounterBucketStore extends BucketStore[CounterBucket] with Measu
   }
 
   private def deserializeCounts(buffer: Array[Byte]): Long = {
-    val input = new UnsafeInput(buffer)
+    val input = new Input(buffer)
     val version = input.readByte()
     if (version == 1) {
       //TODO: versioned

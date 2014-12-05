@@ -16,10 +16,8 @@
 
 package com.despegar.metrik.util
 
-import akka.actor._
-import com.despegar.metrik.model.{ MetricType, CounterTimeWindow, HistogramTimeWindow }
-import com.despegar.metrik.service.ActorSystemSupport
-import com.typesafe.config.{ ConfigFactory, Config }
+import com.despegar.metrik.model.{ CounterTimeWindow, HistogramTimeWindow, MetricType }
+import com.typesafe.config.ConfigFactory
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.{ FiniteDuration, _ }

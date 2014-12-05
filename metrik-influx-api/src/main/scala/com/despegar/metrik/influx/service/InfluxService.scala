@@ -18,16 +18,16 @@ package com.despegar.metrik.influx.service
 
 import akka.actor.Props
 import com.despegar.metrik.influx.finder.{ DashboardSupport, InfluxQueryResolver }
-import com.despegar.metrik.util.CORSSupport
+import com.despegar.metrik.util.log.Logging
+import com.despegar.metrik.util.{ CORSSupport, ConcurrencySupport }
 import spray.http.MediaTypes._
 import spray.http.StatusCodes._
 import spray.httpx.encoding.{ Gzip, NoEncoding }
 import spray.routing.{ HttpService, HttpServiceActor, Route }
 import InfluxSeriesProtocol.influxSeriesFormat
-
-import scala.concurrent.ExecutionContext.Implicits.global
 import com.despegar.metrik.service.MetrikHandlerException
-import com.despegar.metrik.util.log.Logging
+
+import scala.concurrent.ExecutionContext
 
 class InfluxActor extends HttpServiceActor with InfluxEndpoint with MetrikHandlerException {
   def receive = runRoute(influxServiceRoute)
@@ -35,13 +35,16 @@ class InfluxActor extends HttpServiceActor with InfluxEndpoint with MetrikHandle
 
 object InfluxActor {
   def props = Props[InfluxActor]
+
   val Name = "influx-actor"
   val Path = "metrik/influx"
 }
 
-trait InfluxEndpoint extends HttpService with Logging with CORSSupport with InfluxQueryResolver with DashboardSupport {
-  import DashboardProtocol._
+trait InfluxEndpoint extends HttpService with Logging with CORSSupport with InfluxQueryResolver with DashboardSupport with ConcurrencySupport {
 
+  import com.despegar.metrik.influx.service.DashboardProtocol._
+
+  implicit val ex: ExecutionContext = executionContext("influx-endpoint-worker")
   val influxServiceRoute: Route =
     compressResponse(NoEncoding, Gzip) {
       respondWithCORS {
@@ -50,8 +53,16 @@ trait InfluxEndpoint extends HttpService with Logging with CORSSupport with Infl
             parameters('q.?, 'p, 'u) { (query, password, username) ⇒
               query.map { q ⇒
                 log.info(s"GET /metrik/influx - Query: [$q]")
-                respondWithMediaType(`application/json`) { complete { search(q) } }
-              } getOrElse { complete { (OK, s"Authenticated with username: $username and password: " + password) } }
+                respondWithMediaType(`application/json`) {
+                  complete {
+                    search(q)
+                  }
+                }
+              } getOrElse {
+                complete {
+                  (OK, s"Authenticated with username: $username and password: " + password)
+                }
+              }
             }
           }
         } ~
@@ -59,13 +70,17 @@ trait InfluxEndpoint extends HttpService with Logging with CORSSupport with Infl
             get {
               parameters('q) { query ⇒
                 respondWithMediaType(`application/json`) {
-                  complete { (OK, dashboardResolver.dashboardOperation(query)) }
+                  complete {
+                    (OK, dashboardResolver.dashboardOperation(query))
+                  }
                 }
               }
             } ~
               post {
                 entity(as[Seq[Dashboard]]) { dashboards ⇒
-                  complete { dashboardResolver.store(dashboards.head) }
+                  complete {
+                    dashboardResolver.store(dashboards.head)
+                  }
                 }
               }
           }
