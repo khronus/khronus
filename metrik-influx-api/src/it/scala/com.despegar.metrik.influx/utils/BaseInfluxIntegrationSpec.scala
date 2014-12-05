@@ -17,16 +17,18 @@
 package com.despegar.metrik.influx.finder
 
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FunSuite}
-import com.despegar.metrik.store.Cassandra
 import scala.concurrent.{Await, Future}
 import scala.util.Try
 import scala.concurrent.duration._
+import com.despegar.metrik.influx.store.CassandraDashboards
+import com.despegar.metrik.store.CassandraCluster
 
 trait BaseInfluxIntegrationSpec extends FunSuite with BeforeAndAfterAll with BeforeAndAfter {
   def tableNames: Seq[String] = Seq.empty[String]
 
   override def beforeAll = {
-    Cassandra.initialize
+
+    CassandraDashboards.initialize
     InfluxDashboardResolver.initialize
 
     truncateTables
@@ -41,7 +43,7 @@ trait BaseInfluxIntegrationSpec extends FunSuite with BeforeAndAfterAll with Bef
   def await[T](f: => Future[T]):T = Await.result(f, 3 seconds)
 
   def truncateTables = Try {
-    tableNames.foreach(table => Cassandra.truncate(table))
+    tableNames.foreach(table => CassandraDashboards.truncate(table))
   }
 
 }

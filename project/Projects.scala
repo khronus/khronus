@@ -54,11 +54,16 @@ object Projects extends Build {
 
   lazy val metrikInflux = Project("metrik-influx-api", file("metrik-influx-api"))
     .dependsOn(metrikCore)
+    .configs(IntegrationTest)
     .settings(basicSettings: _*)
     .settings(formatSettings: _*)
+    .settings(itSettings: _*)
+    .settings(itExtraSettings: _*)
     .settings(libraryDependencies ++=
       compile(parserCombinators, sprayClient, sprayCan, sprayRouting, sprayJson, akkaActor, commonsCodec) ++
-      test(sprayTestKit, mockito, akkaTestKit, scalaTest, specs2, mockito))
+      test(sprayTestKit, mockito, akkaTestKit, scalaTest, specs2, mockito) ++
+      it(scalaTest)
+    )
 
   val noPublishing = Seq(publish :=(), publishLocal :=(), publishArtifact := false)
 }
