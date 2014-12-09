@@ -8,7 +8,7 @@
     </appender>
 
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/metrik.log</file>
+        <file>logs/khronus.log</file>
         <append>true</append>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <FileNamePattern>logFile.%d{yyyy-MM-dd}.log</FileNamePattern>
@@ -23,8 +23,8 @@
         <appender-ref ref="FILE"/>
     </appender>
 
-    <logger name="com.despegar.metrik" level="debug"/>
-    <logger name="com.despegar.metrik.cluster" level="debug"/>
+    <logger name="com.despegar.khronus" level="debug"/>
+    <logger name="com.despegar.khronus.cluster" level="debug"/>
 
     <root level="info">
         <appender-ref ref="ASYNC"/>

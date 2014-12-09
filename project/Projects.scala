@@ -13,14 +13,14 @@ object Projects extends Build {
   import Packager._
 
   lazy val root = Project("root", file("."))
-    .aggregate(metrik,metrikCore, metrikStress, metrikInflux)
+    .aggregate(khronus,khronusCore, khronusStress, khronusInflux)
     .settings(basicSettings: _*)
     .settings(formatSettings: _*)
     .settings(eclipseSettings: _*)
     .settings(noPublishing: _*)
 
-  lazy val metrik = Project("metrik", file("metrik"))
-    .dependsOn(metrikCore, metrikInflux, metrikStress)
+  lazy val khronus = Project("khronus", file("khronus"))
+    .dependsOn(khronusCore, khronusInflux, khronusStress)
     .settings(basicSettings: _*)
     .settings(formatSettings: _*)
     .settings(packagerSettings: _*)
@@ -28,7 +28,7 @@ object Projects extends Build {
               compile(sprayCan, sprayJson, akkaActor))
 
 
-  lazy val metrikCore = Project("metrik-core", file("metrik-core"))
+  lazy val khronusCore = Project("khronus-core", file("khronus-core"))
     .settings(basicSettings: _*)
     .settings(formatSettings: _*)
     .configs(IntegrationTest)
@@ -43,8 +43,8 @@ object Projects extends Build {
       test(sprayTestKit, mockito, akkaTestKit, multiNodeTestKit, scalaTest, specs2, mockito) ++
       it(scalaTest))
 
-  lazy val metrikStress = Project("metrik-stress", file("metrik-stress"))
-    .dependsOn(metrikCore)
+  lazy val khronusStress = Project("khronus-stress", file("khronus-stress"))
+    .dependsOn(khronusCore)
     .settings(basicSettings: _*)
     .settings(formatSettings: _*)
     .settings(noPublishing: _*)
@@ -52,8 +52,8 @@ object Projects extends Build {
       compile(sprayClient, sprayCan, sprayJson, akkaActor))
 
 
-  lazy val metrikInflux = Project("metrik-influx-api", file("metrik-influx-api"))
-    .dependsOn(metrikCore)
+  lazy val khronusInflux = Project("khronus-influx-api", file("khronus-influx-api"))
+    .dependsOn(khronusCore)
     .configs(IntegrationTest)
     .settings(basicSettings: _*)
     .settings(formatSettings: _*)
