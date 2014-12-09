@@ -3,11 +3,10 @@ package com.despegar.metrik.model
 import java.util.concurrent.{ ConcurrentLinkedQueue, Executors, TimeUnit }
 
 import com.despegar.metrik.store.MetricMeasurementStoreSupport
-import com.despegar.metrik.util.Settings
+import com.despegar.metrik.util.log.Logging
+import com.despegar.metrik.util.{ ConcurrencySupport, Settings }
 
 import scala.collection.mutable.{ Buffer, Map }
-import scala.concurrent.ExecutionContext
-import com.despegar.metrik.util.log.Logging
 
 trait MonitoringSupport {
   def recordTime(metricName: String, time: Long): Unit = Monitoring.recordTime(metricName, time)
@@ -22,31 +21,31 @@ trait MonitoringSupport {
 
 }
 
-object Monitoring extends MetricMeasurementStoreSupport with Logging {
+object Monitoring extends MetricMeasurementStoreSupport with Logging with ConcurrencySupport {
 
   val queue = new ConcurrentLinkedQueue[MonitoringMetric]()
-
-  implicit val executor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(1))
 
   val enabled = Settings.InternalMetrics.Enabled
 
   val schedule = enabled {
-    val scheduler = Executors.newScheduledThreadPool(1)
+    val scheduler = scheduledThreadPool("monitoring-flusher-worker")
     scheduler.scheduleAtFixedRate(new Runnable() {
       override def run() = flush
-    }, 0, 5, TimeUnit.SECONDS)
+    }, 0, 2, TimeUnit.SECONDS)
 
-    sys.addShutdownHook({
-      log.info("Shutting down asyncUpdateExecutor[Monitoring] pool")
-      scheduler.shutdown()
-    })
   }
 
   def enabled(block: ⇒ Unit): Unit = {
     if (enabled) block
   }
 
-  def flush() = write(drained(queue))
+  def flush() = {
+    try {
+      write(drained(queue))
+    } catch {
+      case e: Throwable ⇒ log.error(s"Error flushing monitoring metrics: ${e.getMessage()}", e)
+    }
+  }
 
   private def write(metrics: Seq[MonitoringMetric]) = {
     val rawMetricMeasurements = Map[String, Map[String, Map[Long, Buffer[Long]]]]()

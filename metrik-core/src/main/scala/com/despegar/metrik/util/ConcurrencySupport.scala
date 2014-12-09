@@ -2,6 +2,7 @@ package com.despegar.metrik.util
 
 import java.util.concurrent._
 
+import com.despegar.metrik.model.Monitoring
 import com.despegar.metrik.util.log.Logging
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
@@ -54,7 +55,7 @@ object ConcurrencySupport extends Measurable {
 
   monitoringScheduler.scheduleAtFixedRate(new Runnable() {
     override def run = reportPoolStatus
-  }, 0, 2, TimeUnit.SECONDS)
+  }, 0, 1, TimeUnit.SECONDS)
 
   private def reportPoolStatus = {
     pools.asScala.foreach { entry ⇒
@@ -65,6 +66,7 @@ object ConcurrencySupport extends Measurable {
       recordGauge(s"pool.$name.threads.active", pool.getActiveCount)
       recordGauge(s"pool.$name.queue.size", pool.getQueue.size())
     }
+    recordGauge("monitoring.queue.size", Monitoring.queue.size())
   }
 
 }
