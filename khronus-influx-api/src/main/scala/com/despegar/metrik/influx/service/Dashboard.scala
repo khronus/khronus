@@ -1,8 +1,3 @@
 package com.despegar.metrik.influx.service
 
-/**
- * Created by dberjman on 12/10/14.
- */
-class Dashboard {
-
-}
+case class Dashboard(name: String, columns: Vector[String] = Vector.empty, points: Vector[Vector[String]] = Vector.empty)
