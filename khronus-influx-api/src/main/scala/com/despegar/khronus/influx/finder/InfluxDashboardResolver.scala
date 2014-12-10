@@ -60,7 +60,7 @@ object InfluxDashboardResolver extends DashboardResolver with Logging {
   private lazy val DeleteStmt = CassandraDashboards.session.prepare("delete from dashboard where key = ? and name = ?;")
   private lazy val InsertStmt = CassandraDashboards.session.prepare("insert into dashboard (key, name, content) values (?, ?, ?);")
 
-  val serializer: KryoSerializer[com.despegar.metrik.influx.service.Dashboard] = new KryoSerializer(DashboardsKey, List(com.despegar.metrik.influx.service.Dashboard.getClass))
+  val Serializer: KryoSerializer[Dashboard] = new KryoSerializer(DashboardsKey, List(Dashboard.getClass))
 
   def initialize = CassandraDashboards.session.execute(s"create table if not exists dashboard (key text, name text, content blob, primary key (key, name));")
 
@@ -88,10 +88,7 @@ object InfluxDashboardResolver extends DashboardResolver with Logging {
 
     CassandraDashboards.session.executeAsync(GetAllStmt.bind(DashboardsKey)).
       map(resultSet ⇒ {
-        val dashboards = resultSet.all().asScala.filter(_.getString("name").matches(expression)).map(row ⇒ {
-          val dashboard = serializer.deserialize(Bytes.getArray(row.getBytes("content")))
-          new Dashboard(dashboard.name, dashboard.columns, dashboard.points)
-        })
+        val dashboards = resultSet.all().asScala.filter(_.getString("name").matches(expression)).map(row ⇒ Serializer.deserialize(Bytes.getArray(row.getBytes("content"))))
         log.debug(s"Found ${dashboards.length} dashboards")
         dashboards
       }).
@@ -110,7 +107,7 @@ object InfluxDashboardResolver extends DashboardResolver with Logging {
     val name = new String(Base64.decodeBase64(dashboard.name.split("_").last))
     log.debug(s"Storing dashboard with name: ${name}")
 
-    CassandraDashboards.session.executeAsync(InsertStmt.bind(DashboardsKey, name, ByteBuffer.wrap(serializer.serialize(new com.despegar.metrik.influx.service.Dashboard(dashboard.name, dashboard.columns, dashboard.points))))).
+    CassandraDashboards.session.executeAsync(InsertStmt.bind(DashboardsKey, name, ByteBuffer.wrap(Serializer.serialize(dashboard)))).
       map(_ ⇒ name).
       andThen { case Failure(reason) ⇒ log.error(s"Failed to save dashboard ${dashboard.name}", reason) }
   }
