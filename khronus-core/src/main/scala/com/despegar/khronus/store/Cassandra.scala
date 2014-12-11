@@ -135,7 +135,9 @@ trait CassandraSupport extends Logging {
 
 }
 
-object CassandraMeta extends CassandraMeta
+object CassandraMeta extends CassandraMeta {
+  initialize
+}
 
 trait CassandraMeta extends CassandraSupport {
   override def keyspace = "meta"
@@ -149,7 +151,9 @@ trait CassandraMeta extends CassandraSupport {
   override def getRF: Int = Settings.CassandraMeta.ReplicationFactor
 }
 
-object CassandraBuckets extends CassandraBuckets
+object CassandraBuckets extends CassandraBuckets {
+  initialize
+}
 
 trait CassandraBuckets extends CassandraSupport {
   override def keyspace = "buckets"
@@ -163,7 +167,9 @@ trait CassandraBuckets extends CassandraSupport {
   override def getRF: Int = Settings.CassandraBuckets.ReplicationFactor
 }
 
-object CassandraSummaries extends CassandraSummaries
+object CassandraSummaries extends CassandraSummaries {
+  initialize
+}
 
 trait CassandraSummaries extends CassandraSupport {
   override def keyspace = "summaries"

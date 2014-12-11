@@ -4,7 +4,11 @@ import com.despegar.khronus.influx.Influx
 import com.despegar.khronus.influx.finder.InfluxDashboardResolver
 import com.despegar.khronus.store.CassandraSupport
 
-object CassandraDashboards extends CassandraSupport {
+object CassandraDashboards extends CassandraDashboards {
+  initialize
+}
+
+trait CassandraDashboards extends CassandraSupport {
   override def keyspace = "dashboards"
 
   override def getRF: Int = Influx().Settings.rf

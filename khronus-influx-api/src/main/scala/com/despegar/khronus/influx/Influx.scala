@@ -53,7 +53,6 @@ class InfluxSubscriber(influxActor: ActorRef) extends Actor {
   def receive: Receive = {
     case KhronusStarted(handler) ⇒
       handler ! Register(InfluxActor.Path, influxActor)
-      CassandraDashboards.initialize
   }
 }
 
