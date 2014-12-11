@@ -15,17 +15,16 @@
  */
 package com.despegar.khronus.service
 
+import com.despegar.khronus.util.JacksonJsonSupport
 import org.specs2.mutable.Specification
 import spray.testkit.Specs2RouteTest
 import spray.http._
 import StatusCodes._
-import com.despegar.khronus.model.MyJsonProtocol._
 import com.despegar.khronus.model.Version
-import spray.httpx.SprayJsonSupport._
 import akka.actor.ActorSystem
 import com.typesafe.config.ConfigFactory
 
-class VersionServiceSpec extends Specification with Specs2RouteTest with VersionEndpoint {
+class VersionServiceSpec extends Specification with Specs2RouteTest with VersionEndpoint with JacksonJsonSupport {
   def actorRefFactory = ActorSystem("TestSystem", ConfigFactory.parseString(
     """
       |akka {
@@ -41,14 +40,14 @@ class VersionServiceSpec extends Specification with Specs2RouteTest with Version
     "return version for GET requests to the version path" in {
       Get("/khronus/version") ~> versionRoute ~> check {
         val version = responseAs[Version]
-        version.nombreApp mustEqual "Khronus"
+        version.appName mustEqual "Khronus"
       }
     }
 
     "return a MethodNotAllowed error for PUT requests to the root path" in {
       Put("/khronus/version") ~> sealRoute(versionRoute) ~> check {
         status === MethodNotAllowed
-        responseAs[String] === "HTTP method not allowed, supported methods: GET"
+        response.message.entity.asString === "HTTP method not allowed, supported methods: GET"
       }
     }
   }

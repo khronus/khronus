@@ -18,6 +18,7 @@ package com.despegar.khronus.stress
 
 import java.util.concurrent.Executors
 import akka.actor.{ Props, ActorSystem }
+import com.despegar.khronus.util.JacksonJsonSupport
 import com.typesafe.config.ConfigFactory
 import spray.http._
 import spray.client.pipelining._
@@ -29,7 +30,6 @@ import scala.util.{ Success, Failure, Random }
 import spray.http._
 import spray.client.pipelining._
 
-import MetricBatchProtocol._
 import spray.http.HttpRequest
 import com.despegar.khronus.model.Measurement
 import com.despegar.khronus.model.MetricMeasurement
@@ -38,7 +38,7 @@ import spray.http.HttpResponse
 import scala.util.Success
 import com.despegar.khronus.model.MetricBatch
 
-object StressTest extends App {
+object StressTest extends App with JacksonJsonSupport {
   implicit val system = ActorSystem("StressActorSystem", ConfigFactory.parseString(
     """
       |akka {

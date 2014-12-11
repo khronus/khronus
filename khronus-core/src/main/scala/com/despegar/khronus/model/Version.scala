@@ -15,10 +15,4 @@
  */
 package com.despegar.khronus.model
 
-import spray.json.DefaultJsonProtocol
-
-case class Version(nombreApp: String, version: String)
-
-object MyJsonProtocol extends DefaultJsonProtocol {
-  implicit val VersionFormat = jsonFormat2(Version)
-}
+case class Version(appName: String, version: String)

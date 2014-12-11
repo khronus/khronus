@@ -589,19 +589,19 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
   }
 
   test("Query with unclosed string literal should fail") {
-    intercept[UnsupportedOperationException] { buildParser.parse(s"""select max(value) from "$metricName" where host = 'host""")}
+    intercept[UnsupportedOperationException] { buildParser.parse(s"""select max(value) from "$metricName" where host = 'host""") }
   }
 
   test("Query with unclosed parenthesis should fail") {
-    intercept[UnsupportedOperationException] { buildParser.parse(s"""select max(value) from "$metricName" group by time(30s""")}
+    intercept[UnsupportedOperationException] { buildParser.parse(s"""select max(value) from "$metricName" group by time(30s""") }
   }
 
   test("Query with invalid time now expression should fail") {
-    intercept[UnsupportedOperationException] { buildParser.parse(s"""select max(value) from "$metricName" where time  > now() - 1j group by time(30s)""")}
+    intercept[UnsupportedOperationException] { buildParser.parse(s"""select max(value) from "$metricName" where time  > now() - 1j group by time(30s)""") }
   }
 
   test("Select * with other projection should fail") {
-    intercept[UnsupportedOperationException] { buildParser.parse(s"""select * aValue from "$metricName" group by time(30s)""")}
+    intercept[UnsupportedOperationException] { buildParser.parse(s"""select * aValue from "$metricName" group by time(30s)""") }
   }
 
   test("Select an invalid field for a counter should fail") {
@@ -613,7 +613,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
   }
 
   test("Select with invalid percentile function should fail") {
-    intercept[UnsupportedOperationException] { buildParser.parse(s"""select percentiles(12) from "$metricName" group by time(30s)""")}
+    intercept[UnsupportedOperationException] { buildParser.parse(s"""select percentiles(12) from "$metricName" group by time(30s)""") }
   }
 
   private def verifyQueryFail(metric: String, query: String, metricType: String = MetricType.Timer) = {

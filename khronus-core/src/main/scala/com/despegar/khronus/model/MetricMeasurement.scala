@@ -16,13 +16,8 @@
 
 package com.despegar.khronus.model
 
-import spray.json.DefaultJsonProtocol
-import spray.httpx.SprayJsonSupport
-import spray.json.CollectionFormats
 import scala.concurrent.duration._
 import org.HdrHistogram.Histogram
-import spray.json.RootJsonFormat
-import spray.json._
 
 object MetricType {
   val Counter = "counter"
@@ -65,10 +60,4 @@ object MetricMeasurementUtils {
 case class Measurement(ts: Long, values: Seq[Long])
 
 case class MetricBatch(metrics: List[MetricMeasurement])
-
-object MetricBatchProtocol extends DefaultJsonProtocol with SprayJsonSupport with CollectionFormats {
-  implicit val MeasurementFormat = jsonFormat2(Measurement)
-  implicit val MetricFormat = jsonFormat3(MetricMeasurement)
-  implicit val MetricBatchFormat = jsonFormat1(MetricBatch)
-}
 

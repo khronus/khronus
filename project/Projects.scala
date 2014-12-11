@@ -39,7 +39,7 @@ object Projects extends Build {
     .settings(Revolver.settings: _*)
     .settings(assemblySettings: _*)
     .settings(libraryDependencies ++=
-    compile(akkaKryo, sprayClient, sprayCan, sprayRouting, sprayJson, akkaActor, akkaRemote, akkaCluster, akkaContrib, akkaQuartz, hdrHistogram, cassandraDriver, kryo, scalaLogging, slf4j, logbackClassic, commonsLang, akkaSlf4j) ++
+    compile(jacksonAfterBurner, jacksonScala, akkaKryo, sprayClient, sprayCan, sprayRouting, sprayJson, akkaActor, akkaRemote, akkaCluster, akkaContrib, akkaQuartz, hdrHistogram, cassandraDriver, kryo, scalaLogging, slf4j, logbackClassic, commonsLang, akkaSlf4j) ++
       test(sprayTestKit, mockito, akkaTestKit, multiNodeTestKit, scalaTest, specs2, mockito) ++
       it(scalaTest))
 
@@ -49,7 +49,7 @@ object Projects extends Build {
     .settings(formatSettings: _*)
     .settings(noPublishing: _*)
     .settings(libraryDependencies ++=
-      compile(sprayClient, sprayCan, sprayJson, akkaActor))
+      compile(jacksonAfterBurner, jacksonScala, sprayClient, sprayCan, sprayJson, akkaActor))
 
 
   lazy val khronusInflux = Project("khronus-influx-api", file("khronus-influx-api"))

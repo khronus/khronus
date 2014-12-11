@@ -2,8 +2,8 @@ package com.despegar.khronus.service
 
 import akka.actor.Props
 import com.despegar.khronus.model.MetricBatch
-import com.despegar.khronus.model.MetricBatchProtocol._
 import com.despegar.khronus.store.MetricMeasurementStoreSupport
+import com.despegar.khronus.util.JacksonJsonSupport
 import com.despegar.khronus.util.log.Logging
 import spray.http.StatusCodes._
 import spray.httpx.encoding.{ Gzip, NoEncoding }
@@ -23,11 +23,11 @@ object KhronusActor {
   def props = Props[KhronusActor]
 }
 
-trait KhronusEnpoint extends HttpService with MetricMeasurementStoreSupport with Logging {
+trait KhronusEnpoint extends HttpService with MetricMeasurementStoreSupport with JacksonJsonSupport with Logging {
 
   import com.despegar.khronus.service.SprayMetrics._
 
-  override def loggerName = classOf[KhronusEnpoint].getName()
+  override def loggerName = classOf[KhronusEnpoint].getName
 
   val metricsRoute: Route =
     decompressRequest(Gzip, NoEncoding) {
@@ -45,7 +45,6 @@ trait KhronusEnpoint extends HttpService with MetricMeasurementStoreSupport with
           }
         }
       }
-
     }
 
 }

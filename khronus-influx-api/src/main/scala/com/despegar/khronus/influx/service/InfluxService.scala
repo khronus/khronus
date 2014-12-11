@@ -18,16 +18,15 @@ package com.despegar.khronus.influx.service
 
 import akka.actor.Props
 import com.despegar.khronus.influx.finder.{ DashboardSupport, InfluxQueryResolver }
+import com.despegar.khronus.service.KhronusHandlerException
 import com.despegar.khronus.util.log.Logging
-import com.despegar.khronus.util.{ CORSSupport, ConcurrencySupport }
+import com.despegar.khronus.util.{ JacksonJsonSupport, CORSSupport, ConcurrencySupport }
 import spray.http.MediaTypes._
 import spray.http.StatusCodes._
 import spray.httpx.encoding.{ Gzip, NoEncoding }
 import spray.routing.{ HttpService, HttpServiceActor, Route }
-import InfluxSeriesProtocol.influxSeriesFormat
-import com.despegar.khronus.service.KhronusHandlerException
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ Await, ExecutionContext }
 
 class InfluxActor extends HttpServiceActor with InfluxEndpoint with KhronusHandlerException {
   def receive = runRoute(influxServiceRoute)
@@ -40,11 +39,10 @@ object InfluxActor {
   val Path = "khronus/influx"
 }
 
-trait InfluxEndpoint extends HttpService with Logging with CORSSupport with InfluxQueryResolver with DashboardSupport with ConcurrencySupport {
-
-  import com.despegar.khronus.influx.service.DashboardProtocol._
+trait InfluxEndpoint extends HttpService with JacksonJsonSupport with Logging with CORSSupport with InfluxQueryResolver with DashboardSupport with ConcurrencySupport {
 
   implicit val ex: ExecutionContext = executionContext("influx-endpoint-worker")
+
   val influxServiceRoute: Route =
     compressResponse(NoEncoding, Gzip) {
       respondWithCORS {
@@ -71,7 +69,7 @@ trait InfluxEndpoint extends HttpService with Logging with CORSSupport with Infl
               parameters('q) { query ⇒
                 respondWithMediaType(`application/json`) {
                   complete {
-                    (OK, dashboardResolver.dashboardOperation(query))
+                    dashboardResolver.dashboardOperation(query)
                   }
                 }
               }

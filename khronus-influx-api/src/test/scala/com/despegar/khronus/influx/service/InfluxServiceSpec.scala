@@ -1,24 +1,22 @@
 package com.despegar.khronus.influx.service
 
-import org.specs2.mutable.Specification
-import spray.testkit.Specs2RouteTest
-import spray.http._
-import StatusCodes._
-import com.despegar.khronus.model.MyJsonProtocol._
-import com.despegar.khronus.model.{ MetricType, Metric, Version }
-import spray.httpx.SprayJsonSupport._
 import akka.actor.ActorSystem
-import com.typesafe.config.ConfigFactory
-import com.despegar.khronus.service.VersionEndpoint
-import org.scalatest.mock.MockitoSugar
-import spray.routing.HttpService
+import com.despegar.khronus.model.{ Metric, MetricType }
 import com.despegar.khronus.store.MetaStore
-import org.specs2.matcher.MatchResult
+import com.despegar.khronus.util.JacksonJsonSupport
+import com.typesafe.config.ConfigFactory
 import org.mockito.Mockito
-import scala.concurrent.Future
-import InfluxSeriesProtocol._
+import org.scalatest.mock.MockitoSugar
+import org.specs2.matcher.MatchResult
+import org.specs2.mutable.Specification
+import spray.http.StatusCodes._
+import spray.http._
+import spray.routing.HttpService
+import spray.testkit.Specs2RouteTest
 
-class InfluxServiceSpec extends Specification with MockitoSugar with HttpService with Specs2RouteTest {
+import scala.concurrent.Future
+
+class InfluxServiceSpec extends Specification with MockitoSugar with HttpService with Specs2RouteTest with JacksonJsonSupport {
   def actorRefFactory = ActorSystem("TestSystem", ConfigFactory.parseString(
     """
       |akka {
@@ -56,9 +54,9 @@ class InfluxServiceSpec extends Specification with MockitoSugar with HttpService
             val uri = Uri(influxSeriesURI).withQuery("q" -> "Some query")
             Put(uri) ~> sealRoute(new MockedInfluxEndpoint().influxServiceRoute) ~> check {
               status === MethodNotAllowed
-              responseAs[String] === "HTTP method not allowed, supported methods: GET, OPTIONS"
+              println(response.message)
+              response.message.entity.asString === "HTTP method not allowed, supported methods: GET, OPTIONS"
             }
-
           }
       }
     }
@@ -86,7 +84,6 @@ class InfluxServiceSpec extends Specification with MockitoSugar with HttpService
 
               Mockito.verify(instance.metaStore).searchInSnapshot(searchExpression)
 
-              import InfluxSeriesProtocol._
               val results = responseAs[Seq[InfluxSeries]]
               results.size must beEqualTo(1)
 

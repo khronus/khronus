@@ -233,7 +233,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     testAdjustResolution(FiniteDuration(1, HOURS), "5m", FiniteDuration(30, SECONDS))
   }
 
-  private def testAdjustResolution(sliceDuration: FiniteDuration, desiredGroupBy: String, expectedDuration: FiniteDuration, force:String = "") = {
+  private def testAdjustResolution(sliceDuration: FiniteDuration, desiredGroupBy: String, expectedDuration: FiniteDuration, force: String = "") = {
     val metricName = "histogramMetric"
     val regex = parser.getCaseInsensitiveRegex(metricName)
     val to = System.currentTimeMillis()

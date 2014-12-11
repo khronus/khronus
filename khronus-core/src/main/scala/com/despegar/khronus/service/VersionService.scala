@@ -17,10 +17,9 @@
 package com.despegar.khronus.service
 
 import akka.actor.Props
-import com.despegar.khronus.model.MyJsonProtocol._
 import com.despegar.khronus.model.Version
+import com.despegar.khronus.util.JacksonJsonSupport
 import spray.http.MediaTypes._
-import spray.httpx.SprayJsonSupport._
 import spray.routing._
 
 class VersionActor extends HttpServiceActor with VersionEndpoint with KhronusHandlerException {
@@ -35,7 +34,7 @@ object VersionActor {
   val Path = "khronus/version"
 }
 
-trait VersionEndpoint extends HttpService {
+trait VersionEndpoint extends HttpService with JacksonJsonSupport {
   val versionRoute: Route =
     get {
       respondWithMediaType(`application/json`) {
