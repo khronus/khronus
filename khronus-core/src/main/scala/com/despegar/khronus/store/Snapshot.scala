@@ -14,8 +14,10 @@ trait Snapshot[T] extends Logging with ConcurrencySupport {
 
   def snapshotName: String
 
+  def initialValue: T
+
   @volatile
-  var snapshot: T = _
+  var snapshot: T = initialValue
 
   private val pool = scheduledThreadPool(s"$snapshotName-snapshot-reload-worker")
   pool.scheduleAtFixedRate(reload(), 0, 5, TimeUnit.SECONDS)

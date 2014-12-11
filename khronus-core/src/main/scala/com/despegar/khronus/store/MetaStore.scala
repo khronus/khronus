@@ -163,4 +163,6 @@ object CassandraMetaStore extends MetaStore with Logging {
   override def context = asyncExecutionContext
 
   override val snapshotName = "meta"
+
+  override def initialValue = Map[Metric, Timestamp]()
 }
