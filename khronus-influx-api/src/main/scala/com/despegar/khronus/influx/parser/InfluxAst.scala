@@ -17,12 +17,13 @@
 package com.despegar.khronus.influx.parser
 
 import scala.concurrent.duration.FiniteDuration
+import com.despegar.khronus.model.Metric
 
 case class InfluxCriteria(projections: Seq[Field],
-  table: Table,
+  tables: Seq[Metric],
   filters: List[Filter],
   groupBy: GroupBy,
-  limit: Option[Int],
+  limit: Int = Int.MaxValue,
   orderAsc: Boolean = true)
 
 // SELECT
@@ -32,9 +33,6 @@ case class Field(name: String, alias: Option[String]) extends Projection
 case class AllField() extends Projection
 
 case class Identifier(value: String)
-
-// FROM
-case class Table(name: String, alias: Option[String])
 
 // WHERE
 trait Filter

@@ -22,26 +22,28 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.Success
 import scala.util.parsing.combinator.lexical._
 import scala.util.parsing.combinator.syntactical._
-import com.despegar.khronus.model.{ MetricType, Functions }
+import com.despegar.khronus.model.{ Metric, MetricType, Functions }
 import com.despegar.khronus.store.{ MetaSupport, MetaStore }
 import com.despegar.khronus.util.log.Logging
+import scala.concurrent.{ Future, ExecutionContext }
+import com.despegar.khronus.util.ConcurrencySupport
 
-class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSupport {
+class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSupport with ConcurrencySupport {
 
   class InfluxLexical extends StdLexical
 
   override val lexical = new InfluxLexical
 
-  val functions = Functions.allNames
-
   lexical.reserved += ("select", "as", "from", "where", "or", "and", "group_by_time", "limit", "between", "null", "date", "time", "now", "order", "asc", "desc", "percentiles", "force",
     TimeSuffixes.Seconds, TimeSuffixes.Minutes, TimeSuffixes.Hours, TimeSuffixes.Days, TimeSuffixes.Weeks)
 
-  lexical.reserved ++= functions
+  lexical.reserved ++= Functions.allNames
 
   lexical.delimiters += ("*", Operators.Lt, Operators.Eq, Operators.Neq, Operators.Lte, Operators.Gte, Operators.Gt, "(", ")", ",", ".", ";", "-")
 
-  def parse(influxQuery: String): InfluxCriteria = {
+  implicit val ex: ExecutionContext = executionContext("influx-query-parser-worker")
+
+  def parse(influxQuery: String): Future[InfluxCriteria] = {
     log.info(s"Parsing influx query [$influxQuery]")
 
     // TODO - Hack because of conflict: group by time & time as identifier
@@ -53,35 +55,56 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSuppo
     }
   }
 
-  private def influxQueryParser: Parser[InfluxCriteria] =
-    "select" ~> projectionParser ~
-      tableParser ~ opt(filterParser) ~
+  private def influxQueryParser: Parser[Future[InfluxCriteria]] =
+    "select" ~> projectionParser ~ tableParser ~ opt(filterParser) ~
       groupByParser ~ opt(limitParser) ~ opt(orderParser) <~ opt(";") ^^ {
-        case projections ~ table ~ filters ~ groupBy ~ limit ~ order ⇒ {
-
-          val metricType = metaStore.getMetricType(table.name)
-          val functions = getSelectedFunctions(projections, metricType)
-
-          InfluxCriteria(functions, table, filters.getOrElse(Nil), groupBy, limit, order.getOrElse(true))
-        }
+        case projections ~ metricNameRegex ~ filters ~ groupBy ~ limit ~ order ⇒
+          buildInfluxCriteria(metricNameRegex, projections, filters.getOrElse(Nil), groupBy, order.getOrElse(true), limit.getOrElse(Int.MaxValue))
       }
+
+  private def buildInfluxCriteria(metricNameRegex: String, projections: Seq[Projection], filters: List[Filter], groupBy: GroupBy, order: Boolean, limit: Int): Future[InfluxCriteria] = {
+    metaStore.searchInSnapshot(getCaseInsensitiveRegex(metricNameRegex)).map(matchedMetrics ⇒ {
+
+      if (matchedMetrics.isEmpty)
+        throw new UnsupportedOperationException(s"Unsupported query - There isnt any metric matching the regex [$metricNameRegex]")
+      else if (matchedMetrics.count(m ⇒ m.mtype.equals(matchedMetrics.head.mtype)) != matchedMetrics.size)
+        throw new UnsupportedOperationException(s"Unsupported query - Expression [$metricNameRegex] matches different metric types")
+
+      matchedMetrics
+
+    }).map {
+      case metrics ⇒ {
+        val functions = getSelectedFunctions(projections, metrics.head.mtype)
+        InfluxCriteria(functions, metrics, filters, groupBy, limit, order)
+      }
+    }
+  }
+
+  def getCaseInsensitiveRegex(metricNameRegex: String) = {
+    val caseInsensitiveRegex = "(?i)"
+    s"$caseInsensitiveRegex$metricNameRegex"
+  }
 
   private def getSelectedFunctions(projections: Seq[Projection], metricType: String): Seq[Field] = {
-    val allFunctionsByMetricType = metricType match {
-      case MetricType.Timer | MetricType.Gauge ⇒ Functions.allHistogramFunctions
-      case MetricType.Counter                  ⇒ Functions.allCounterFunctions
-      case _                                   ⇒ throw new UnsupportedOperationException(s"Unknown metric type: $metricType")
-    }
+    val functionsByMetricType = allFunctionsByMetricType(metricType)
 
-    val functions = projections.collect({
-      case Field(name, alias) ⇒ {
-        if (!allFunctionsByMetricType.contains(name)) throw new UnsupportedOperationException(s"$name is an invalid function for a $metricType. Valid options: [${allFunctionsByMetricType.mkString(",")}]")
+    projections.collect {
+      case Field(name, alias) ⇒
+        if (!functionsByMetricType.contains(name))
+          throw new UnsupportedOperationException(s"$name is an invalid function for a $metricType. Valid options: [${functionsByMetricType.mkString(",")}]")
         Seq(Field(name, alias))
-      }
-      case AllField() ⇒ allFunctionsByMetricType.collect({ case functionName ⇒ Field(functionName, None) })
-    }).flatten
+      case AllField() ⇒
+        functionsByMetricType.collect {
+          case functionName ⇒ Field(functionName, None)
+        }
+    }.flatten
 
-    functions
+  }
+
+  private def allFunctionsByMetricType(metricType: String): Seq[String] = metricType match {
+    case MetricType.Timer | MetricType.Gauge ⇒ Functions.allHistogramFunctions
+    case MetricType.Counter                  ⇒ Functions.allCounterFunctions
+    case _                                   ⇒ throw new UnsupportedOperationException(s"Unknown metric type: $metricType")
   }
 
   private def projectionParser: Parser[Seq[Projection]] =
@@ -104,10 +127,14 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSuppo
 
   private def percentilesFunctionParser: Parser[Seq[Functions.Function]] = {
     "percentiles" ~> "(" ~> rep(validPercentilesParser) <~ ")" ^^ {
-      case selectedPercentiles if selectedPercentiles.nonEmpty ⇒ selectedPercentiles.collect { case p ⇒ Functions.percentileByValue(p) }
+      case selectedPercentiles if selectedPercentiles.nonEmpty ⇒ selectedPercentiles.collect {
+        case p ⇒ Functions.percentileByValue(p)
+      }
       case _ ⇒ Functions.allPercentiles
     } |
-      "percentiles" ^^ { case _ ⇒ Functions.allPercentiles }
+      "percentiles" ^^ {
+        case _ ⇒ Functions.allPercentiles
+      }
   }
 
   private def validPercentilesParser: Parser[Int] =
@@ -116,18 +143,19 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSuppo
     }) ^^
       (_.chars.toInt)
 
-  private def tableParser: Parser[Table] =
-    "from" ~> stringLit ~ opt("as") ~ opt(ident) ^^ {
-      case metricName ~ _ ~ alias ⇒ Table(metricName, alias)
+  private def tableParser: Parser[String] =
+    "from" ~> stringLit ^^ {
+      case metricNameRegex ⇒ metricNameRegex
     }
 
   private def filterParser: Parser[List[Filter]] = "where" ~> filterExpression
 
-  private def filterExpression: Parser[List[Filter]] = rep(
-    stringComparatorExpression |
-      timestampComparatorExpression |
-      timeBetweenExpression |
-      relativeTimeExpression).map(x ⇒ x.flatten)
+  private def filterExpression: Parser[List[Filter]] =
+    rep(
+      stringComparatorExpression |
+        timestampComparatorExpression |
+        timeBetweenExpression |
+        relativeTimeExpression).map(x ⇒ x.flatten)
 
   def stringComparatorExpression: Parser[List[StringFilter]] = {
     ident ~ (Operators.Eq | Operators.Neq) ~ stringParser <~ opt(Operators.And) ^^ {
@@ -158,7 +186,9 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSuppo
   private def timeWithSuffixToMillisParser: Parser[Long] = {
     numericLit ~ opt(TimeSuffixes.Seconds | TimeSuffixes.Minutes | TimeSuffixes.Hours | TimeSuffixes.Days | TimeSuffixes.Weeks) ^^ {
       case number ~ timeUnit ⇒
-        timeUnit.map { toMillis(number, _) }.getOrElse(number.toLong)
+        timeUnit.map {
+          toMillis(number, _)
+        }.getOrElse(number.toLong)
     }
   }
 
@@ -171,13 +201,15 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSuppo
     case _                    ⇒ number.toLong
   }
 
-  def isForceResolution(force: Option[String]) = force match {
+  def isForcedResolution(force: Option[String]) = force match {
     case Some(_) ⇒ true
     case _       ⇒ false
   }
 
   private def groupByParser: Parser[GroupBy] =
-    opt("force") ~ "group_by_time" ~ "(" ~ timeWindowParser ~ ")" ^^ { case force ~ _ ~ _ ~ timeWindowDuration ~ _ ⇒ GroupBy(isForceResolution(force), timeWindowDuration) }
+    opt("force") ~ "group_by_time" ~ "(" ~ timeWindowParser ~ ")" ^^ {
+      case force ~ _ ~ _ ~ timeWindowDuration ~ _ ⇒ GroupBy(isForcedResolution(force), timeWindowDuration)
+    }
 
   private def timeWindowParser: Parser[FiniteDuration] =
     (numericLit ~ opt(".") ~ opt(numericLit) ~ (TimeSuffixes.Seconds | TimeSuffixes.Minutes | TimeSuffixes.Hours)) ^^ {

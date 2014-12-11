@@ -42,8 +42,6 @@ trait MetaStore extends Snapshot[Map[Metric, Timestamp]] {
   def searchInSnapshot(expression: String): Future[Seq[Metric]]
 
   def contains(metric: Metric): Boolean
-
-  def getMetricType(metricName: String): String
 }
 
 trait MetaSupport {
@@ -160,11 +158,6 @@ object CassandraMetaStore extends MetaStore with Logging {
 
   override def getFreshData(): Future[Map[Metric, Timestamp]] = {
     retrieveMetrics
-  }
-
-  def getMetricType(metricName: String): String = {
-    val metric = getFromSnapshot.keys find (metric ⇒ metric.name.equalsIgnoreCase(metricName)) getOrElse (throw new UnsupportedOperationException(s"Metric not found: $metricName"))
-    metric.mtype
   }
 
   override def context = asyncExecutionContext

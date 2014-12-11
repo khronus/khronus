@@ -30,6 +30,7 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
   this: InfluxEndpoint ⇒
 
   import com.despegar.khronus.influx.finder.InfluxQueryResolver._
+
   implicit val executionContext: ExecutionContext = executionContext("influx-query-resolver-worker")
   lazy val parser = new InfluxQueryParser
 
@@ -46,18 +47,19 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
   private def executeQuery(expression: String): Future[Seq[InfluxSeries]] = measureFutureTime("executeInfluxQuery", "executeInfluxQuery") {
     log.info(s"Executing query [$expression]")
 
-    val influxCriteria = parser.parse(expression)
+    parser.parse(expression).map(influxCriteria ⇒ {
+      Future.sequence(influxCriteria.tables.collect {
+        case metric ⇒ getInfluxSeries(metric, influxCriteria)
+      }).map(series ⇒ series.flatten)
+    }).flatMap(x ⇒ x)
+  }
 
-    val metricName: String = influxCriteria.table.name
-    val metricType = metaStore.getMetricType(metricName)
-
+  private def getInfluxSeries(metric: Metric, influxCriteria: InfluxCriteria): Future[Seq[InfluxSeries]] = {
     val slice = buildSlice(influxCriteria.filters)
-    val timeWindow = adjustResolution(slice, influxCriteria.groupBy, metricType)
+    val timeWindow = adjustResolution(slice, influxCriteria.groupBy, metric.mtype)
 
-    val maxResults: Int = influxCriteria.limit.getOrElse(Int.MaxValue)
-
-    getStore(metricType).readAll(metricName, timeWindow, slice, influxCriteria.orderAsc, maxResults).map {
-      results ⇒ toInfluxSeries(results, influxCriteria.projections, metricName)
+    getStore(metric.mtype).readAll(metric.name, timeWindow, slice, influxCriteria.orderAsc, influxCriteria.limit).map {
+      summaries ⇒ toInfluxSeries(summaries, influxCriteria.projections, metric.name)
     }
   }
 
@@ -82,7 +84,6 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
       }
     }
   }
-
   protected lazy val maxResolution: Int = Settings.Dashboard.MaxResolutionPoints
   protected lazy val minResolution: Int = Settings.Dashboard.MinResolutionPoints
 
@@ -94,25 +95,17 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
 
   private def millisBetween(some: FiniteDuration, other: FiniteDuration) = Math.abs(some.toMillis - other.toMillis)
 
-  private def getStore(metricType: String) = {
-    metricType match {
-      case MetricType.Timer | MetricType.Gauge ⇒ getStatisticSummaryStore
-      case MetricType.Counter                  ⇒ getCounterSummaryStore
-      case _                                   ⇒ throw new UnsupportedOperationException(s"Unknown metric type: $metricType")
-    }
+  private def getStore(metricType: String) = metricType match {
+    case MetricType.Timer | MetricType.Gauge ⇒ getStatisticSummaryStore
+    case MetricType.Counter                  ⇒ getCounterSummaryStore
+    case _                                   ⇒ throw new UnsupportedOperationException(s"Unknown metric type: $metricType")
   }
-
   protected def getStatisticSummaryStore: SummaryStore[StatisticSummary] = CassandraStatisticSummaryStore
-
   protected def getCounterSummaryStore: SummaryStore[CounterSummary] = CassandraCounterSummaryStore
 
   private def toInfluxSeries(summaries: Seq[Summary], functions: Seq[Field], metricName: String): Seq[InfluxSeries] = {
-    log.info(s"Building Influx series: Metric $metricName - Projections: $functions - Summaries count: ${summaries.size}")
+    log.info(s"Building Influx series: Metric $metricName - Functions: $functions - Summaries count: ${summaries.size}")
 
-    buildInfluxSeries(summaries, metricName, functions)
-  }
-
-  private def buildInfluxSeries(summaries: Seq[Summary], metricName: String, functions: Seq[Field]): Seq[InfluxSeries] = {
     val pointsPerFunction = TrieMap[String, Vector[Vector[Long]]]()
 
     summaries.foreach(summary ⇒ {
