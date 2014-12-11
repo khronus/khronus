@@ -19,12 +19,12 @@ class CassandraMetaStoreTest extends FunSuite with BaseIntegrationTest with Matc
   test("should getLastProcessedTimestamp ok") {
     val metric = Metric("test",MetricType.Counter)
     await { CassandraMetaStore.insert(metric) }
-    val initialTimestamp = await { CassandraMetaStore.getLastProcessedTimestamp(metric)}
+    val initialTimestamp = await { CassandraMetaStore.getLastProcessedTimestampFromCassandra(metric)}
     initialTimestamp.ms should be(1)
 
     val expectedTimestamp = 1000L
     await { CassandraMetaStore.update(metric, Timestamp(expectedTimestamp))}
-    val timestamp = await { CassandraMetaStore.getLastProcessedTimestamp(metric)}
+    val timestamp = await { CassandraMetaStore.getLastProcessedTimestampFromCassandra(metric)}
     timestamp.ms should be(expectedTimestamp)
   }
 
