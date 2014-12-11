@@ -179,97 +179,32 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
 
   test("Select with a configured resolution between configured limits returns the desired window") {
     // 80 h  / 5 minutes = 960 points (ok, between 700 and 1000)
-
-    val metricName = "histogramMetric"
-    val regex = parser.getCaseInsensitiveRegex(metricName)
-    val to = System.currentTimeMillis()
-    val from = to - FiniteDuration(80, HOURS).toMillis
-    val query = s"""select * from "$metricName" where time >= $from and time <=  $to group by time (5m)"""
-
-    when(metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
-    when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq() })
-
-    await(search(query))
-
-    verify(metaStore).searchInSnapshot(regex)
-    verify(getStatisticSummaryStore).readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)
+    testAdjustResolution(FiniteDuration(80, HOURS), "5m", FiniteDuration(5, MINUTES))
   }
 
   test("Select with unconfigured time window should use the nearest window") {
-    val metricName = "histogramMetric"
-    val regex = parser.getCaseInsensitiveRegex(metricName)
-    val to = System.currentTimeMillis()
+    testAdjustResolution(FiniteDuration(8, HOURS), "10s", FiniteDuration(30, SECONDS))
+    Mockito.reset(metaStore)
 
-    when(metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
+    testAdjustResolution(FiniteDuration(80, HOURS), "6m", FiniteDuration(5, MINUTES))
+    Mockito.reset(metaStore)
 
-    var from = to - FiniteDuration(8, HOURS).toMillis
-    when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(30, TimeUnit.SECONDS), Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq() })
-    await(search(s"""select * from "$metricName" where time >= $from and time <=  $to group by time(10s)"""))
-    verify(getStatisticSummaryStore).readAll(metricName, FiniteDuration(30, TimeUnit.SECONDS), Slice(from, to), true, Int.MaxValue)
-
-    from = to - FiniteDuration(80, HOURS).toMillis
-    when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq() })
-    await(search(s"""select * from "$metricName" where time >= $from and time <=  $to group by time(6m)"""))
-    verify(getStatisticSummaryStore).readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)
-
-    from = to - FiniteDuration(500, HOURS).toMillis
-    when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(30, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq() })
-    await(search(s"""select * from "$metricName" where time >= $from and time <=  $to group by time(5h)"""))
-    verify(getStatisticSummaryStore).readAll(metricName, FiniteDuration(30, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)
-
-    verify(metaStore, times(3)).searchInSnapshot(regex)
-
+    testAdjustResolution(FiniteDuration(500, HOURS), "5h", FiniteDuration(30, MINUTES))
   }
 
   test("Select with a bad resolution adjust it to the best configured window") {
     // 80 h  / 30 minutes = 160 points (resolution too bad! Adjust it to 5 minutes in order to have 960 points, between 700 and 1000)
-    val metricName = "histogramMetric"
-    val regex = parser.getCaseInsensitiveRegex(metricName)
-    val to = System.currentTimeMillis()
-    val from = to - FiniteDuration(80, HOURS).toMillis
-    val query = s"""select * from "$metricName" where time >= $from and time <=  $to group by time (30m)"""
-
-    when(metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
-    when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq() })
-
-    await(search(query))
-
-    verify(metaStore).searchInSnapshot(regex)
-    verify(getStatisticSummaryStore).readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)
+    testAdjustResolution(FiniteDuration(80, HOURS), "30m", FiniteDuration(5, MINUTES))
   }
 
   test("Select with a very high resolution adjust it to the best configured window") {
     // 80 h  / 30 seconds = 9600 points (Too much points! Adjust it to 5 minutes in order to have 960 points, between 700 and 1000)
-    val metricName = "histogramMetric"
-    val regex = parser.getCaseInsensitiveRegex(metricName)
-    val to = System.currentTimeMillis()
-    val from = to - FiniteDuration(80, HOURS).toMillis
-    val query = s"""select * from "$metricName" where time >= $from and time <=  $to group by time (30s)"""
-
-    when(metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
-    when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq() })
-
-    await(search(query))
-
-    verify(metaStore).searchInSnapshot(regex)
-    verify(getStatisticSummaryStore).readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)
+    testAdjustResolution(FiniteDuration(80, HOURS), "30s", FiniteDuration(5, MINUTES))
   }
 
   test("Select with a very high resolution forced should use the nearest window") {
-    // 80 h  / 30 seconds = 9600 points (Too much points!)
-    val metricName = "histogramMetric"
-    val regex = parser.getCaseInsensitiveRegex(metricName)
-    val to = System.currentTimeMillis()
-    val from = to - FiniteDuration(80, HOURS).toMillis
-    val query = s"""select * from "$metricName" where time >= $from and time <=  $to force group by time (30s)"""
-
-    when(metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
-    when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(30, TimeUnit.SECONDS), Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq() })
-
-    await(search(query))
-
-    verify(metaStore).searchInSnapshot(regex)
-    verify(getStatisticSummaryStore).readAll(metricName, FiniteDuration(30, TimeUnit.SECONDS), Slice(from, to), true, Int.MaxValue)
+    // 80 h  / 30 seconds = 9600 points (Too much points!) but this is forced...
+    testAdjustResolution(FiniteDuration(80, HOURS), "30s", FiniteDuration(30, SECONDS), "force")
   }
 
   test("Select without time bounds adjust window to the lowest configured resolution") {
@@ -290,36 +225,30 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
 
   test("Select with a very high resolution returns the lowest configured resolution outside boundaries") {
     // 1000 h  / 5 minutes = 12000 points. Adjust to the lowest configured window => 1000h / 30m = 2000 points. Returns 30m, even when this window is outside boundaries (between 700 and 1000 points)
-    val metricName = "histogramMetric"
-    val regex = parser.getCaseInsensitiveRegex(metricName)
-    val to = System.currentTimeMillis()
-    val from = to - FiniteDuration(1000, HOURS).toMillis
-    val query = s"""select * from "$metricName" where time >= $from and time <=  $to group by time (5m)"""
-
-    when(metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
-    when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(30, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq() })
-
-    await(search(query))
-
-    verify(metaStore).searchInSnapshot(regex)
-    verify(getStatisticSummaryStore).readAll(metricName, FiniteDuration(30, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)
+    testAdjustResolution(FiniteDuration(1000, HOURS), "5m", FiniteDuration(30, MINUTES))
   }
 
   test("Select with a very bad resolution returns the highest configured resolution outside boundaries") {
     // 1h  / 5 minutes = 12 points. Adjust to the lowest configured window => 1h / 30s = 120 points. Returns 30s, even when this window is outside boundaries (between 700 and 1000 points)
+    testAdjustResolution(FiniteDuration(1, HOURS), "5m", FiniteDuration(30, SECONDS))
+  }
+
+  private def testAdjustResolution(sliceDuration: FiniteDuration, desiredGroupBy: String, expectedDuration: FiniteDuration, force:String = "") = {
     val metricName = "histogramMetric"
     val regex = parser.getCaseInsensitiveRegex(metricName)
     val to = System.currentTimeMillis()
-    val from = to - FiniteDuration(1, HOURS).toMillis
-    val query = s"""select * from "$metricName" where time >= $from and time <= $to group by time (5m)"""
+    val from = to - sliceDuration.toMillis
+
+    val query = s"""select * from "$metricName" where time >= $from and time <= $to $force group by time ($desiredGroupBy)"""
 
     when(metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
-    when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(30, TimeUnit.SECONDS), Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq() })
+    when(getStatisticSummaryStore.readAll(metricName, expectedDuration, Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq() })
 
     await(search(query))
 
     verify(metaStore).searchInSnapshot(regex)
-    verify(getStatisticSummaryStore).readAll(metricName, FiniteDuration(30, TimeUnit.SECONDS), Slice(from, to), true, Int.MaxValue)
+    verify(getStatisticSummaryStore).readAll(metricName, expectedDuration, Slice(from, to), true, Int.MaxValue)
+
   }
 
   private def assertInfluxSeries(series: InfluxSeries, expectedName: String, expectedFunction: String, expectedMillis: Long, expectedValue: Long) = {

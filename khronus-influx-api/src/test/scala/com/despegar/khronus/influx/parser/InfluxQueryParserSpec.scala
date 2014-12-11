@@ -245,6 +245,24 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     projections(5).name should be(Functions.Percentile999.name)
   }
 
+  test("Some Percentiles function should be parsed ok") {
+    val parser = buildParser
+    val regex = parser.getCaseInsensitiveRegex(metricName)
+
+    when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
+
+    val queryPercentiles = s"""select percentiles(80 99 50) from "$metricName" group by time(30s)"""
+    val projections = await(parser.parse(queryPercentiles)).projections
+
+    verify(parser.metaStore).searchInSnapshot(regex)
+
+    projections.size should be(3)
+
+    projections(0).name should be(Functions.Percentile80.name)
+    projections(1).name should be(Functions.Percentile99.name)
+    projections(2).name should be(Functions.Percentile50.name)
+  }
+
   test("Select from regex matching some metrics should be parsed ok") {
     val parser = buildParser
 
@@ -268,24 +286,6 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     influxCriteria.tables.size should be(2)
     influxCriteria.tables(0).name should be(counter1)
     influxCriteria.tables(1).name should be(counter2)
-  }
-
-  test("Some Percentiles function should be parsed ok") {
-    val parser = buildParser
-    val regex = parser.getCaseInsensitiveRegex(metricName)
-
-    when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
-
-    val queryPercentiles = s"""select percentiles(80 99 50) from "$metricName" group by time(30s)"""
-    val projections = await(parser.parse(queryPercentiles)).projections
-
-    verify(parser.metaStore).searchInSnapshot(regex)
-
-    projections.size should be(3)
-
-    projections(0).name should be(Functions.Percentile80.name)
-    projections(1).name should be(Functions.Percentile99.name)
-    projections(2).name should be(Functions.Percentile50.name)
   }
 
   test("Where clause should be parsed ok") {
@@ -577,15 +577,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
   }
 
   test("Query without projection should fail") {
-    val parser = buildParser
-    val regex = parser.getCaseInsensitiveRegex(metricName)
-
-    when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
-
-    intercept[UnsupportedOperationException] {
-      await(parser.parse(s"""select from "$metricName""""))
-      verify(parser.metaStore).searchInSnapshot(regex)
-    }
+    intercept[UnsupportedOperationException] { buildParser.parse(s"""select from "$metricName"""") }
   }
 
   test("Query without from clause should fail") {
@@ -597,85 +589,41 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
   }
 
   test("Query with unclosed string literal should fail") {
-    val parser = buildParser
-    val regex = parser.getCaseInsensitiveRegex(metricName)
-
-    when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
-
-    intercept[UnsupportedOperationException] {
-      await(parser.parse(s"""select max(value) from "$metricName" where host = 'host"""))
-      verify(parser.metaStore).searchInSnapshot(regex)
-    }
+    intercept[UnsupportedOperationException] { buildParser.parse(s"""select max(value) from "$metricName" where host = 'host""")}
   }
 
   test("Query with unclosed parenthesis should fail") {
-    val parser = buildParser
-    val regex = parser.getCaseInsensitiveRegex(metricName)
-
-    when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
-
-    intercept[UnsupportedOperationException] {
-      await(parser.parse(s"""select max(value) from "$metricName" group by time(30s"""))
-      verify(parser.metaStore).searchInSnapshot(regex)
-    }
+    intercept[UnsupportedOperationException] { buildParser.parse(s"""select max(value) from "$metricName" group by time(30s""")}
   }
 
   test("Query with invalid time now expression should fail") {
-    val parser = buildParser
-    val regex = parser.getCaseInsensitiveRegex(metricName)
-
-    when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
-
-    intercept[UnsupportedOperationException] {
-      await(parser.parse(s"""select max(value) from "$metricName" where time  > now() - 1j group by time(30s)"""))
-      verify(parser.metaStore).searchInSnapshot(regex)
-    }
+    intercept[UnsupportedOperationException] { buildParser.parse(s"""select max(value) from "$metricName" where time  > now() - 1j group by time(30s)""")}
   }
 
   test("Select * with other projection should fail") {
-    val parser = buildParser
-    val regex = parser.getCaseInsensitiveRegex(metricName)
-
-    when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
-
-    intercept[UnsupportedOperationException] {
-      await(parser.parse(s"""select * aValue from "$metricName" group by time(30s)"""))
-      verify(parser.metaStore).searchInSnapshot(regex)
-    }
+    intercept[UnsupportedOperationException] { buildParser.parse(s"""select * aValue from "$metricName" group by time(30s)""")}
   }
 
   test("Select an invalid field for a counter should fail") {
-    val parser = buildParser
-    val regex = parser.getCaseInsensitiveRegex(metricName)
-
-    when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Counter)) })
-
-    intercept[UnsupportedOperationException] {
-      await(parser.parse(s"""select max(value) from "$metricName" group by time(30s)"""))
-      verify(parser.metaStore).searchInSnapshot(regex)
-    }
+    verifyQueryFail(metricName, s"""select max(value) from "$metricName" group by time(30s)""", MetricType.Counter)
   }
 
   test("Select with unknown order should fail") {
-    val parser = buildParser
-    val regex = parser.getCaseInsensitiveRegex(metricName)
-
-    when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
-
-    intercept[UnsupportedOperationException] {
-      await(parser.parse(s"""select * from "$metricName" group by time(30s) order inexistentOrder"""))
-      verify(parser.metaStore).searchInSnapshot(regex)
-    }
+    verifyQueryFail(metricName, s"""select * from "$metricName" group by time(30s) order inexistentOrder""")
   }
 
   test("Select with invalid percentile function should fail") {
-    val parser = buildParser
-    val regex = parser.getCaseInsensitiveRegex(metricName)
+    intercept[UnsupportedOperationException] { buildParser.parse(s"""select percentiles(12) from "$metricName" group by time(30s)""")}
+  }
 
-    when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
+  private def verifyQueryFail(metric: String, query: String, metricType: String = MetricType.Timer) = {
+    val parser = buildParser
+    val regex = parser.getCaseInsensitiveRegex(metric)
+
+    when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metric, metricType)) })
 
     intercept[UnsupportedOperationException] {
-      await(parser.parse(s"""select percentiles(12) from "$metricName" group by time(30s)"""))
+      await(parser.parse(query))
       verify(parser.metaStore).searchInSnapshot(regex)
     }
   }
@@ -694,7 +642,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future(metrics))
 
     intercept[UnsupportedOperationException] {
-      await(parser.parse(s"""select percentiles from "$regexCounter" group by time(30s)"""))
+      await(parser.parse(s"""select count from "$regexCounter" group by time(30s)"""))
       verify(parser.metaStore).searchInSnapshot(regex)
     }
   }
