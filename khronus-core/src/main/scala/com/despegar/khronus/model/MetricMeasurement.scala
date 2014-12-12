@@ -16,6 +16,8 @@
 
 package com.despegar.khronus.model
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize
+
 import scala.concurrent.duration._
 import org.HdrHistogram.Histogram
 
@@ -57,7 +59,7 @@ object MetricMeasurementUtils {
   }
 }
 
-case class Measurement(ts: Long, values: Seq[Long])
+case class Measurement(ts: Long, @JsonDeserialize(contentAs = classOf[java.lang.Long]) values: Seq[Long])
 
 case class MetricBatch(metrics: List[MetricMeasurement])
 
