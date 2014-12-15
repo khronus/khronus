@@ -34,7 +34,5 @@ trait KhronusService {
   handlerActor ! Register(KhronusActor.Path, khronusActor)
   handlerActor ! Register(VersionActor.Path, versionActor)
 
-  CassandraMeta.initialize
-
   system.eventStream.publish(KhronusStarted(handlerActor))
 }
