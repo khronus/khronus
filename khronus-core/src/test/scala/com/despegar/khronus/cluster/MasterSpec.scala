@@ -1,4 +1,3 @@
-
 /*
  * =========================================================================================
  * Copyright © 2014 the khronus project <https://github.com/hotels-tech/khronus>
@@ -34,7 +33,22 @@ class MasterSpec extends BaseTest with TestKitBase with ImplicitSender
     with WordSpecLike
     with BeforeAndAfterAll {
 
-  implicit lazy val system: ActorSystem = ActorSystem("Master-Spec")
+  implicit lazy val system: ActorSystem = ActorSystem("Master-Spec", ConfigFactory.parseString(
+    """
+      |akka {
+      |  loglevel = INFO
+      |  stdout-loglevel = DEBUG
+      |  event-handlers = ["akka.event.Logging$DefaultLogger"]
+      |}
+      |
+      |khronus {
+      |  master {
+      |    tick-expression = "0/1 * * * * ?"
+      |    discovery-start-delay = 1 second
+      |    discovery-interval = 2 seconds
+      |  }
+      |}
+    """.stripMargin))
 
   val timeout: FiniteDuration = 1500 millis
   override protected def afterAll() = TestKit.shutdownActorSystem(system)

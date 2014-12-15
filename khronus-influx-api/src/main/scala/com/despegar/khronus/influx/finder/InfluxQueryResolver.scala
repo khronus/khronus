@@ -48,7 +48,7 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
     log.info(s"Executing query [$expression]")
 
     parser.parse(expression).map(influxCriteria ⇒ {
-      Future.sequence(influxCriteria.tables.collect {
+      Future.sequence(influxCriteria.tables.sortBy(_.name).collect {
         case metric ⇒ getInfluxSeries(metric, influxCriteria)
       }).map(series ⇒ series.flatten)
     }).flatMap(x ⇒ x)

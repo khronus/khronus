@@ -27,13 +27,21 @@ import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpecLike }
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import com.typesafe.config.ConfigFactory
 
 class WorkerSpec extends BaseTest with TestKitBase with ImplicitSender
     with Matchers
     with WordSpecLike
     with BeforeAndAfterAll with MockitoSugar {
 
-  implicit lazy val system: ActorSystem = ActorSystem("Worker-Spec")
+  implicit lazy val system: ActorSystem = ActorSystem("Worker-Spec", ConfigFactory.parseString(
+    """
+      |akka {
+      |  loglevel = INFO
+      |  stdout-loglevel = DEBUG
+      |  event-handlers = ["akka.event.Logging$DefaultLogger"]
+      |}
+    """.stripMargin))
 
   override protected def afterAll() = TestKit.shutdownActorSystem(system)
 

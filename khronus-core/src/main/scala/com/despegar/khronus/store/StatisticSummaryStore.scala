@@ -32,9 +32,9 @@ trait StatisticSummarySupport extends SummaryStoreSupport[StatisticSummary] {
 
 object CassandraStatisticSummaryStore extends CassandraSummaryStore[StatisticSummary] with Logging with Measurable {
 
-  val windowDurations: Seq[Duration] = Settings.Histogram.WindowDurations
-  override val limit = Settings.Histogram.SummaryLimit
-  override val fetchSize = Settings.Histogram.SummaryFetchSize
+  override def windowDurations: Seq[Duration] = Settings.Histogram.WindowDurations
+  override def limit = Settings.Histogram.SummaryLimit
+  override def fetchSize = Settings.Histogram.SummaryFetchSize
 
   override def tableName(duration: Duration) = s"statisticSummary${duration.length}${duration.unit}"
   override def ttl(windowDuration: Duration): Int = Settings.Histogram.SummaryRetentionPolicy

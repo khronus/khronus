@@ -39,14 +39,7 @@ import scala.util.Success
 import com.despegar.khronus.model.MetricBatch
 
 object StressTest extends App with JacksonJsonSupport {
-  implicit val system = ActorSystem("StressActorSystem", ConfigFactory.parseString(
-    """
-      |akka {
-      |  loglevel = INFO
-      |  stdout-loglevel = DEBUG
-      |  event-handlers = ["akka.event.Logging$DefaultLogger"]
-      |}
-    """.stripMargin))
+  implicit val system = ActorSystem("StressActorSystem")
 
   import system.dispatcher // execution context for futures
 

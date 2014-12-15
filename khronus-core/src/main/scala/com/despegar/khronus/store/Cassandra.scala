@@ -171,6 +171,7 @@ trait CassandraSummaries extends CassandraSupport {
 
   override def initialize: Unit = {
     super.initialize
+
     retry(MaxRetries, "Creating summary timer tables") { CassandraStatisticSummaryStore.initialize }
     retry(MaxRetries, "Creating summary counter tables") { CassandraCounterSummaryStore.initialize }
   }
