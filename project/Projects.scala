@@ -53,7 +53,7 @@ object Projects extends Build {
 
 
   lazy val khronusInflux = Project("khronus-influx-api", file("khronus-influx-api"))
-    .dependsOn(khronusCore)
+    .dependsOn(khronusCore % "test->test;compile->compile")
     .configs(IntegrationTest)
     .settings(basicSettings: _*)
     .settings(formatSettings: _*)

@@ -30,7 +30,7 @@ trait StatisticSummarySupport extends SummaryStoreSupport[StatisticSummary] {
   override def summaryStore: SummaryStore[StatisticSummary] = CassandraStatisticSummaryStore
 }
 
-object CassandraStatisticSummaryStore extends SummaryStore[StatisticSummary] with Logging with Measurable {
+object CassandraStatisticSummaryStore extends CassandraSummaryStore[StatisticSummary] with Logging with Measurable {
 
   val windowDurations: Seq[Duration] = Settings.Histogram.WindowDurations
   override val limit = Settings.Histogram.SummaryLimit

@@ -24,6 +24,9 @@ import scala.concurrent.duration._
 
 class SettingTest extends FunSuite with MockitoSugar with Matchers {
 
+  System.setProperty("config.trace", "loads")
+  System.setProperty("config.resource", "application-test.conf")
+
   test("should configure histogram time windows properly") {
     Settings.Histogram.TimeWindows shouldBe (Seq(HistogramTimeWindow(30 seconds, 1 millis),
       HistogramTimeWindow(1 minute, 30 seconds, false)))

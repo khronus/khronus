@@ -8,7 +8,7 @@ import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration._
 
 trait MetricMeasurementStoreSupport {
-  val metricStore: MetricMeasurementStore = CassandraMetricMeasurementStore
+  def metricStore: MetricMeasurementStore = CassandraMetricMeasurementStore
 }
 
 trait MetricMeasurementStore {

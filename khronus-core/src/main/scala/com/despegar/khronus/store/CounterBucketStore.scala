@@ -29,11 +29,11 @@ trait CounterBucketStoreSupport extends BucketStoreSupport[CounterBucket] {
   override def bucketStore: BucketStore[CounterBucket] = CassandraCounterBucketStore
 }
 
-object CassandraCounterBucketStore extends BucketStore[CounterBucket] with Measurable {
+object CassandraCounterBucketStore extends CassandraBucketStore[CounterBucket] with Measurable {
 
-  val windowDurations: Seq[Duration] = Settings.Counter.WindowDurations
-  override val limit: Int = Settings.Counter.BucketLimit
-  override val fetchSize: Int = Settings.Counter.BucketFetchSize
+  override def windowDurations: Seq[Duration] = Settings.Counter.WindowDurations
+  override def limit: Int = Settings.Counter.BucketLimit
+  override def fetchSize: Int = Settings.Counter.BucketFetchSize
 
   override def tableName(duration: Duration): String = s"counterBucket${duration.length}${duration.unit}"
 

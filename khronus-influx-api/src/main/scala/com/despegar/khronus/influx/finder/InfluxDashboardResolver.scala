@@ -56,9 +56,9 @@ object InfluxDashboardResolver extends DashboardResolver with Logging {
 
   import CassandraDashboards._
   val DashboardsKey = "dashboards"
-  private lazy val GetAllStmt = CassandraDashboards.session.prepare("select name, content from dashboard where key = ?;")
-  private lazy val DeleteStmt = CassandraDashboards.session.prepare("delete from dashboard where key = ? and name = ?;")
-  private lazy val InsertStmt = CassandraDashboards.session.prepare("insert into dashboard (key, name, content) values (?, ?, ?);")
+  private val GetAllStmt = CassandraDashboards.session.prepare("select name, content from dashboard where key = ?;")
+  private val DeleteStmt = CassandraDashboards.session.prepare("delete from dashboard where key = ? and name = ?;")
+  private val InsertStmt = CassandraDashboards.session.prepare("insert into dashboard (key, name, content) values (?, ?, ?);")
 
   val Serializer: KryoSerializer[Dashboard] = new KryoSerializer(DashboardsKey, List(Dashboard.getClass))
 

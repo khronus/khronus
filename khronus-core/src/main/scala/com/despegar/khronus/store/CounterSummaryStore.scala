@@ -29,7 +29,7 @@ trait CounterSummaryStoreSupport extends SummaryStoreSupport[CounterSummary] {
   override def summaryStore: SummaryStore[CounterSummary] = CassandraCounterSummaryStore
 }
 
-object CassandraCounterSummaryStore extends SummaryStore[CounterSummary] {
+object CassandraCounterSummaryStore extends CassandraSummaryStore[CounterSummary] {
 
   val windowDurations: Seq[Duration] = Settings.Counter.WindowDurations
   override val limit = Settings.Counter.SummaryLimit

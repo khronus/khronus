@@ -11,16 +11,14 @@ import scala.concurrent.ExecutionContext
 
 trait ConcurrencySupport extends Logging {
 
-  import com.despegar.khronus.util.ConcurrencySupport._
-
   private def fixedThreadPool(name: String, threads: Int): ExecutorService = {
-    val pool = Executors.newFixedThreadPool(threads, threadFactory(name))
+    val pool = Executors.newFixedThreadPool(threads, ThreadFactory(name))
     manage(pool, name)
     pool
   }
 
   def scheduledThreadPool(name: String, threads: Int = 1) = {
-    val pool = Executors.newScheduledThreadPool(threads, threadFactory(name))
+    val pool = Executors.newScheduledThreadPool(threads, ThreadFactory(name))
     manage(pool, name)
     pool
   }
@@ -29,7 +27,7 @@ trait ConcurrencySupport extends Logging {
     ExecutionContext.fromExecutor(fixedThreadPool(name, threads))
   }
 
-  private def manage(pool: ExecutorService, name: String) = {
+  private def manage(pool: ExecutorService, name: String) = if (Settings.InternalMetrics.Enabled) {
     ConcurrencySupport.register(name, pool.asInstanceOf[ThreadPoolExecutor])
     sys.addShutdownHook({
       log.info(s"Shutting down $name thread pool")
@@ -39,17 +37,17 @@ trait ConcurrencySupport extends Logging {
 
 }
 
+object ThreadFactory {
+  def apply(name: String) = new ThreadFactoryBuilder().setNameFormat(s"$name-%d").build()
+}
+
 object ConcurrencySupport extends Measurable {
 
   private val pools: ConcurrentHashMap[String, ThreadPoolExecutor] = new ConcurrentHashMap[String, ThreadPoolExecutor]()
-  private val monitoringScheduler = Executors.newScheduledThreadPool(1, threadFactory("pool-monitoring-worker"))
+  private val monitoringScheduler = Executors.newScheduledThreadPool(1, ThreadFactory("pool-monitoring-worker"))
   sys.addShutdownHook({
     monitoringScheduler.shutdown()
   })
-
-  private def threadFactory(name: String): ThreadFactory = {
-    new ThreadFactoryBuilder().setNameFormat(s"$name-%d").build()
-  }
 
   def register(name: String, pool: ThreadPoolExecutor) = pools.put(name, pool)
 

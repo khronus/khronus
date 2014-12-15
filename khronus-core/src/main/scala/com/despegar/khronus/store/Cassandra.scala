@@ -26,26 +26,26 @@ import com.google.common.util.concurrent.{ FutureCallback, Futures }
 import scala.concurrent.{ Future, Promise }
 import scala.util.{ Success, Failure, Try };
 
-class CassandraCluster extends Logging with CassandraClusterConfiguration {
-  private lazy val cluster: Cluster = clusterBuilder.build();
+object CassandraCluster extends Logging with CassandraClusterConfiguration {
+  private val cluster: Cluster = clusterBuilder.build()
 
   def connect() = cluster.connect()
 
-  def close() = cluster.close()
+  def close() = {
+    log.info("Closing Cassandra cluster sessions")
+    cluster.close()
+  }
 
   sys.addShutdownHook(close)
-
 }
 
-object CassandraCluster extends CassandraCluster
-
 trait CassandraClusterConfiguration {
-  lazy val settingsCassandra = Settings.CassandraCluster
+  val settingsCassandra = Settings.CassandraCluster
 
-  private lazy val poolingOptions = new PoolingOptions().setMaxConnectionsPerHost(HostDistance.LOCAL, settingsCassandra.MaxConnectionsPerHost)
-  private lazy val socketOptions = new SocketOptions().setConnectTimeoutMillis(settingsCassandra.ConnectionTimeout).setReadTimeoutMillis(settingsCassandra.SocketTimeout)
-  private lazy val loadBalancingPolicy = new TokenAwarePolicy(new RoundRobinPolicy)
-  private lazy val retryPolicy = new LoggingRetryPolicy(DefaultRetryPolicy.INSTANCE)
+  private val poolingOptions = new PoolingOptions().setMaxConnectionsPerHost(HostDistance.LOCAL, settingsCassandra.MaxConnectionsPerHost)
+  private val socketOptions = new SocketOptions().setConnectTimeoutMillis(settingsCassandra.ConnectionTimeout).setReadTimeoutMillis(settingsCassandra.SocketTimeout)
+  private val loadBalancingPolicy = new TokenAwarePolicy(new RoundRobinPolicy)
+  private val retryPolicy = new LoggingRetryPolicy(DefaultRetryPolicy.INSTANCE)
 
   def clusterBuilder = Cluster.builder().
     withClusterName(settingsCassandra.ClusterName).
@@ -60,12 +60,14 @@ trait CassandraClusterConfiguration {
 
 trait CassandraSupport extends Logging {
 
+  import scala.language.implicitConversions
+
   def keyspace: String
 
-  lazy val session: Session = connectCassandra
+  val session: Session = connectCassandra
   val MaxRetries = 3
 
-  def initialize: Unit = {
+  def initialize(): Unit = {
     createSchemaIfNotExists
   }
 
@@ -84,16 +86,9 @@ trait CassandraSupport extends Logging {
     session.execute(s"USE $keyspacePlusSuffix;")
   }
 
-  def close: Unit = {
-    log.info(s"Closing cassandra session for keyspace $keyspace")
-    session.close()
-  }
-
   def truncate(table: String) = Try {
     session.execute(s"truncate $table;");
   }
-
-  import scala.language.implicitConversions
 
   /**
    * Converts a `ResultSetFuture` into a Scala `Future[ResultSet]`

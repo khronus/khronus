@@ -32,7 +32,7 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
   import com.despegar.khronus.influx.finder.InfluxQueryResolver._
 
   implicit val executionContext: ExecutionContext = executionContext("influx-query-resolver-worker")
-  lazy val parser = new InfluxQueryParser
+  val parser = new InfluxQueryParser
 
   def search(search: String): Future[Seq[InfluxSeries]] = search match {
     case GetSeriesPattern(expression) ⇒ listSeries(s".*$expression.*")
