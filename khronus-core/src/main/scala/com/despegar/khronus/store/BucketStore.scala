@@ -11,19 +11,18 @@
  * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
- * =========================================================================================
+ * ========================================== ===============================================
  */
 
 package com.despegar.khronus.store
 
 import java.nio.ByteBuffer
-import java.util.concurrent.{ ExecutorService, Executors }
 
 import com.datastax.driver.core.utils.Bytes
 import com.datastax.driver.core.{ BatchStatement, SimpleStatement }
 import com.despegar.khronus.model.{ Bucket, Metric, Timestamp }
-import com.despegar.khronus.util.{ ConcurrencySupport, Measurable }
 import com.despegar.khronus.util.log.Logging
+import com.despegar.khronus.util.{ ConcurrencySupport, Measurable }
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
@@ -35,7 +34,15 @@ trait BucketStoreSupport[T <: Bucket] {
   def bucketStore: BucketStore[T]
 }
 
-trait BucketStore[T <: Bucket] extends Logging with Measurable with ConcurrencySupport {
+trait BucketStore[T <: Bucket] {
+  def store(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit]
+
+  def remove(metric: Metric, windowDuration: Duration, bucketTimestamps: Seq[Timestamp]): Future[Unit]
+
+  def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[Seq[(Timestamp, () ⇒ T)]]
+}
+
+trait CassandraBucketStore[T <: Bucket] extends BucketStore[T] with Logging with Measurable with ConcurrencySupport {
 
   import com.despegar.khronus.store.CassandraBuckets._
 
@@ -57,7 +64,7 @@ trait BucketStore[T <: Bucket] extends Logging with Measurable with ConcurrencyS
 
   val SliceQuery = "sliceQuery"
 
-  lazy val stmtPerWindow: Map[Duration, Statements] = windowDurations.map(windowDuration ⇒ {
+  val stmtPerWindow: Map[Duration, Statements] = windowDurations.map(windowDuration ⇒ {
     val insert = CassandraBuckets.session.prepare(s"update ${tableName(windowDuration)} using ttl ${ttl(windowDuration)} set buckets = buckets + ? where metric = ? and timestamp = ? ; ")
 
     val simpleStmt = new SimpleStatement(s"select timestamp, buckets from ${tableName(windowDuration)} where metric = ? and timestamp >= ? and timestamp <= ? limit ?;")

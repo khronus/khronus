@@ -52,10 +52,10 @@ object CassandraMetaStore extends MetaStore with Logging {
 
   val MetricsKey = "metrics"
 
-  private lazy val CreateTableStmt = s"create table if not exists meta (key text, metric text, timestamp bigint, primary key (key, metric));"
-  private lazy val InsertStmt = CassandraMeta.session.prepare(s"insert into meta (key, metric, timestamp) values (?, ?, ?);")
-  private lazy val GetByKeyStmt = CassandraMeta.session.prepare(s"select metric, timestamp from meta where key = ?;")
-  private lazy val GetLastProcessedTimeStmt = CassandraMeta.session.prepare(s"select timestamp from meta where key = ? and metric = ?;")
+  private val CreateTableStmt = s"create table if not exists meta (key text, metric text, timestamp bigint, primary key (key, metric));"
+  private val InsertStmt = CassandraMeta.session.prepare(s"insert into meta (key, metric, timestamp) values (?, ?, ?);")
+  private val GetByKeyStmt = CassandraMeta.session.prepare(s"select metric, timestamp from meta where key = ?;")
+  private val GetLastProcessedTimeStmt = CassandraMeta.session.prepare(s"select timestamp from meta where key = ? and metric = ?;")
 
   implicit val asyncExecutionContext = executionContext("meta-worker", 5)
 

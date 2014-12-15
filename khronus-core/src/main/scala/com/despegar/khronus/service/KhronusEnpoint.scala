@@ -25,23 +25,15 @@ object KhronusActor {
 
 trait KhronusEnpoint extends HttpService with MetricMeasurementStoreSupport with JacksonJsonSupport with Logging {
 
-  import com.despegar.khronus.service.SprayMetrics._
-
   override def loggerName = classOf[KhronusEnpoint].getName
 
   val metricsRoute: Route =
     decompressRequest(Gzip, NoEncoding) {
       post {
-        time("sprayTimeWithDeserialization") {
-          entity(as[MetricBatch]) { metricBatch ⇒
-            time("sprayTimeWithoutDeserialization") {
-              complete {
-                val start = System.currentTimeMillis()
-                metricStore.storeMetricMeasurements(metricBatch.metrics)
-                log.info(s"storeMetricMeasurements time spent ${System.currentTimeMillis() - start} ms")
-                OK
-              }
-            }
+        entity(as[MetricBatch]) { metricBatch ⇒
+          complete {
+            metricStore.storeMetricMeasurements(metricBatch.metrics)
+            OK
           }
         }
       }

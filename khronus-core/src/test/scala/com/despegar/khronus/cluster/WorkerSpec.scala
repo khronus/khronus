@@ -19,7 +19,7 @@ package com.despegar.khronus.cluster
 import akka.actor.{ ActorSystem, Props }
 import akka.testkit.{ ImplicitSender, TestActorRef, TestKit, TestKitBase }
 import com.despegar.khronus.model.{ Metric, TimeWindowChain }
-import com.typesafe.config.ConfigFactory
+import com.despegar.khronus.util.BaseTest
 import org.mockito.Matchers.any
 import org.mockito.Mockito.when
 import org.scalatest.mock.MockitoSugar
@@ -28,19 +28,12 @@ import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpecLike }
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-class WorkerSpec extends TestKitBase with ImplicitSender
+class WorkerSpec extends BaseTest with TestKitBase with ImplicitSender
     with Matchers
     with WordSpecLike
     with BeforeAndAfterAll with MockitoSugar {
 
-  implicit lazy val system: ActorSystem = ActorSystem("Worker-Spec", ConfigFactory.parseString(
-    """
-      |akka {
-      |  loglevel = INFO
-      |  stdout-loglevel = DEBUG
-      |  event-handlers = ["akka.event.Logging$DefaultLogger"]
-      |}
-    """.stripMargin))
+  implicit lazy val system: ActorSystem = ActorSystem("Worker-Spec")
 
   override protected def afterAll() = TestKit.shutdownActorSystem(system)
 

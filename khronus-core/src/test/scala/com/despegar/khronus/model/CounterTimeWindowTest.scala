@@ -1,20 +1,20 @@
 package com.despegar.khronus.model
 
-import com.despegar.khronus.store._
-import org.HdrHistogram.Histogram
-import org.mockito.{ Matchers, ArgumentMatcher, ArgumentCaptor, Mockito }
-import org.mockito.Mockito._
-import org.mockito.Matchers._
-import org.scalatest.{ FunSuite }
-import org.scalatest.mock.MockitoSugar
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.{ Await, Future }
-import scala.concurrent.duration._
-import scala.collection.JavaConverters._
-import java.util.concurrent.TimeUnit
 import java.io.IOException
-import com.despegar.khronus.model.Timestamp._
+
 import com.despegar.khronus.model.BucketNumber._
+import com.despegar.khronus.model.Timestamp._
+import com.despegar.khronus.store._
+import com.despegar.khronus.util.MonitoringSupportMock
+import org.mockito.Matchers
+import org.mockito.Matchers._
+import org.mockito.Mockito._
+import org.scalatest.FunSuite
+import org.scalatest.mock.MockitoSugar
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.concurrent.{ Await, Future }
 
 class CounterTimeWindowTest extends FunSuite with MockitoSugar with TimeWindowTest[CounterBucket] {
 
@@ -212,7 +212,7 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar with TimeWindowTe
   }
 
   private def mockedWindow(windowDuration: FiniteDuration, previousWindowDuration: FiniteDuration) = {
-    val window = new CounterTimeWindow(windowDuration, previousWindowDuration) with CounterBucketStoreSupport with CounterSummaryStoreSupport with MetaSupport {
+    val window = new CounterTimeWindow(windowDuration, previousWindowDuration) with CounterBucketStoreSupport with CounterSummaryStoreSupport with MetaSupport with MonitoringSupportMock {
       override val bucketStore = mock[BucketStore[CounterBucket]]
 
       override val summaryStore = mock[SummaryStore[CounterSummary]]

@@ -29,11 +29,11 @@ trait HistogramBucketSupport extends BucketStoreSupport[HistogramBucket] {
   override def bucketStore: BucketStore[HistogramBucket] = CassandraHistogramBucketStore
 }
 
-object CassandraHistogramBucketStore extends BucketStore[HistogramBucket] with Logging with Measurable {
+object CassandraHistogramBucketStore extends CassandraBucketStore[HistogramBucket] with Logging with Measurable {
 
-  val windowDurations: Seq[Duration] = Settings.Histogram.WindowDurations
-  override val limit: Int = Settings.Histogram.BucketLimit
-  override val fetchSize: Int = Settings.Histogram.BucketFetchSize
+  override def windowDurations: Seq[Duration] = Settings.Histogram.WindowDurations
+  override def limit: Int = Settings.Histogram.BucketLimit
+  override def fetchSize: Int = Settings.Histogram.BucketFetchSize
 
   override def toBucket(windowDuration: Duration, timestamp: Long, histogram: Array[Byte]) = {
     new HistogramBucket(Timestamp(timestamp).toBucketNumber(windowDuration), deserializeHistogram(histogram))

@@ -18,7 +18,6 @@ package com.despegar.khronus.service
 
 import akka.io.IO
 import com.despegar.khronus.service.HandShakeProtocol.{ KhronusStarted, Register }
-import com.despegar.khronus.store.{ CassandraBuckets, CassandraMeta, CassandraSummaries }
 import com.despegar.khronus.util.Settings
 import spray.can.Http
 

@@ -22,40 +22,26 @@ import akka.routing.RoundRobinGroup
 import akka.testkit._
 import com.despegar.khronus.cluster.Master.PendingMetrics
 import com.despegar.khronus.model.Metric
+import com.despegar.khronus.util.BaseTest
 import com.typesafe.config.ConfigFactory
-import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpecLike }
+import org.scalatest.{ Ignore, BeforeAndAfterAll, Matchers, WordSpecLike }
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
-class MasterSpec extends TestKitBase with ImplicitSender
+class MasterSpec extends BaseTest with TestKitBase with ImplicitSender
     with Matchers
     with WordSpecLike
     with BeforeAndAfterAll {
 
-  implicit lazy val system: ActorSystem = ActorSystem("Master-Spec", ConfigFactory.parseString(
-    """
-      |akka {
-      |  loglevel = INFO
-      |  stdout-loglevel = DEBUG
-      |  event-handlers = ["akka.event.Logging$DefaultLogger"]
-      |}
-      |
-      |khronus {
-      |  master {
-      |    tick-expression = "0/1 * * * * ?"
-      |    discovery-start-delay = 1 second
-      |    discovery-interval = 2 seconds
-      |  }
-      |}
-    """.stripMargin))
+  implicit lazy val system: ActorSystem = ActorSystem("Master-Spec")
 
+  val timeout: FiniteDuration = 1500 millis
   override protected def afterAll() = TestKit.shutdownActorSystem(system)
 
   "The Master actor" should {
 
     "send a Broadcast to heartbeat all workers every discovery-interval" in new ScheduledMasterProbeWorkerFixture {
-      val timeout: FiniteDuration = 200 millis
 
       withDelay(1000) {
         // First heartbeat is after discovery-start-delay
@@ -64,7 +50,7 @@ class MasterSpec extends TestKitBase with ImplicitSender
       }
 
       for (_ ← 1 to 2) {
-        withDelay(2000) {
+        withDelay(5000) {
           // Other hertbeats are after each discovery-interval
           workerProbe1.expectMsg(timeout, Heartbeat)
           workerProbe2.expectMsg(timeout, Heartbeat)
@@ -88,10 +74,10 @@ class MasterSpec extends TestKitBase with ImplicitSender
       for (_ ← 1 to 3) {
         // tick-expression says it should be fired each second
         withDelay(1000) {
-          workerProbe1.expectMsgClass(100 millis, classOf[Work])
+          workerProbe1.expectMsgClass(timeout, classOf[Work])
           master ! WorkDone(worker1)
 
-          workerProbe2.expectMsgClass(100 millis, classOf[Work])
+          workerProbe2.expectMsgClass(timeout, classOf[Work])
           master ! WorkDone(worker2)
         }
       }

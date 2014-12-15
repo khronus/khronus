@@ -1,6 +1,6 @@
 package com.despegar.khronus.model
 
-import java.util.concurrent.{ ConcurrentLinkedQueue, Executors, TimeUnit }
+import java.util.concurrent.{ ConcurrentLinkedQueue, TimeUnit }
 
 import com.despegar.khronus.store.MetricMeasurementStoreSupport
 import com.despegar.khronus.util.log.Logging

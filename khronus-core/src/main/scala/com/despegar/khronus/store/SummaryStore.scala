@@ -36,7 +36,13 @@ trait SummaryStoreSupport[T <: Summary] {
   def summaryStore: SummaryStore[T]
 }
 
-trait SummaryStore[T <: Summary] extends Logging with Measurable with ConcurrencySupport {
+trait SummaryStore[T <: Summary] {
+  def store(metric: Metric, windowDuration: Duration, summaries: Seq[T]): Future[Unit]
+  def sliceUntilNow(metric: Metric, windowDuration: Duration): Future[Seq[T]]
+  def readAll(metric: String, windowDuration: Duration, slice: Slice, ascendingOrder: Boolean = true, count: Int): Future[Seq[T]]
+}
+
+trait CassandraSummaryStore[T <: Summary] extends SummaryStore[T] with Logging with Measurable with ConcurrencySupport {
 
   import CassandraSummaries._
 
@@ -54,7 +60,7 @@ trait SummaryStore[T <: Summary] extends Logging with Measurable with Concurrenc
   val QueryAsc = "queryAsc"
   val QueryDesc = "queryDesc"
 
-  lazy val stmtPerWindow: Map[Duration, Statements] = windowDurations.map(windowDuration ⇒ {
+  val stmtPerWindow: Map[Duration, Statements] = windowDurations.map(windowDuration ⇒ {
     val insert = CassandraSummaries.session.prepare(s"insert into ${tableName(windowDuration)} (metric, timestamp, summary) values (?, ?, ?) using ttl ${ttl(windowDuration)};")
 
     val simpleStmt = new SimpleStatement(s"select timestamp, summary from ${tableName(windowDuration)} where metric = ? and timestamp >= ? and timestamp <= ? order by timestamp asc limit ?;")

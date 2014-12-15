@@ -21,6 +21,7 @@ import java.io.IOException
 import com.despegar.khronus.model.BucketNumber._
 import com.despegar.khronus.model.Timestamp._
 import com.despegar.khronus.store._
+import com.despegar.khronus.util.MonitoringSupportMock
 import org.HdrHistogram.Histogram
 import org.mockito.Matchers
 import org.mockito.Matchers._
@@ -185,7 +186,7 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindow
 
     when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](neverProcessedTimestamp))
     when(window.bucketStore.slice(Matchers.eq(metric), any[Timestamp], any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousBucketsMap))
-    when(window.bucketStore.store(metric, windowDuration, myBuckets)).thenReturn(Future.failed(new IOException()))
+    when(window.bucketStore.store(metric, windowDuration, myBuckets)).thenReturn(Future.failed(new IOException("Expected exception in Test")))
 
     //call method to test
     intercept[IOException] {
@@ -266,7 +267,7 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindow
   }
 
   private def mockedWindow(windowDuration: FiniteDuration, previousWindowDuration: FiniteDuration) = {
-    val window = new HistogramTimeWindow(windowDuration, previousWindowDuration) with HistogramBucketSupport with StatisticSummarySupport with MetaSupport {
+    val window = new HistogramTimeWindow(windowDuration, previousWindowDuration) with HistogramBucketSupport with StatisticSummarySupport with MetaSupport with MonitoringSupportMock {
       override val bucketStore = mock[BucketStore[HistogramBucket]]
 
       override val summaryStore = mock[SummaryStore[StatisticSummary]]
