@@ -8,6 +8,8 @@ import scala.concurrent.{Await, Future}
 import scala.util.Try
 
 trait BaseIntegrationTest extends FunSuite with BeforeAndAfterAll with BeforeAndAfter {
+  System.setProperty("config.resource", "application-it-test.conf")
+
   def tableNames: Seq[String] = Seq.empty[String]
 
   override def beforeAll = {

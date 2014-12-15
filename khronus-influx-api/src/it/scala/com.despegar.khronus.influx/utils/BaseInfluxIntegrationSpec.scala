@@ -24,6 +24,8 @@ import com.despegar.khronus.influx.store.CassandraDashboards
 import com.despegar.khronus.store.CassandraCluster
 
 trait BaseInfluxIntegrationSpec extends FunSuite with BeforeAndAfterAll with BeforeAndAfter {
+  System.setProperty("config.resource", "application-it-test.conf")
+
   def tableNames: Seq[String] = Seq.empty[String]
 
   override def beforeAll = {

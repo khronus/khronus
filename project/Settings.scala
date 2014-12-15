@@ -15,7 +15,7 @@ object Settings {
     version := "0.1",
     exportJars := true,
     resolvers    ++= Dependencies.resolutionRepos,
-    fork in run   := true,
+    fork in (Test, run) := true,
     javacOptions  := Seq(
       "-source", "1.7", "-target", "1.7"
     ),
