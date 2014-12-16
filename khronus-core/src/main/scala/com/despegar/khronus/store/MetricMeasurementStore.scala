@@ -78,7 +78,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
           Future.successful(())
         }
       }
-    } onFailure { case e: Exception ⇒ log.error("Fail to store submited metrics", e) }
+    } onFailure { case e: Exception ⇒ log.error(s"Fail to store submited metrics $metricMeasurement - Values: ${metricMeasurement.measurements}", e) }
   }
 
   private def storeCounterMetric(metric: Metric, metricMeasurement: MetricMeasurement) = {
