@@ -61,7 +61,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
   private def storeHistogramMetric(metric: Metric, metricMeasurement: MetricMeasurement) = {
     storeGrouped(metric, metricMeasurement) { (bucketNumber, measurements) ⇒
       val histogram = HistogramBucket.newHistogram
-      measurements.foreach(measurement ⇒ measurement.values.foreach(value ⇒ histogram.recordValue(value)))
+      measurements.foreach(measurement ⇒ skipNegativeValues(metricMeasurement, measurement.values).foreach(value ⇒ histogram.recordValue(value)))
       histogramBucketStore.store(metric, 1 millis, Seq(new HistogramBucket(bucketNumber, histogram)))
     }
   }
@@ -83,8 +83,16 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
 
   private def storeCounterMetric(metric: Metric, metricMeasurement: MetricMeasurement) = {
     storeGrouped(metric, metricMeasurement) { (bucketNumber, measurements) ⇒
-      counterBucketStore.store(metric, 1 millis, Seq(new CounterBucket(bucketNumber, measurements.map(_.values.sum).sum)))
+      val counts = measurements.map(measurement ⇒ skipNegativeValues(metricMeasurement, measurement.values).sum).sum
+      counterBucketStore.store(metric, 1 millis, Seq(new CounterBucket(bucketNumber, counts)))
     }
+  }
+
+  private def skipNegativeValues(metricMeasurement: MetricMeasurement, values: Seq[Long]): Seq[Long] = {
+    val (invalidValues, okValues) = values.partition(value ⇒ value < 0)
+    if (!invalidValues.isEmpty)
+      log.warn(s"Skipping invalid values for metric $metricMeasurement: $invalidValues")
+    okValues
   }
 
   private def alreadyProcessed(bucketNumber: BucketNumber) = false //how?

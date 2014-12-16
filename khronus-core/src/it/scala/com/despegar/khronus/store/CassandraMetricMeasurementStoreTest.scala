@@ -22,5 +22,22 @@ class CassandraMetricMeasurementStoreTest extends FunSuite with BaseIntegrationT
     val slice = Await.result(fslice, 1 second)
 
     slice.size should be (1)
+    slice(0)._2().histogram.getTotalCount should be(1)
   }
+
+  test("Negative values should be skipped") {
+    val json = """ {"metrics":[{"name":"ultimo15","measurements":[{"ts":1418394322000,"values":[-9, -8, 133, -1, 150]}],"mtype":"timer"}]} """
+    val batch:MetricBatch = mapper.readValue[MetricBatch](json)
+
+    CassandraMetricMeasurementStore.storeMetricMeasurements(batch.metrics)
+
+    Thread.sleep(500)
+
+    val fslice = CassandraHistogramBucketStore.slice(Metric("ultimo15",MetricType.Timer), 1, System.currentTimeMillis(), 1 millis)
+    val slice = Await.result(fslice, 1 second)
+
+    slice.size should be (1)
+    slice(0)._2().histogram.getTotalCount should be(2)
+  }
+
 }
