@@ -13,7 +13,7 @@ Khronus does not have its own dashboard to graph it's metrics. It is focused on 
 
 ## Status
 
-Khronus is being actively developed. It is currently being used in production at Despegar.com
+Khronus is being actively developed. It is currently being used in production at [Despegar.com]
 We plan to integrate it with Kibana too.
 
 ## Features
@@ -116,12 +116,11 @@ khronus {
     }
   }
 }
-
 ```
 
 ### Run
 ```
-
+ ./bin/khronus
 ```
 ## Implementation details
 
@@ -141,3 +140,4 @@ khronus {
 `Khronus` is open to the community to collaborations and contributions
 
 [HdrHistogram]: http://hdrhistogram.org/  "HdrHistogram"
+[Despegar.com]: http://www.despegar.com/ "Despegar.com"
