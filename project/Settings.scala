@@ -4,6 +4,8 @@ import Keys._
 import com.typesafe.sbt.SbtScalariform
 import com.typesafe.sbt.SbtScalariform.ScalariformKeys
 import scalariform.formatter.preferences._
+import com.typesafe.sbt.SbtNativePackager._
+import NativePackagerKeys._
 
 object Settings {
 
@@ -12,7 +14,7 @@ object Settings {
   lazy val basicSettings = Seq(
     scalaVersion  := ScalaVersion,
     organization := "com.despegar",
-    version := "0.1",
+    version := "0.1-beta",
     exportJars := true,
     resolvers    ++= Dependencies.resolutionRepos,
     fork in (Test, run) := true,
@@ -38,6 +40,8 @@ object Settings {
     ScalariformKeys.preferences in Compile := formattingPreferences,
     ScalariformKeys.preferences in Test    := formattingPreferences
   )
+
+  lazy val extraPackagerSettings = Seq(bashScriptExtraDefines += """addJava "-Dconfig.file=${app_home}/../conf/application.conf"""")
 
   def formattingPreferences =
     FormattingPreferences()
