@@ -1,4 +1,4 @@
-Khronus - A reactive time series database [![Build Status](https://api.travis-ci.org/hotels-tech/khronus.png)](https://travis-ci.org/hotels-tech/khronus)
+Khronus - A reactive time series database [![Build Status](https://api.travis-ci.org/despegar/khronus.png)](https://travis-ci.org/despegar/khronus)
 ======
 
 ## Overview
@@ -39,7 +39,7 @@ Khronus requires Cassandra 2.x. For installation look [official documentation](h
 
 ### Configure
 
-The main config file for overriding properties is located at ../conf/application.conf. Some useful configurations:
+The main config file for overriding properties is located at `../conf/application.conf`. Some useful configurations:
 
 ```javascript
 khronus {
