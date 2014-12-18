@@ -40,7 +40,7 @@ Khronus requires Cassandra 2.x. For installation look [official documentation](h
 
 The main config file for overriding properties is located at ../conf/application.conf. Some useful configurations:
 
-```json
+```
 khronus {
   # bind host
   endpoint = "127.0.0.1"
@@ -119,8 +119,9 @@ khronus {
 ```
 
 ### Run
+```
 
-
+```
 ## Implementation details
 
   * Built in Scala
@@ -129,6 +130,10 @@ khronus {
   * HdrHistogram
   * Cassandra
 
+
+## Sreenshots
+
+![Khronus in Action](site/khronus-dashboard-screenshot.png)
 
 ## Contributions
 
