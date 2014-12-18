@@ -16,20 +16,21 @@
 
 package com.despegar.khronus.influx.finder
 
+import java.nio.ByteBuffer
 import java.util.concurrent.Executors
 
+import com.datastax.driver.core.Session
+import com.datastax.driver.core.utils.Bytes
 import com.despegar.khronus.influx.service.Dashboard
 import com.despegar.khronus.influx.store.CassandraDashboards
+import com.despegar.khronus.store.CassandraUtils
 import com.despegar.khronus.util.KryoSerializer
+import com.despegar.khronus.util.log.Logging
 import org.apache.commons.codec.binary.Base64
 
 import scala.collection.JavaConverters._
-import scala.concurrent.{ ExecutionContext, Future, Promise }
-import scala.util.control.NonFatal
-import com.despegar.khronus.util.log.Logging
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Failure
-import com.datastax.driver.core.utils.Bytes
-import java.nio.ByteBuffer
 
 trait DashboardResolver {
   def dashboardOperation(expression: String): Future[Seq[Dashboard]]
@@ -38,10 +39,10 @@ trait DashboardResolver {
 }
 
 trait DashboardSupport {
-  def dashboardResolver: DashboardResolver = InfluxDashboardResolver
+  def dashboardResolver: DashboardResolver = CassandraDashboards.influxDashboardResolver
 }
 
-object InfluxDashboardResolver extends DashboardResolver with Logging {
+class InfluxDashboardResolver(session: Session) extends DashboardResolver with Logging with CassandraUtils {
 
   //extract Z3JhZmFuYTIy from (select dashboard from "grafana.dashboard_Z3JhZmFuYTIy"&time_precision=s)
   private val GetDashboardPattern = "select.*_(.*)\".*".r
@@ -54,15 +55,17 @@ object InfluxDashboardResolver extends DashboardResolver with Logging {
 
   implicit val Dispatcher = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(10))
 
-  import CassandraDashboards._
   val DashboardsKey = "dashboards"
-  private val GetAllStmt = CassandraDashboards.session.prepare("select name, content from dashboard where key = ?;")
-  private val DeleteStmt = CassandraDashboards.session.prepare("delete from dashboard where key = ? and name = ?;")
-  private val InsertStmt = CassandraDashboards.session.prepare("insert into dashboard (key, name, content) values (?, ?, ?);")
+
+  retry(MaxRetries, "Creating dashboard table") {
+    session.execute(s"create table if not exists dashboard (key text, name text, content blob, primary key (key, name));")
+  }
+
+  private val GetAllStmt = session.prepare("select name, content from dashboard where key = ?;")
+  private val DeleteStmt = session.prepare("delete from dashboard where key = ? and name = ?;")
+  private val InsertStmt = session.prepare("insert into dashboard (key, name, content) values (?, ?, ?);")
 
   val Serializer: KryoSerializer[Dashboard] = new KryoSerializer(DashboardsKey, List(Dashboard.getClass))
-
-  def initialize = CassandraDashboards.session.execute(s"create table if not exists dashboard (key text, name text, content blob, primary key (key, name));")
 
   def dashboardOperation(expression: String): Future[Seq[Dashboard]] = expression match {
     case GetDashboardPattern(group) ⇒ {
@@ -86,7 +89,7 @@ object InfluxDashboardResolver extends DashboardResolver with Logging {
   def lookup(expression: String): Future[Seq[Dashboard]] = {
     log.debug(s"Looking for Dashboard with expression: $expression}")
 
-    CassandraDashboards.session.executeAsync(GetAllStmt.bind(DashboardsKey)).
+    session.executeAsync(GetAllStmt.bind(DashboardsKey)).
       map(resultSet ⇒ {
         val dashboards = resultSet.all().asScala.filter(_.getString("name").matches(expression)).map(row ⇒ Serializer.deserialize(Bytes.getArray(row.getBytes("content"))))
         log.debug(s"Found ${dashboards.length} dashboards")
@@ -98,7 +101,7 @@ object InfluxDashboardResolver extends DashboardResolver with Logging {
   def drop(dashboardName: String): Future[Seq[Dashboard]] = {
     log.info(s"Deleting dashboard: $dashboardName")
 
-    CassandraDashboards.session.executeAsync(DeleteStmt.bind(DashboardsKey, dashboardName)).
+    session.executeAsync(DeleteStmt.bind(DashboardsKey, dashboardName)).
       map(_ ⇒ Seq.empty[Dashboard]).
       andThen { case Failure(reason) ⇒ log.error(s"Failed to delete dashboard $dashboardName", reason) }
   }
@@ -107,7 +110,7 @@ object InfluxDashboardResolver extends DashboardResolver with Logging {
     val name = new String(Base64.decodeBase64(dashboard.name.split("_").last))
     log.debug(s"Storing dashboard with name: ${name}")
 
-    CassandraDashboards.session.executeAsync(InsertStmt.bind(DashboardsKey, name, ByteBuffer.wrap(Serializer.serialize(dashboard)))).
+    session.executeAsync(InsertStmt.bind(DashboardsKey, name, ByteBuffer.wrap(Serializer.serialize(dashboard)))).
       map(_ ⇒ name).
       andThen { case Failure(reason) ⇒ log.error(s"Failed to save dashboard ${dashboard.name}", reason) }
   }

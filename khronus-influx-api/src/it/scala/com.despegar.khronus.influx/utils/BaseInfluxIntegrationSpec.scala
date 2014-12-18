@@ -31,7 +31,6 @@ trait BaseInfluxIntegrationSpec extends FunSuite with BeforeAndAfterAll with Bef
   override def beforeAll = {
 
     CassandraDashboards.initialize
-    InfluxDashboardResolver.initialize
 
     truncateTables
   }

@@ -19,23 +19,27 @@ package com.despegar.khronus.store
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 
+import com.datastax.driver.core.Session
 import com.despegar.khronus.model.CounterSummary
 import com.despegar.khronus.util.Settings
-import com.esotericsoftware.kryo.io.{ Input, Output, UnsafeInput, UnsafeOutput }
+import com.esotericsoftware.kryo.io.{ Input, Output }
 
 import scala.concurrent.duration._
 
 trait CounterSummaryStoreSupport extends SummaryStoreSupport[CounterSummary] {
-  override def summaryStore: SummaryStore[CounterSummary] = CassandraCounterSummaryStore
+  override def summaryStore: SummaryStore[CounterSummary] = Summaries.counterSummaryStore
 }
 
-object CassandraCounterSummaryStore extends CassandraSummaryStore[CounterSummary] {
+class CassandraCounterSummaryStore(session: Session) extends CassandraSummaryStore[CounterSummary](session) {
 
   override def windowDurations: Seq[Duration] = Settings.Counter.WindowDurations
+
   override def limit = Settings.Counter.SummaryLimit
+
   override def fetchSize = Settings.Counter.SummaryFetchSize
 
   override def tableName(duration: Duration) = s"counterSummary${duration.length}${duration.unit}"
+
   override def ttl(windowDuration: Duration): Int = Settings.Counter.SummaryRetentionPolicy
 
   override def serializeSummary(summary: CounterSummary): ByteBuffer = {

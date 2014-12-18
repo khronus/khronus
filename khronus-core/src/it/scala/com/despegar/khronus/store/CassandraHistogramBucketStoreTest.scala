@@ -13,7 +13,7 @@ import scala.util.Random
 class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTest with Matchers {
 
 
-  override val tableNames: Seq[String] = CassandraHistogramBucketStore.windowDurations.map(duration => CassandraHistogramBucketStore.tableName(duration))
+  override val tableNames: Seq[String] = Buckets.histogramBucketStore.windowDurations.map(duration => Buckets.histogramBucketStore.tableName(duration))
 
   val testMetric = Metric("testMetric", "histogram")
 
@@ -22,12 +22,12 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
     fill(histogram)
     val histogramBucket = new HistogramBucket((30, 30 seconds), histogram)
     await {
-      CassandraHistogramBucketStore.store(testMetric, 30 seconds, Seq(histogramBucket))
+      Buckets.histogramBucketStore.store(testMetric, 30 seconds, Seq(histogramBucket))
     }
 
     val executionTimestamp: Timestamp = histogramBucket.bucketNumber.startTimestamp()
     val bucketTuplesFromCassandra = await {
-      CassandraHistogramBucketStore.slice(testMetric, 1, executionTimestamp, 30 seconds)
+      Buckets.histogramBucketStore.slice(testMetric, 1, executionTimestamp, 30 seconds)
     }
     val bucketTupleFromCassandra = bucketTuplesFromCassandra(0)
 
@@ -43,11 +43,11 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
     val buckets = Seq(bucketFromThePast, bucketFromTheFuture)
 
     await {
-      CassandraHistogramBucketStore.store(testMetric, 30 seconds, buckets)
+      Buckets.histogramBucketStore.store(testMetric, 30 seconds, buckets)
     }
 
     val bucketTuplesFromCassandra = await {
-      CassandraHistogramBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)
+      Buckets.histogramBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)
     }
 
     bucketTuplesFromCassandra should have length 1
@@ -61,21 +61,21 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
     val bucket2 = new HistogramBucket((2, 30 seconds), HistogramBucket.newHistogram)
 
     await {
-      CassandraHistogramBucketStore.store(testMetric, 30 seconds, Seq(bucket1, bucket2))
+      Buckets.histogramBucketStore.store(testMetric, 30 seconds, Seq(bucket1, bucket2))
     }
 
     val storedTuples = await {
-      CassandraHistogramBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)
+      Buckets.histogramBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)
     }
 
-	storedTuples should have length 2
+    storedTuples should have length 2
 
     await {
-      CassandraHistogramBucketStore.remove(testMetric, 30 seconds, storedTuples.map(_._1))
+      Buckets.histogramBucketStore.remove(testMetric, 30 seconds, storedTuples.map(_._1))
     }
 
     val bucketTuplesFromCassandra = await {
-      CassandraHistogramBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)
+      Buckets.histogramBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)
     }
 
     bucketTuplesFromCassandra should be('empty)

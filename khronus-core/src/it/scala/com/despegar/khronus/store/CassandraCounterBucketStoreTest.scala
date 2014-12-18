@@ -1,15 +1,16 @@
 package com.despegar.khronus.store
 
-import scala.concurrent.duration._
-import com.despegar.khronus.model.Timestamp._
 import com.despegar.khronus.model.BucketNumber._
-import org.scalatest.{FunSuite, Matchers}
+import com.despegar.khronus.model.Timestamp._
+import com.despegar.khronus.model.{CounterBucket, Metric, MetricType}
 import com.despegar.khronus.util.BaseIntegrationTest
-import com.despegar.khronus.model.{Metric, MetricType, CounterBucket}
+import org.scalatest.{FunSuite, Matchers}
+
+import scala.concurrent.duration._
 
 
 class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest with Matchers {
-  override val tableNames: Seq[String] = CassandraCounterBucketStore.windowDurations.map(duration => CassandraCounterBucketStore.tableName(duration))
+  override val tableNames: Seq[String] = Buckets.counterBucketStore.windowDurations.map(duration => Buckets.counterBucketStore.tableName(duration))
 
   val testMetric = Metric("testMetric", MetricType.Counter)
 
@@ -18,12 +19,12 @@ class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest 
   test("should store and retrieve buckets properly") {
     val counter = new CounterBucket((250L, 30 seconds), 200L)
     await {
-      CassandraCounterBucketStore.store(testMetric, 30 seconds, Seq(counter))
+      Buckets.counterBucketStore.store(testMetric, 30 seconds, Seq(counter))
     }
 
     val executionTimestamp = counter.bucketNumber.startTimestamp()
     val bucketsFromCassandra = await {
-      CassandraCounterBucketStore.slice(testMetric, 1, executionTimestamp, 30 seconds)
+      Buckets.counterBucketStore.slice(testMetric, 1, executionTimestamp, 30 seconds)
     }
     val bucketFromCassandra = bucketsFromCassandra(0)
 
@@ -38,8 +39,12 @@ class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest 
 
     val buckets = Seq(bucketFromThePast, bucketFromTheFuture)
 
-    await {CassandraCounterBucketStore.store(testMetric, 30 seconds, buckets)}
-    val bucketsFromCassandra = await {CassandraCounterBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)}
+    await {
+      Buckets.counterBucketStore.store(testMetric, 30 seconds, buckets)
+    }
+    val bucketsFromCassandra = await {
+      Buckets.counterBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)
+    }
 
     bucketsFromCassandra should have length 1
     bucketsFromCassandra(0)._2() shouldEqual bucketFromThePast
@@ -50,13 +55,21 @@ class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest 
     val bucket1 = new CounterBucket((250L, 30 seconds), 200L)
     val bucket2 = new CounterBucket((250L, 30 seconds), 200L)
 
-    await {CassandraCounterBucketStore.store(testMetric, 30 seconds, Seq(bucket1, bucket2))}
+    await {
+      Buckets.counterBucketStore.store(testMetric, 30 seconds, Seq(bucket1, bucket2))
+    }
 
-    val storedBuckets = await {CassandraCounterBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)}
+    val storedBuckets = await {
+      Buckets.counterBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)
+    }
     storedBuckets should have length 2
 
-    await {CassandraCounterBucketStore.remove(testMetric, 30 seconds, storedBuckets.map(_._1))}
-    val bucketsFromCassandra = await {CassandraCounterBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)}
+    await {
+      Buckets.counterBucketStore.remove(testMetric, 30 seconds, storedBuckets.map(_._1))
+    }
+    val bucketsFromCassandra = await {
+      Buckets.counterBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)
+    }
 
     bucketsFromCassandra should be('empty)
   }

@@ -19,7 +19,7 @@ package com.despegar.khronus.store
 import java.nio.ByteBuffer
 
 import com.datastax.driver.core.utils.Bytes
-import com.datastax.driver.core.{ BatchStatement, SimpleStatement }
+import com.datastax.driver.core.{ BatchStatement, Session, SimpleStatement }
 import com.despegar.khronus.model.{ Bucket, Metric, Timestamp }
 import com.despegar.khronus.util.log.Logging
 import com.despegar.khronus.util.{ ConcurrencySupport, Measurable }
@@ -42,9 +42,7 @@ trait BucketStore[T <: Bucket] {
   def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[Seq[(Timestamp, () ⇒ T)]]
 }
 
-trait CassandraBucketStore[T <: Bucket] extends BucketStore[T] with Logging with Measurable with ConcurrencySupport {
-
-  import com.despegar.khronus.store.CassandraBuckets._
+abstract class CassandraBucketStore[T <: Bucket](session: Session) extends BucketStore[T] with Logging with Measurable with ConcurrencySupport with CassandraUtils {
 
   protected def tableName(duration: Duration): String
 
@@ -64,21 +62,24 @@ trait CassandraBucketStore[T <: Bucket] extends BucketStore[T] with Logging with
 
   val SliceQuery = "sliceQuery"
 
+  windowDurations.foreach(window ⇒ {
+    log.info(s"Initializing table ${tableName(window)}")
+    retry(MaxRetries, s"Creating ${tableName(window)} table") {
+      session.execute(s"create table if not exists ${tableName(window)} (metric text, timestamp bigint, buckets list<blob>, primary key (metric, timestamp)) with gc_grace_seconds = 0;")
+    }
+  })
+
   val stmtPerWindow: Map[Duration, Statements] = windowDurations.map(windowDuration ⇒ {
-    val insert = CassandraBuckets.session.prepare(s"update ${tableName(windowDuration)} using ttl ${ttl(windowDuration)} set buckets = buckets + ? where metric = ? and timestamp = ? ; ")
+    log.info("creating prepared statements...")
+    val insert = session.prepare(s"update ${tableName(windowDuration)} using ttl ${ttl(windowDuration)} set buckets = buckets + ? where metric = ? and timestamp = ? ; ")
 
     val simpleStmt = new SimpleStatement(s"select timestamp, buckets from ${tableName(windowDuration)} where metric = ? and timestamp >= ? and timestamp <= ? limit ?;")
     simpleStmt.setFetchSize(fetchSize)
-    val select = CassandraBuckets.session.prepare(simpleStmt)
+    val select = session.prepare(simpleStmt)
 
-    val delete = CassandraBuckets.session.prepare(s"delete from ${tableName(windowDuration)} where metric = ? and timestamp = ?;")
+    val delete = session.prepare(s"delete from ${tableName(windowDuration)} where metric = ? and timestamp = ?;")
     (windowDuration, Statements(insert, Map(SliceQuery -> select), Some(delete)))
   }).toMap
-
-  def initialize = windowDurations.foreach(window ⇒ {
-    log.info(s"Initializing table ${tableName(window)}")
-    CassandraBuckets.session.execute(s"create table if not exists ${tableName(window)} (metric text, timestamp bigint, buckets list<blob>, primary key (metric, timestamp)) with gc_grace_seconds = 0;")
-  })
 
   def store(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit] = {
     ifNotEmpty(buckets) {
@@ -92,7 +93,7 @@ trait CassandraBucketStore[T <: Bucket] extends BucketStore[T] with Logging with
       })
 
       toFutureUnit {
-        CassandraBuckets.session.executeAsync(batchStmt).
+        session.executeAsync(batchStmt).
           andThen { case Failure(reason) ⇒ log.error(s"$metric - Storing metrics ${metric.name} failed", reason) }
       }
     }
@@ -106,7 +107,7 @@ trait CassandraBucketStore[T <: Bucket] extends BucketStore[T] with Logging with
       bucketTimestamps.foreach(bucket ⇒ batchStmt.add(stmtPerWindow(windowDuration).delete.get.bind(metric.name, Long.box(bucket.ms))))
 
       toFutureUnit {
-        CassandraBuckets.session.executeAsync(batchStmt).
+        session.executeAsync(batchStmt).
           andThen { case Failure(reason) ⇒ log.error(s"$metric - Removing metrics ${metric.name} failed", reason) }
       }
     }
@@ -115,7 +116,7 @@ trait CassandraBucketStore[T <: Bucket] extends BucketStore[T] with Logging with
   def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[Seq[(Timestamp, () ⇒ T)]] = measureFutureTime("slice", metric, sourceWindow) {
     val boundStmt = stmtPerWindow(sourceWindow).selects(SliceQuery).bind(metric.name, Long.box(from.ms), Long.box(to.ms), Int.box(limit))
 
-    CassandraBuckets.session.executeAsync(boundStmt).map(resultSet ⇒ {
+    session.executeAsync(boundStmt).map(resultSet ⇒ {
       resultSet.asScala.flatMap(row ⇒ {
         val ts = row.getLong("timestamp")
         val buckets = row.getList("buckets", classOf[java.nio.ByteBuffer])

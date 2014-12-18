@@ -1,6 +1,6 @@
 package com.despegar.khronus.util
 
-import com.despegar.khronus.store.{CassandraSupport, CassandraBuckets, CassandraMeta, CassandraSummaries}
+import com.despegar.khronus.store.{CassandraKeyspace, Buckets, Meta, Summaries}
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FunSuite}
 
 import scala.concurrent.duration._
@@ -13,26 +13,26 @@ trait BaseIntegrationTest extends FunSuite with BeforeAndAfterAll with BeforeAnd
   def tableNames: Seq[String] = Seq.empty[String]
 
   override def beforeAll = {
-    CassandraMeta.initialize
-    CassandraBuckets.initialize
-    CassandraSummaries.initialize
+    Meta.initialize
+    Buckets.initialize
+    Summaries.initialize
 
-    truncateTables(CassandraBuckets)
-    truncateTables(CassandraSummaries)
-    truncateTables(CassandraMeta)
+    truncateTables(Buckets)
+    truncateTables(Summaries)
+    truncateTables(Meta)
   }
 
   after {
-    truncateTables(CassandraBuckets)
-    truncateTables(CassandraSummaries)
-    truncateTables(CassandraMeta)
+    truncateTables(Buckets)
+    truncateTables(Summaries)
+    truncateTables(Meta)
   }
 
   override protected def afterAll() = { }
 
   def await[T](f: => Future[T]): T = Await.result(f, 20 seconds)
 
-  def truncateTables(cassandra: CassandraSupport) = Try {
+  def truncateTables(cassandra: CassandraKeyspace) = Try {
     tableNames.foreach(table => cassandra.truncate(table))
   }
 

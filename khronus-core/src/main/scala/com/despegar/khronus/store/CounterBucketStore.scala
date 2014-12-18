@@ -19,6 +19,7 @@ package com.despegar.khronus.store
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 
+import com.datastax.driver.core.Session
 import com.despegar.khronus.model.{ Timestamp, _ }
 import com.despegar.khronus.util.{ Measurable, Settings }
 import com.esotericsoftware.kryo.io.{ Input, Output }
@@ -26,13 +27,15 @@ import com.esotericsoftware.kryo.io.{ Input, Output }
 import scala.concurrent.duration._
 
 trait CounterBucketStoreSupport extends BucketStoreSupport[CounterBucket] {
-  override def bucketStore: BucketStore[CounterBucket] = CassandraCounterBucketStore
+  override def bucketStore: BucketStore[CounterBucket] = Buckets.counterBucketStore
 }
 
-object CassandraCounterBucketStore extends CassandraBucketStore[CounterBucket] with Measurable {
+class CassandraCounterBucketStore(session: Session) extends CassandraBucketStore[CounterBucket](session) with Measurable {
 
   override def windowDurations: Seq[Duration] = Settings.Counter.WindowDurations
+
   override def limit: Int = Settings.Counter.BucketLimit
+
   override def fetchSize: Int = Settings.Counter.BucketFetchSize
 
   override def tableName(duration: Duration): String = s"counterBucket${duration.length}${duration.unit}"

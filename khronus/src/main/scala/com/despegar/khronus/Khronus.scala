@@ -19,5 +19,6 @@ package com.despegar.khronus
 import com.despegar.khronus.cluster.ClusterSupport
 import com.despegar.khronus.service.ActorSystemSupport
 import com.despegar.khronus.service.KhronusService
+import com.despegar.khronus.store.CassandraSupport
 
-object Khronus extends App with ActorSystemSupport with KhronusService with ClusterSupport
+object Khronus extends App with ActorSystemSupport with CassandraSupport with KhronusService with ClusterSupport

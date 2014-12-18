@@ -16,19 +16,23 @@
 
 package com.despegar.khronus.store
 
-import com.datastax.driver.core.policies.{ TokenAwarePolicy, LoggingRetryPolicy, DefaultRetryPolicy, RoundRobinPolicy }
+import com.datastax.driver.core._
+import com.datastax.driver.core.policies.{ DefaultRetryPolicy, LoggingRetryPolicy, RoundRobinPolicy, TokenAwarePolicy }
 import com.despegar.khronus.util.Settings
 import com.despegar.khronus.util.log.Logging
-import com.datastax.driver.core._
-import scala.concurrent.ExecutionContext
 import com.google.common.util.concurrent.{ FutureCallback, Futures }
 
-import scala.concurrent.{ Future, Promise }
-import scala.util.{ Success, Failure, Try };
+import scala.concurrent.{ ExecutionContext, Future, Promise }
+import scala.util.{ Failure, Success, Try };
 
 object CassandraCluster extends Logging with CassandraClusterConfiguration {
   private val cluster: Cluster = clusterBuilder.build()
 
+  /*
+  val cassandraMeta = Meta
+  val cassandraBuckets = Buckets
+  val cassandraSummaries = Summaries
+*/
   def connect() = cluster.connect()
 
   def close() = {
@@ -58,37 +62,72 @@ trait CassandraClusterConfiguration {
 
 }
 
-trait CassandraSupport extends Logging {
+trait CassandraKeyspace extends Logging with CassandraUtils {
 
   import scala.language.implicitConversions
 
   def keyspace: String
 
   val session: Session = connectCassandra
-  val MaxRetries = 3
 
   def initialize(): Unit = {
-    createSchemaIfNotExists
-  }
-
-  def getRF: Int
-
-  def connectCassandra = CassandraCluster.connect()
-
-  def createSchemaIfNotExists = {
     val keyspacePlusSuffix = keyspace + Settings.CassandraCluster.KeyspaceNameSuffix
 
+    log.info(s"Initializing schema: $keyspacePlusSuffix")
     retry(MaxRetries, s"initialize schema $keyspacePlusSuffix") {
-      log.info(s"Initializing schema: $keyspacePlusSuffix")
       session.execute(s"create keyspace if not exists $keyspacePlusSuffix with replication = {'class':'SimpleStrategy', 'replication_factor': $getRF};")
     }
 
     session.execute(s"USE $keyspacePlusSuffix;")
   }
 
+  def getRF: Int
+
+  def connectCassandra = CassandraCluster.connect()
+
   def truncate(table: String) = Try {
     session.execute(s"truncate $table;");
   }
+
+}
+
+object Meta extends CassandraKeyspace {
+
+  initialize
+  val metaStore = new CassandraMetaStore(session)
+
+  override def keyspace = "meta"
+
+  override def getRF: Int = Settings.CassandraMeta.ReplicationFactor
+}
+
+object Buckets extends CassandraKeyspace {
+
+  log.info("Will initialize Buckets....")
+  initialize
+  val histogramBucketStore = new CassandraHistogramBucketStore(session)
+  val counterBucketStore = new CassandraCounterBucketStore(session)
+
+  override def keyspace = "buckets"
+
+  override def getRF: Int = Settings.CassandraBuckets.ReplicationFactor
+}
+
+object Summaries extends CassandraKeyspace {
+
+  initialize
+  val histogramSummaryStore = new CassandraStatisticSummaryStore(session)
+  val counterSummaryStore = new CassandraCounterSummaryStore(session)
+
+  override def keyspace = "summaries"
+
+  override def getRF: Int = Settings.CassandraSummaries.ReplicationFactor
+}
+
+case class Statements(insert: PreparedStatement, selects: Map[String, PreparedStatement], delete: Option[PreparedStatement])
+
+trait CassandraUtils extends Logging {
+  val MaxRetries = 3
 
   /**
    * Converts a `ResultSetFuture` into a Scala `Future[ResultSet]`
@@ -114,7 +153,9 @@ trait CassandraSupport extends Logging {
 
   @annotation.tailrec
   final def retry(n: Int, action: String)(block: ⇒ Unit): Unit = {
-    val result = Try { block }
+    val result = Try {
+      block
+    }
     result match {
       case Success(_) ⇒
       case Failure(e) if n > 1 ⇒ {
@@ -127,56 +168,4 @@ trait CassandraSupport extends Logging {
       }
     }
   }
-
 }
-
-object CassandraMeta extends CassandraMeta {
-  initialize
-}
-
-trait CassandraMeta extends CassandraSupport {
-  override def keyspace = "meta"
-
-  override def initialize: Unit = {
-    super.initialize
-
-    retry(MaxRetries, "Creating table meta") { CassandraMetaStore.initialize }
-  }
-
-  override def getRF: Int = Settings.CassandraMeta.ReplicationFactor
-}
-
-object CassandraBuckets extends CassandraBuckets {
-  initialize
-}
-
-trait CassandraBuckets extends CassandraSupport {
-  override def keyspace = "buckets"
-
-  override def initialize: Unit = {
-    super.initialize
-    retry(MaxRetries, "Creating bucket timer tables") { CassandraHistogramBucketStore.initialize }
-    retry(MaxRetries, "Creating bucket counter tables") { CassandraCounterBucketStore.initialize }
-  }
-
-  override def getRF: Int = Settings.CassandraBuckets.ReplicationFactor
-}
-
-object CassandraSummaries extends CassandraSummaries {
-  initialize
-}
-
-trait CassandraSummaries extends CassandraSupport {
-  override def keyspace = "summaries"
-
-  override def initialize: Unit = {
-    super.initialize
-
-    retry(MaxRetries, "Creating summary timer tables") { CassandraStatisticSummaryStore.initialize }
-    retry(MaxRetries, "Creating summary counter tables") { CassandraCounterSummaryStore.initialize }
-  }
-
-  override def getRF: Int = Settings.CassandraSummaries.ReplicationFactor
-}
-
-case class Statements(insert: PreparedStatement, selects: Map[String, PreparedStatement], delete: Option[PreparedStatement])

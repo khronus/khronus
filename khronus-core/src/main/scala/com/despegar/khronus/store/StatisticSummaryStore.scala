@@ -19,24 +19,28 @@ package com.despegar.khronus.store
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 
+import com.datastax.driver.core.Session
 import com.despegar.khronus.model.StatisticSummary
+import com.despegar.khronus.util.log.Logging
 import com.despegar.khronus.util.{ Measurable, Settings }
 import com.esotericsoftware.kryo.io.{ Input, Output }
 
 import scala.concurrent.duration._
-import com.despegar.khronus.util.log.Logging
 
 trait StatisticSummarySupport extends SummaryStoreSupport[StatisticSummary] {
-  override def summaryStore: SummaryStore[StatisticSummary] = CassandraStatisticSummaryStore
+  override def summaryStore: SummaryStore[StatisticSummary] = Summaries.histogramSummaryStore
 }
 
-object CassandraStatisticSummaryStore extends CassandraSummaryStore[StatisticSummary] with Logging with Measurable {
+class CassandraStatisticSummaryStore(session: Session) extends CassandraSummaryStore[StatisticSummary](session) with Logging with Measurable {
 
   override def windowDurations: Seq[Duration] = Settings.Histogram.WindowDurations
+
   override def limit = Settings.Histogram.SummaryLimit
+
   override def fetchSize = Settings.Histogram.SummaryFetchSize
 
   override def tableName(duration: Duration) = s"statisticSummary${duration.length}${duration.unit}"
+
   override def ttl(windowDuration: Duration): Int = Settings.Histogram.SummaryRetentionPolicy
 
   override def serializeSummary(summary: StatisticSummary): ByteBuffer = {
@@ -59,6 +63,7 @@ object CassandraStatisticSummaryStore extends CassandraSummaryStore[StatisticSum
 
 trait StatisticSummarySerializer {
   def serialize(summary: StatisticSummary): Array[Byte]
+
   def deserialize(input: Input, timestamp: Long): StatisticSummary
 
 }

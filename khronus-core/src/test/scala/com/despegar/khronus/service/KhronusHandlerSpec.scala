@@ -42,6 +42,9 @@ class KhronusHandlerSpec extends TestKitBase with ImplicitSender with FunSpecLik
       |    discovery-start-delay = 1 second
       |    discovery-interval = 2 seconds
       |  }
+      |  internal-metrics {
+      |    enabled = false
+      |  } 
       |}
     """.stripMargin))
 

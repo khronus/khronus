@@ -19,7 +19,6 @@ package com.despegar.khronus.influx
 import akka.actor._
 import akka.actor
 import akka.event.Logging
-import com.despegar.khronus.influx.finder.InfluxDashboardResolver
 import com.despegar.khronus.influx.service.InfluxActor
 import com.despegar.khronus.influx.store.CassandraDashboards
 import com.despegar.khronus.service.ActorSystemSupport
@@ -49,9 +48,11 @@ object Influx extends ExtensionId[Influx] with ExtensionIdProvider {
   override def createExtension(system: ExtendedActorSystem): Influx = new Influx(system)
 }
 
-class InfluxSubscriber(influxActor: ActorRef) extends Actor {
+class InfluxSubscriber(influxActor: ActorRef) extends Actor with ActorLogging {
   def receive: Receive = {
     case KhronusStarted(handler) ⇒
+      log.info("Influx received KhronusStarted")
+      val c = CassandraDashboards
       handler ! Register(InfluxActor.Path, influxActor)
   }
 }

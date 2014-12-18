@@ -15,6 +15,7 @@ import org.scalatest.mock.MockitoSugar
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{ Await, Future }
+import scala.util.control.NoStackTrace
 
 class CounterTimeWindowTest extends FunSuite with MockitoSugar with TimeWindowTest[CounterBucket] {
 
@@ -159,7 +160,7 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar with TimeWindowTe
 
     when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](neverProcessedTimestamp))
     when(window.bucketStore.slice(Matchers.eq(metric), any[Timestamp], any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousBucketsMap))
-    when(window.bucketStore.store(metric, windowDuration, myBuckets)).thenReturn(Future.failed(new IOException()))
+    when(window.bucketStore.store(metric, windowDuration, myBuckets)).thenReturn(Future.failed(new IOException("Expected exception in Test") with NoStackTrace))
 
     //call method to test
     intercept[IOException] {

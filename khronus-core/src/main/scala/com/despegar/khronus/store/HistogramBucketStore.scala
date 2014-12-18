@@ -18,21 +18,24 @@ package com.despegar.khronus.store
 
 import java.nio.ByteBuffer
 
+import com.datastax.driver.core.Session
 import com.despegar.khronus.model._
+import com.despegar.khronus.util.log.Logging
 import com.despegar.khronus.util.{ Measurable, Settings }
 import org.HdrHistogram.{ Histogram, SkinnyHistogram }
 
 import scala.concurrent.duration._
-import com.despegar.khronus.util.log.Logging
 
 trait HistogramBucketSupport extends BucketStoreSupport[HistogramBucket] {
-  override def bucketStore: BucketStore[HistogramBucket] = CassandraHistogramBucketStore
+  override def bucketStore: BucketStore[HistogramBucket] = Buckets.histogramBucketStore
 }
 
-object CassandraHistogramBucketStore extends CassandraBucketStore[HistogramBucket] with Logging with Measurable {
+class CassandraHistogramBucketStore(session: Session) extends CassandraBucketStore[HistogramBucket](session) with Logging with Measurable {
 
   override def windowDurations: Seq[Duration] = Settings.Histogram.WindowDurations
+
   override def limit: Int = Settings.Histogram.BucketLimit
+
   override def fetchSize: Int = Settings.Histogram.BucketFetchSize
 
   override def toBucket(windowDuration: Duration, timestamp: Long, histogram: Array[Byte]) = {

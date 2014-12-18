@@ -16,15 +16,15 @@
 
 package com.despegar.khronus.influx.finder
 
-import com.despegar.khronus.influx.parser.{ Field, StringFilter, TimeFilter, _ }
+import com.despegar.khronus.influx.parser._
 import com.despegar.khronus.influx.service.{ InfluxEndpoint, InfluxSeries }
-import com.despegar.khronus.model.{ CounterSummary, StatisticSummary, _ }
-import com.despegar.khronus.store.{ Slice, _ }
+import com.despegar.khronus.model._
+import com.despegar.khronus.store.{ Summaries, SummaryStore, Slice, MetaSupport }
 import com.despegar.khronus.util.{ ConcurrencySupport, Measurable, Settings }
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{ ExecutionContext, Future }
 
 trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySupport {
   this: InfluxEndpoint ⇒
@@ -84,6 +84,7 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
       }
     }
   }
+
   protected lazy val maxResolution: Int = Settings.Dashboard.MaxResolutionPoints
   protected lazy val minResolution: Int = Settings.Dashboard.MinResolutionPoints
 
@@ -100,8 +101,10 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
     case MetricType.Counter                  ⇒ getCounterSummaryStore
     case _                                   ⇒ throw new UnsupportedOperationException(s"Unknown metric type: $metricType")
   }
-  protected def getStatisticSummaryStore: SummaryStore[StatisticSummary] = CassandraStatisticSummaryStore
-  protected def getCounterSummaryStore: SummaryStore[CounterSummary] = CassandraCounterSummaryStore
+
+  protected def getStatisticSummaryStore: SummaryStore[StatisticSummary] = Summaries.histogramSummaryStore
+
+  protected def getCounterSummaryStore: SummaryStore[CounterSummary] = Summaries.counterSummaryStore
 
   private def toInfluxSeries(summaries: Seq[Summary], functions: Seq[Field], metricName: String): Seq[InfluxSeries] = {
     log.info(s"Building Influx series: Metric $metricName - Functions: $functions - Summaries count: ${summaries.size}")

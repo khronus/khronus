@@ -18,7 +18,7 @@ package com.despegar.khronus.store
 
 trait BucketSupport {
 
-  val histogramBucketStore = CassandraHistogramBucketStore
-  val counterBucketStore = CassandraCounterBucketStore
+  val histogramBucketStore = Buckets.histogramBucketStore
+  val counterBucketStore = Buckets.counterBucketStore
 
 }

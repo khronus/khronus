@@ -32,6 +32,7 @@ import org.scalatest.mock.MockitoSugar
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{ Await, Future }
+import scala.util.control.NoStackTrace
 
 class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindowTest[HistogramBucket] {
 
@@ -143,7 +144,7 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindow
     val window = mockedWindow(windowDuration, previousWindowDuration)
 
     //mock temporal data to be empty
-    when(window.bucketStore.slice(Matchers.eq(metric), any[Timestamp], Matchers.any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future.failed(new IOException()))
+    when(window.bucketStore.slice(Matchers.eq(metric), any[Timestamp], Matchers.any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future.failed(new IOException() with NoStackTrace))
     when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](neverProcessedTimestamp))
 
     //call method to test
@@ -186,7 +187,7 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindow
 
     when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](neverProcessedTimestamp))
     when(window.bucketStore.slice(Matchers.eq(metric), any[Timestamp], any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousBucketsMap))
-    when(window.bucketStore.store(metric, windowDuration, myBuckets)).thenReturn(Future.failed(new IOException("Expected exception in Test")))
+    when(window.bucketStore.store(metric, windowDuration, myBuckets)).thenReturn(Future.failed(new IOException("Expected exception in Test") with NoStackTrace))
 
     //call method to test
     intercept[IOException] {

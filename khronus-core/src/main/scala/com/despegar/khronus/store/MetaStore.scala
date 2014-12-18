@@ -18,7 +18,7 @@ package com.despegar.khronus.store
 
 import java.util.concurrent.{ ConcurrentLinkedQueue, TimeUnit }
 
-import com.datastax.driver.core.BatchStatement
+import com.datastax.driver.core.{ BatchStatement, Session }
 import com.despegar.khronus.model.{ Metric, Timestamp }
 import com.despegar.khronus.util.log.Logging
 
@@ -30,7 +30,7 @@ import scala.util.{ Failure, Success }
 
 case class MetricMetadata(metric: Metric, timestamp: Timestamp)
 
-trait MetaStore extends Snapshot[Map[Metric, Timestamp]] {
+trait MetaStore {
   def update(metric: Metric, lastProcessedTimestamp: Timestamp): Future[Unit]
 
   def getLastProcessedTimestamp(metric: Metric): Future[Timestamp]
@@ -45,17 +45,20 @@ trait MetaStore extends Snapshot[Map[Metric, Timestamp]] {
 }
 
 trait MetaSupport {
-  def metaStore: MetaStore = CassandraMetaStore
+  def metaStore: MetaStore = Meta.metaStore
 }
 
-object CassandraMetaStore extends MetaStore with Logging {
+class CassandraMetaStore(session: Session) extends MetaStore with Logging with CassandraUtils with Snapshot[Map[Metric, Timestamp]] {
 
   val MetricsKey = "metrics"
 
   private val CreateTableStmt = s"create table if not exists meta (key text, metric text, timestamp bigint, primary key (key, metric));"
-  private val InsertStmt = CassandraMeta.session.prepare(s"insert into meta (key, metric, timestamp) values (?, ?, ?);")
-  private val GetByKeyStmt = CassandraMeta.session.prepare(s"select metric, timestamp from meta where key = ?;")
-  private val GetLastProcessedTimeStmt = CassandraMeta.session.prepare(s"select timestamp from meta where key = ? and metric = ?;")
+  retry(MaxRetries, "Creating table meta") {
+    session.execute(CreateTableStmt)
+  }
+  private val InsertStmt = session.prepare(s"insert into meta (key, metric, timestamp) values (?, ?, ?);")
+  private val GetByKeyStmt = session.prepare(s"select metric, timestamp from meta where key = ?;")
+  private val GetLastProcessedTimeStmt = session.prepare(s"select timestamp from meta where key = ? and metric = ?;")
 
   implicit val asyncExecutionContext = executionContext("meta-worker", 5)
 
@@ -66,10 +69,6 @@ object CassandraMetaStore extends MetaStore with Logging {
   asyncUpdateExecutor.scheduleAtFixedRate(new Runnable() {
     override def run = updateAsync
   }, 1, 1, TimeUnit.SECONDS)
-
-  import com.despegar.khronus.store.CassandraMeta._
-
-  def initialize = CassandraMeta.session.execute(CreateTableStmt)
 
   def insert(metric: Metric): Future[Unit] = {
     put(Seq(MetricMetadata(metric, Timestamp(1))))
@@ -112,7 +111,7 @@ object CassandraMetaStore extends MetaStore with Logging {
 
   def allMetrics(): Future[Seq[Metric]] = retrieveMetrics.map(_.keys.toSeq)
 
-  def retrieveMetrics: Future[Map[Metric, Timestamp]] = CassandraMeta.session.executeAsync(GetByKeyStmt.bind(MetricsKey)).
+  def retrieveMetrics: Future[Map[Metric, Timestamp]] = session.executeAsync(GetByKeyStmt.bind(MetricsKey)).
     map(resultSet ⇒ {
       val metrics = resultSet.all().asScala.map(row ⇒ (fromString(row.getString("metric")), Timestamp(row.getLong("timestamp")))).toMap
       log.info(s"Found ${metrics.size} metrics in meta")
@@ -130,7 +129,7 @@ object CassandraMetaStore extends MetaStore with Logging {
   }
 
   def getLastProcessedTimestampFromCassandra(metric: Metric): Future[Timestamp] =
-    CassandraMeta.session.executeAsync(GetLastProcessedTimeStmt.bind(MetricsKey, asString(metric))).
+    session.executeAsync(GetLastProcessedTimeStmt.bind(MetricsKey, asString(metric))).
       map(resultSet ⇒ Timestamp(resultSet.one().getLong("timestamp"))).
       andThen {
         case Failure(reason) ⇒ log.error(s"$metric - Failed to retrieve last processed timestamp from meta", reason)
@@ -142,7 +141,7 @@ object CassandraMetaStore extends MetaStore with Logging {
       metricMetadata ⇒ batchStmt.add(InsertStmt.bind(MetricsKey, asString(metricMetadata.metric), Long.box(metricMetadata.timestamp.ms)))
     }
 
-    CassandraMeta.session.executeAsync(batchStmt)
+    session.executeAsync(batchStmt)
       .map(_ ⇒ log.debug(s"Stored meta (batch) successfully"))
       .andThen {
         case Failure(reason) ⇒ log.error("Failed to store meta", reason)
