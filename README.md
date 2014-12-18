@@ -5,10 +5,11 @@ Khronus - A reactive time series database [![Build Status](https://api.travis-ci
 
 Khronus is a open source distributed reactive time series database. It is designed to store, analyze and process a huge amount of metrics.
 
-It measures well. It correctly and precisely analyze and process timers and gauges using the great HdrHistogram by Gil Tene.It is space efficient and has data tunable retention policies. It relies on both Akka cluster and Cassandra to scale and being resilient.
-It is very fast to query percentiles, counts, min, max and others from metrics even if they have a lot of measurements.
+It measures well. It correctly and precisely analyze and process timers and gauges using the great `HdrHistogram by Gil Tene`. It is space efficient and has data tunable retention policies. It relies on both `Akka Cluster` and `Cassandra` to scale and being resilient.
 
-Khronus does not have its own dashboard to graph it's metrics. It is focused on analyzing and retrieving time series data. Currently it can be integrated with Grafana through the InfluxDB api.
+It is very fast to query `percentiles, counts, min, max` and others from metrics even if they have a lot of measurements.
+
+Khronus does not have its own dashboard to graph it's metrics. It is focused on analyzing and retrieving time series data. Currently it can be integrated with `Grafana` through the `InfluxDB api`.
 
 ## Status
 
@@ -17,7 +18,7 @@ We plan to integrate it with Kibana too.
 
 ## Features
 
-* It supports timers, gauges and counters.
+* It supports `timers, gauges and counters`.
 * Configurable series resolution (30 seconds, 1 minute, 10 minutes, etc)
 * Measures well. No more average of percentiles.
 * Fast, very fast retrieving of metrics.
@@ -134,8 +135,8 @@ khronus {
 ## Sreenshots
 
 ![Khronus in Action](site/khronus-dashboard-screenshot.png)
-
+  
 ## Contributions
 
-Khronus is open to the community to collaborations and contributions
+`Khronus` is open to the community to collaborations and contributions
 
