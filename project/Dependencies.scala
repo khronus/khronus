@@ -37,7 +37,6 @@ object Dependencies {
   val commonsCodec        =       "commons-codec"                   %   "commons-codec"               % "1.9"
   val parserCombinators   =       "org.scala-lang.modules"          %%  "scala-parser-combinators"    % "1.0.2"
   val snappy              =       "org.xerial.snappy"               %   "snappy-java"                 % "1.1.1.6"
-  val akkaKryo            =       "com.github.romix.akka"           %%  "akka-kryo-serialization"     % "0.3.2"
   val jacksonAfterBurner  =       "com.fasterxml.jackson.module"    %   "jackson-module-afterburner"  % "2.4.4"
   val jacksonScala        =       "com.fasterxml.jackson.module"    %%  "jackson-module-scala"        % "2.4.4"
 
