@@ -18,7 +18,7 @@ package com.despegar.khronus.cluster
 
 import akka.actor._
 import akka.routing.{ Broadcast, FromConfig }
-import com.despegar.khronus.model.{ MonitoringSupport, Metric, Monitoring }
+import com.despegar.khronus.model.{ MonitoringSupport, Metric }
 import com.despegar.khronus.store.MetaSupport
 import com.despegar.khronus.util.Settings
 import us.theatr.akka.quartz.{ AddCronScheduleFailure, _ }
@@ -71,38 +71,29 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
       case Failure(NonFatal(reason)) ⇒ log.error(reason, "Error trying to get metrics.")
     }
 
-    case PendingMetrics(metrics) ⇒ {
-      val metricsSize = metrics.size
-      log.info(s"Metrics received: $metricsSize, Pending metrics: ${pendingMetrics.size} and ${idleWorkers.size} idle workers")
-      log.debug(s"Pending metrics: $pendingMetrics workers idle: $idleWorkers")
-      log.debug(s"Idle workers: $idleWorkers")
-
-      recordGauge("idleWorkers", idleWorkers.size)
-      recordGauge("pendingMetrics", pendingMetrics.size)
-      recordGauge("metrics", metricsSize)
-      recordGauge("metricsReceived", metricsSize)
+    case PendingMetrics(metrics) ⇒
+      recordSystemMetrics(metrics)
 
       pendingMetrics ++= metrics filterNot (metric ⇒ pendingMetrics contains metric)
 
-      if (busyWorkers.nonEmpty) {
-        log.warning(s"There are still busy workers from previous Tick: $busyWorkers. This may mean that either workers are still processing metrics or Terminated message has not been received yet")
-      } else {
-        start = System.currentTimeMillis()
-      }
+      if (busyWorkers.nonEmpty) log.warning(s"There are still busy workers from previous Tick: $busyWorkers. This may mean that either workers are still processing metrics or Terminated message has not been received yet")
+      else start = System.currentTimeMillis()
 
       while (pendingMetrics.nonEmpty && idleWorkers.nonEmpty) {
-        val worker = idleWorkers.head
-        val pending = pendingMetrics.head
 
-        log.debug(s"Dispatching $pending to ${worker.path}")
+        val (currentBatch, pending) = pendingMetrics.splitAt(settings.WorkerBatchSize)
+
+        val worker = idleWorkers.head
+
+        log.debug(s"Dispatching ${currentBatch.mkString(",")} to ${worker.path}")
         incrementCounter("dispatch")
-        worker ! Work(pending)
+
+        worker ! Work(currentBatch)
 
         busyWorkers += worker
         idleWorkers = idleWorkers.tail
-        pendingMetrics = pendingMetrics.tail
+        pendingMetrics = pending
       }
-    }
 
     case Register(worker) ⇒
       log.info("Registering worker [{}]", worker.path)
@@ -112,16 +103,16 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
     case WorkDone(worker) ⇒
       if (pendingMetrics.nonEmpty) {
-        val pending = pendingMetrics.head
-        log.debug(s"Fast-Dispatching $pending to ${worker.path}")
+        val (currentBatch, pending) = pendingMetrics.splitAt(settings.WorkerBatchSize)
+
+        log.debug(s"Fast-Dispatching ${currentBatch.mkString(",")} to ${worker.path}")
         incrementCounter("fastDispatch")
-        worker ! Work(pending)
-        pendingMetrics = pendingMetrics.tail
+        worker ! Work(currentBatch)
+        pendingMetrics = pending
       } else {
         log.debug(s"Pending metrics is empty. Adding worker ${worker.path} to worker idle list")
         idleWorkers += worker
         removeBusyWorker(worker)
-
       }
 
     case Terminated(worker) ⇒
@@ -130,6 +121,19 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
       if (busyWorkers.contains(worker)) {
         removeBusyWorker(worker)
       }
+  }
+
+  private def recordSystemMetrics(metrics: Seq[Metric]) {
+    val metricsSize = metrics.size
+
+    log.info(s"Metrics received: $metricsSize, Pending metrics: ${pendingMetrics.size} and ${idleWorkers.size} idle workers")
+    log.debug(s"Pending metrics: $pendingMetrics workers idle: $idleWorkers")
+    log.debug(s"Idle workers: $idleWorkers")
+
+    recordGauge("idleWorkers", idleWorkers.size)
+    recordGauge("pendingMetrics", pendingMetrics.size)
+    recordGauge("metrics", metricsSize)
+    recordGauge("metricsReceived", metricsSize)
   }
 
   private def removeBusyWorker(worker: ActorRef) = {
@@ -148,11 +152,10 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
     super.postStop()
 
     log.info("Cancelling heartbeat scheduler")
-    heartbeatScheduler.map({ case scheduler: Cancellable ⇒ scheduler.cancel() })
+    heartbeatScheduler.map { case scheduler: Cancellable ⇒ scheduler.cancel() }
 
     log.info("Stopping tick actor ref")
-    tickActorRef.map({ case actor: ActorRef ⇒ stop(actor) })
-
+    tickActorRef.map { case actor: ActorRef ⇒ stop(actor) }
   }
 
   def scheduleHeartbeat(router: ActorRef): Option[Cancellable] = {
@@ -163,19 +166,15 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
   def scheduleTick(): Option[ActorRef] = {
     log.info(s"Scheduling tick at ${settings.TickCronExpression}")
     val tickScheduler = actorOf(Props[QuartzActor])
-    tickScheduler ! AddCronSchedule(self, settings.TickCronExpression, Tick, true)
+    tickScheduler ! AddCronSchedule(self, settings.TickCronExpression, Tick, reply = true)
     Some(tickScheduler)
   }
 }
 
 object Master {
-
   case object Tick
-
   case class PendingMetrics(metrics: Seq[Metric])
-
   case class Initialize(cronExpression: String, router: ActorRef)
-
   case class MasterConfig(cronExpression: String)
 
   def props: Props = Props(classOf[Master])

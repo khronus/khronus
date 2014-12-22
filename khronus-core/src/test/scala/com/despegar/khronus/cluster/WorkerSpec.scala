@@ -53,8 +53,8 @@ class WorkerSpec extends BaseTest with TestKitBase with ImplicitSender
   val worker = TestActorRef(Props(new Worker with TimeWindowChainProviderMock))
 
   "The Worker actor" should {
-    "ignore the Work message if it's received before register in the cluster" in {
-      worker ! Work(Metric("some work", "histogram"))
+    "ignore the Work message if it'sappa received before register in the cluster" in {
+      worker ! Work(Seq(Metric("some work", "histogram")))
       expectNoMsg()
     }
 
@@ -64,7 +64,7 @@ class WorkerSpec extends BaseTest with TestKitBase with ImplicitSender
     }
 
     "respond with a WorkDone when receiving a Work message and finalize it successful" in {
-      worker ! Work(Metric("some work", "histogram"))
+      worker ! Work(Seq(Metric("some work", "histogram")))
       expectMsgClass(classOf[WorkDone])
     }
   }

@@ -35,21 +35,23 @@ class Worker extends Actor with ActorLogging with TimeWindowChainProvider with M
   }
 
   def ready: Receive = {
-    case Work(metric)      ⇒ process(metric, sender)
+    case Work(metric)      ⇒ process(metric, sender())
     case WorkError(reason) ⇒ throw reason
     case everythingElse    ⇒ //ignore
   }
 
-  def process(metric: Metric, requestor: ActorRef) {
-    log.debug(s"Starting to process: $metric")
+  def process(metrics: Seq[Metric], requestor: ActorRef) {
+    log.debug(s"Starting to process: ${metrics.mkString(",")}")
 
-    timeWindowChain.process(metric) onComplete {
-      case Success(_) ⇒
-        log.debug(s"Worker ${self.path} has processed $metric successfully")
-        requestor ! WorkDone(self)
-      case Failure(NonFatal(reason)) ⇒
-        log.error(reason, s"Error processing $metric")
-        self ! WorkError(new WorkFailureException(reason.getMessage))
+    metrics.foreach { metric ⇒
+      timeWindowChain.process(metric) onComplete {
+        case Success(_) ⇒
+          log.debug(s"Worker ${self.path} has processed $metric successfully")
+          requestor ! WorkDone(self)
+        case Failure(NonFatal(reason)) ⇒
+          log.error(reason, s"Error processing $metric")
+          self ! WorkError(new WorkFailureException(reason.getMessage))
+      }
     }
   }
 

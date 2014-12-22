@@ -37,7 +37,7 @@ class MasterSpec extends BaseTest with TestKitBase with ImplicitSender
     """
       |akka {
       |  loglevel = INFO
-      |  stdout-loglevel = DEBUG
+      |  stdout-loglevel = INFO
       |  event-handlers = ["akka.event.Logging$DefaultLogger"]
       |}
       |
@@ -46,6 +46,7 @@ class MasterSpec extends BaseTest with TestKitBase with ImplicitSender
       |    tick-expression = "0/1 * * * * ?"
       |    discovery-start-delay = 1 second
       |    discovery-interval = 2 seconds
+      |    worker-batch-size = 1
       |  }
       |}
     """.stripMargin))
@@ -152,7 +153,7 @@ class MasterSpec extends BaseTest with TestKitBase with ImplicitSender
       master ! WorkDone(worker1)
 
       assert(idleWorkers.size == 0)
-      workerProbe1.expectMsg(Work(firstMetric))
+      workerProbe1.expectMsg(Work(Seq(firstMetric)))
       assert(pendingMetrics.size == 1)
       assert(!pendingMetrics.contains(firstMetric))
     }
@@ -186,22 +187,22 @@ class MasterSpec extends BaseTest with TestKitBase with ImplicitSender
       underlyingMaster.pendingMetrics = Seq(Metric("a", "histogram"), Metric("b", "histogram"), Metric("c", "histogram"), Metric("d", "histogram"), Metric("e", "histogram"))
 
       master ! PendingMetrics(allMetrics)
-      workerProbe1.expectMsg(Work(Metric("a", "histogram")))
-      workerProbe2.expectMsg(Work(Metric("b", "histogram")))
+      workerProbe1.expectMsg(Work(Seq(Metric("a", "histogram"))))
+      workerProbe2.expectMsg(Work(Seq(Metric("b", "histogram"))))
       assert(idleWorkers.isEmpty)
       assert(pendingMetrics == Seq(Metric("c", "histogram"), Metric("d", "histogram"), Metric("e", "histogram")))
 
       underlyingMaster.idleWorkers = Set(worker1, worker2)
       master ! PendingMetrics(allMetrics)
-      workerProbe1.expectMsg(Work(Metric("c", "histogram")))
-      workerProbe2.expectMsg(Work(Metric("d", "histogram")))
+      workerProbe1.expectMsg(Work(Seq(Metric("c", "histogram"))))
+      workerProbe2.expectMsg(Work(Seq(Metric("d", "histogram"))))
       assert(idleWorkers.isEmpty)
       assert(pendingMetrics == Seq(Metric("e", "histogram"), Metric("a", "histogram"), Metric("b", "histogram")))
 
       underlyingMaster.idleWorkers = Set(worker1, worker2)
       master ! PendingMetrics(allMetrics)
-      workerProbe1.expectMsg(Work(Metric("e", "histogram")))
-      workerProbe2.expectMsg(Work(Metric("a", "histogram")))
+      workerProbe1.expectMsg(Work(Seq(Metric("e", "histogram"))))
+      workerProbe2.expectMsg(Work(Seq(Metric("a", "histogram"))))
       assert(idleWorkers.isEmpty)
       assert(pendingMetrics == Seq(Metric("b", "histogram"), Metric("c", "histogram"), Metric("d", "histogram")))
     }

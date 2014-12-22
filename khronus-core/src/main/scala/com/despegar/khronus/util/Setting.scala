@@ -30,6 +30,7 @@ object Settings {
     val TickCronExpression = config.getString("khronus.master.tick-expression")
     val DiscoveryStartDelay = FiniteDuration(config.getDuration("khronus.master.discovery-start-delay", MILLISECONDS), MILLISECONDS)
     val DiscoveryInterval = FiniteDuration(config.getDuration("khronus.master.discovery-interval", MILLISECONDS), MILLISECONDS)
+    val WorkerBatchSize = config.getInt("khronus.master.worker-batch-size")
   }
 
   object Http {

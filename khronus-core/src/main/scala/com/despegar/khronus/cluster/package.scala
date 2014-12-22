@@ -22,7 +22,7 @@ import model.Metric
 
 package object cluster {
   case class Register(worker: ActorRef)
-  case class Work(metric: Metric)
+  case class Work(metric: Seq[Metric])
   case class WorkDone(worker: ActorRef)
   case object Heartbeat
 
