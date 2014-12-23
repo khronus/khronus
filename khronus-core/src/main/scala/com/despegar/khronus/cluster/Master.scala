@@ -75,7 +75,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
       recordSystemMetrics(metrics)
 
       pendingMetrics ++= metrics filterNot (metric ⇒ pendingMetrics contains metric)
-
+      
       if (busyWorkers.nonEmpty) log.warning(s"There are still busy workers from previous Tick: $busyWorkers. This may mean that either workers are still processing metrics or Terminated message has not been received yet")
       else start = System.currentTimeMillis()
 
@@ -93,6 +93,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
         busyWorkers += worker
         idleWorkers = idleWorkers.tail
         pendingMetrics = pending
+        log.info(s"${pending.size} pending metrics after dispatch")
       }
 
     case Register(worker) ⇒
@@ -109,6 +110,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
         incrementCounter("fastDispatch")
         worker ! Work(currentBatch)
         pendingMetrics = pending
+        log.info(s"${pending.size} pending metrics after fast-dispatch")
       } else {
         log.debug(s"Pending metrics is empty. Adding worker ${worker.path} to worker idle list")
         idleWorkers += worker
@@ -126,7 +128,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
   private def recordSystemMetrics(metrics: Seq[Metric]) {
     val metricsSize = metrics.size
 
-    log.info(s"Metrics received: $metricsSize, Pending metrics: ${pendingMetrics.size} and ${idleWorkers.size} idle workers")
+    log.info(s"Metrics received: $metricsSize, Pending metrics: ${pendingMetrics.size}, ${idleWorkers.size} idle workers, ${busyWorkers.size} busy workers")
     log.debug(s"Pending metrics: $pendingMetrics workers idle: $idleWorkers")
     log.debug(s"Idle workers: $idleWorkers")
 
