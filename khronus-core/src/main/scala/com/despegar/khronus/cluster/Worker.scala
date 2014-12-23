@@ -19,6 +19,7 @@ package com.despegar.khronus.cluster
 import akka.actor.{ ActorRef, Props, Actor, ActorLogging }
 import com.despegar.khronus.cluster.Worker.WorkError
 import com.despegar.khronus.model.{ MonitoringSupport, Monitoring, TimeWindowChain, Metric }
+import scala.concurrent.Future
 import scala.util.control.{ NoStackTrace, NonFatal }
 import scala.util.{ Failure, Success }
 
@@ -40,18 +41,17 @@ class Worker extends Actor with ActorLogging with TimeWindowChainProvider with M
     case everythingElse    ⇒ //ignore
   }
 
-  def process(metrics: Seq[Metric], requestor: ActorRef) {
+  def process(metrics: Seq[Metric], requestor: ActorRef): Unit = {
     log.debug(s"Starting to process: ${metrics.mkString(",")}")
 
-    metrics.foreach { metric ⇒
-      timeWindowChain.process(metric) onComplete {
-        case Success(_) ⇒
-          log.debug(s"Worker ${self.path} has processed $metric successfully")
-          requestor ! WorkDone(self)
-        case Failure(NonFatal(reason)) ⇒
-          log.error(reason, s"Error processing $metric")
-          self ! WorkError(new WorkFailureException(reason.getMessage))
-      }
+    Future.sequence(metrics.map(timeWindowChain.process)) onComplete {
+      case Success(_) ⇒
+        log.debug(s"Worker ${self.path} has processed ${metrics.mkString(",")} successfully")
+        requestor ! WorkDone(self)
+
+      case Failure(NonFatal(reason)) ⇒
+        log.error(reason, s"Error processing ${metrics.mkString(",")}")
+        self ! WorkError(new WorkFailureException(reason.getMessage))
     }
   }
 
