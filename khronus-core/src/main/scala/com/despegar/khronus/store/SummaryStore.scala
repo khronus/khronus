@@ -19,7 +19,7 @@ package com.despegar.khronus.store
 import java.nio.ByteBuffer
 
 import com.datastax.driver.core.utils.Bytes
-import com.datastax.driver.core.{ BatchStatement, Session, SimpleStatement }
+import com.datastax.driver.core.{ ResultSet, BatchStatement, Session, SimpleStatement }
 import com.despegar.khronus.model.{ Metric, Summary }
 import com.despegar.khronus.util.log.Logging
 import com.despegar.khronus.util.{ ConcurrencySupport, Measurable }
@@ -59,7 +59,7 @@ abstract class CassandraSummaryStore[T <: Summary](session: Session) extends Sum
 
   protected def serializeSummary(summary: T): ByteBuffer
 
-  implicit val asyncExecutionContext = executionContext("summary-store-worker", 50)
+  implicit val asyncExecutionContext = executionContext("summary-store-worker")
 
   val QueryAsc = "queryAsc"
   val QueryDesc = "queryDesc"
@@ -87,17 +87,14 @@ abstract class CassandraSummaryStore[T <: Summary](session: Session) extends Sum
 
   def store(metric: Metric, windowDuration: Duration, summaries: Seq[T]): Future[Unit] = {
     ifNotEmpty(summaries) {
-      measureFutureTime("storeSummaries", metric, windowDuration) {
-        log.debug(s"$metric - Storing ${summaries.size} summaries ($summaries) of $windowDuration")
+      log.debug(s"$metric - Storing ${summaries.size} summaries ($summaries) of $windowDuration")
 
-        val batchStmt = new BatchStatement();
-        summaries.foreach(summary ⇒ batchStmt.add(stmtPerWindow(windowDuration).insert.bind(metric.name, Long.box(summary.timestamp.ms), serializeSummary(summary))))
+      val batchStmt = new BatchStatement();
+      summaries.foreach(summary ⇒ batchStmt.add(stmtPerWindow(windowDuration).insert.bind(metric.name, Long.box(summary.timestamp.ms), serializeSummary(summary))))
 
-        toFutureUnit {
-          session.executeAsync(batchStmt).
-            andThen { case Failure(reason) ⇒ log.error(s"$metric - Storing summary of $windowDuration failed", reason) }
-        }
-      }
+      val future: Future[Unit] = session.executeAsync(batchStmt)
+
+      future.andThen { case Failure(reason) ⇒ log.error(s"$metric - Storing summary of $windowDuration failed", reason) }
     }
   }
 
@@ -107,12 +104,13 @@ abstract class CassandraSummaryStore[T <: Summary](session: Session) extends Sum
   }
 
   def readAll(metric: String, windowDuration: Duration, slice: Slice, ascendingOrder: Boolean = true, count: Int = limit): Future[Seq[T]] = {
-    log.info(s"Reading from Cassandra: Cf: $windowDuration - Metric: $metric - From: ${slice.from} - To: ${slice.to} - ascendingOrder: $ascendingOrder - Max results: $count")
+    log.debug(s"Reading from Cassandra: Cf: $windowDuration - Metric: $metric - From: ${slice.from} - To: ${slice.to} - ascendingOrder: $ascendingOrder - Max results: $count")
 
     val queryKey = if (ascendingOrder) QueryAsc else QueryDesc
     val boundStmt = stmtPerWindow(windowDuration).selects(queryKey).bind(metric, Long.box(slice.from), Long.box(slice.to), Int.box(count))
 
-    session.executeAsync(boundStmt).map(
+    val future: Future[ResultSet] = session.executeAsync(boundStmt)
+    future.map(
       resultSet ⇒ resultSet.asScala.map(row ⇒ deserialize(row.getLong("timestamp"), Bytes.getArray(row.getBytes("summary")))).toSeq)
   }
 

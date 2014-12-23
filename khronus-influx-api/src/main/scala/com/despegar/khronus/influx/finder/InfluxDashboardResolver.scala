@@ -17,19 +17,18 @@
 package com.despegar.khronus.influx.finder
 
 import java.nio.ByteBuffer
-import java.util.concurrent.Executors
 
-import com.datastax.driver.core.Session
 import com.datastax.driver.core.utils.Bytes
+import com.datastax.driver.core.{ ResultSet, Session }
 import com.despegar.khronus.influx.service.Dashboard
 import com.despegar.khronus.influx.store.CassandraDashboards
 import com.despegar.khronus.store.CassandraUtils
-import com.despegar.khronus.util.KryoSerializer
 import com.despegar.khronus.util.log.Logging
+import com.despegar.khronus.util.{ ConcurrencySupport, KryoSerializer }
 import org.apache.commons.codec.binary.Base64
 
 import scala.collection.JavaConverters._
-import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.Future
 import scala.util.Failure
 
 trait DashboardResolver {
@@ -42,7 +41,7 @@ trait DashboardSupport {
   def dashboardResolver: DashboardResolver = CassandraDashboards.influxDashboardResolver
 }
 
-class InfluxDashboardResolver(session: Session) extends DashboardResolver with Logging with CassandraUtils {
+class InfluxDashboardResolver(session: Session) extends DashboardResolver with Logging with CassandraUtils with ConcurrencySupport {
 
   //extract Z3JhZmFuYTIy from (select dashboard from "grafana.dashboard_Z3JhZmFuYTIy"&time_precision=s)
   private val GetDashboardPattern = "select.*_(.*)\".*".r
@@ -53,7 +52,7 @@ class InfluxDashboardResolver(session: Session) extends DashboardResolver with L
   // extract Z3JhZmFuYTI= from (drop+series+"grafana.dashboard_Z3JhZmFuYTI=")
   private val DropDashboardPattern = "drop.*_(.*)\".*".r
 
-  implicit val Dispatcher = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(10))
+  implicit val Dispatcher = executionContext("influx-dashboard-resolver-worker", 4)
 
   val DashboardsKey = "dashboards"
 
@@ -89,7 +88,8 @@ class InfluxDashboardResolver(session: Session) extends DashboardResolver with L
   def lookup(expression: String): Future[Seq[Dashboard]] = {
     log.debug(s"Looking for Dashboard with expression: $expression}")
 
-    session.executeAsync(GetAllStmt.bind(DashboardsKey)).
+    val future: Future[ResultSet] = session.executeAsync(GetAllStmt.bind(DashboardsKey))
+    future.
       map(resultSet ⇒ {
         val dashboards = resultSet.all().asScala.filter(_.getString("name").matches(expression)).map(row ⇒ Serializer.deserialize(Bytes.getArray(row.getBytes("content"))))
         log.debug(s"Found ${dashboards.length} dashboards")
@@ -101,7 +101,8 @@ class InfluxDashboardResolver(session: Session) extends DashboardResolver with L
   def drop(dashboardName: String): Future[Seq[Dashboard]] = {
     log.info(s"Deleting dashboard: $dashboardName")
 
-    session.executeAsync(DeleteStmt.bind(DashboardsKey, dashboardName)).
+    val future: Future[ResultSet] = session.executeAsync(DeleteStmt.bind(DashboardsKey, dashboardName))
+    future.
       map(_ ⇒ Seq.empty[Dashboard]).
       andThen { case Failure(reason) ⇒ log.error(s"Failed to delete dashboard $dashboardName", reason) }
   }
@@ -110,7 +111,8 @@ class InfluxDashboardResolver(session: Session) extends DashboardResolver with L
     val name = new String(Base64.decodeBase64(dashboard.name.split("_").last))
     log.debug(s"Storing dashboard with name: ${name}")
 
-    session.executeAsync(InsertStmt.bind(DashboardsKey, name, ByteBuffer.wrap(Serializer.serialize(dashboard)))).
+    val future: Future[ResultSet] = session.executeAsync(InsertStmt.bind(DashboardsKey, name, ByteBuffer.wrap(Serializer.serialize(dashboard))))
+    future.
       map(_ ⇒ name).
       andThen { case Failure(reason) ⇒ log.error(s"Failed to save dashboard ${dashboard.name}", reason) }
   }

@@ -129,6 +129,17 @@ case class Statements(insert: PreparedStatement, selects: Map[String, PreparedSt
 trait CassandraUtils extends Logging {
   val MaxRetries = 3
 
+  implicit def resultSetFutureUnitToScala(f: ResultSetFuture): Future[Unit] = {
+    val p = Promise[Unit]()
+    Futures.addCallback(f,
+      new FutureCallback[ResultSet] {
+        def onSuccess(r: ResultSet) = p success Unit
+
+        def onFailure(t: Throwable) = p failure t
+      })
+    p.future
+  }
+
   /**
    * Converts a `ResultSetFuture` into a Scala `Future[ResultSet]`
    * @param f ResultSetFuture to convert

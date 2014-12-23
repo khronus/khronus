@@ -19,7 +19,7 @@ package com.despegar.khronus.store
 import java.nio.ByteBuffer
 
 import com.datastax.driver.core.utils.Bytes
-import com.datastax.driver.core.{ BatchStatement, Session, SimpleStatement }
+import com.datastax.driver.core.{ BatchStatement, ResultSet, Session, SimpleStatement }
 import com.despegar.khronus.model.{ Bucket, Metric, Timestamp }
 import com.despegar.khronus.util.log.Logging
 import com.despegar.khronus.util.{ ConcurrencySupport, Measurable }
@@ -58,7 +58,7 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
 
   protected def serializeBucket(metric: Metric, windowDuration: Duration, bucket: T): ByteBuffer
 
-  implicit val asyncExecutionContext: ExecutionContext = executionContext("bucket-store-worker", 50)
+  implicit val asyncExecutionContext: ExecutionContext = executionContext("bucket-store-worker")
 
   val SliceQuery = "sliceQuery"
 
@@ -92,10 +92,8 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
         batchStmt.add(stmtPerWindow(windowDuration).insert.bind(Seq(serializedBucket).asJava, metric.name, Long.box(bucket.timestamp.ms)))
       })
 
-      toFutureUnit {
-        session.executeAsync(batchStmt).
-          andThen { case Failure(reason) ⇒ log.error(s"$metric - Storing metrics ${metric.name} failed", reason) }
-      }
+      val future: Future[Unit] = session.executeAsync(batchStmt)
+      future.andThen { case Failure(reason) ⇒ log.error(s"$metric - Storing metrics ${metric.name} failed", reason) }
     }
   }
 
@@ -106,17 +104,16 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
       val batchStmt = new BatchStatement();
       bucketTimestamps.foreach(bucket ⇒ batchStmt.add(stmtPerWindow(windowDuration).delete.get.bind(metric.name, Long.box(bucket.ms))))
 
-      toFutureUnit {
-        session.executeAsync(batchStmt).
-          andThen { case Failure(reason) ⇒ log.error(s"$metric - Removing metrics ${metric.name} failed", reason) }
-      }
+      val future: Future[Unit] = session.executeAsync(batchStmt)
+      future.andThen { case Failure(reason) ⇒ log.error(s"$metric - Removing metrics ${metric.name} failed", reason) }
     }
   }
 
   def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[Seq[(Timestamp, () ⇒ T)]] = measureFutureTime("slice", metric, sourceWindow) {
     val boundStmt = stmtPerWindow(sourceWindow).selects(SliceQuery).bind(metric.name, Long.box(from.ms), Long.box(to.ms), Int.box(limit))
 
-    session.executeAsync(boundStmt).map(resultSet ⇒ {
+    val future: Future[ResultSet] = session.executeAsync(boundStmt)
+    future.map(resultSet ⇒ {
       resultSet.asScala.flatMap(row ⇒ {
         val ts = row.getLong("timestamp")
         val buckets = row.getList("buckets", classOf[java.nio.ByteBuffer])

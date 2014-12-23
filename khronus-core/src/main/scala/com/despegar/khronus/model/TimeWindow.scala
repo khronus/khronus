@@ -26,9 +26,9 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.{ Failure, Success }
 
-abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[T] with SummaryStoreSupport[U] with MetaSupport with Logging with Measurable with ConcurrencySupport {
+abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[T] with SummaryStoreSupport[U] with MetaSupport with Logging with Measurable {
 
-  implicit val executionContext: ExecutionContext = executionContext("time-window-worker")
+  import TimeWindow._
 
   def process(metric: Metric, tick: Tick): scala.concurrent.Future[Unit] = measureFutureTime("processWindow", metric, duration) {
     log.debug(s"${p(metric, duration)} - Processing time window for ${Tick(tick.bucketNumber ~ duration)}")
@@ -133,6 +133,10 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
     }
   }
 
+}
+
+object TimeWindow extends ConcurrencySupport {
+  implicit val executionContext: ExecutionContext = executionContext("time-window-worker")
 }
 
 case class CounterTimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true)
