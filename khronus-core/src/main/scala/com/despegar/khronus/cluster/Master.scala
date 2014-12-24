@@ -37,7 +37,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
   var idleWorkers = Set[ActorRef]()
   var busyWorkers = Set[ActorRef]()
 
-  var pendingMetrics = Seq[Metric]()
+  var pendingMetrics = Vector[Metric]()
 
   val settings = Settings.Master
 

@@ -137,7 +137,7 @@ class MasterSpec extends BaseTest with TestKitBase with ImplicitSender
 
     "workDone received without pending metrics mark worker as idle" in new MasterWithoutSchedulersProbeWorkerFixture {
       underlyingMaster.idleWorkers = Set[ActorRef]()
-      underlyingMaster.pendingMetrics = Seq[Metric]()
+      underlyingMaster.pendingMetrics = Vector[Metric]()
 
       master ! WorkDone(worker1)
 
@@ -148,7 +148,7 @@ class MasterSpec extends BaseTest with TestKitBase with ImplicitSender
     "workDone received with pending metrics dispatch Work" in new MasterWithoutSchedulersProbeWorkerFixture {
       val firstMetric = Metric("metric1", "histogram")
       underlyingMaster.idleWorkers = Set()
-      underlyingMaster.pendingMetrics = Seq(firstMetric, Metric("metric2", "histogram"))
+      underlyingMaster.pendingMetrics = Vector(firstMetric, Metric("metric2", "histogram"))
 
       master ! WorkDone(worker1)
 
@@ -159,7 +159,7 @@ class MasterSpec extends BaseTest with TestKitBase with ImplicitSender
     }
 
     "when receive a PendingMetrics message without idle workers nor pending metrics add all metrics as pending" in new MasterWithoutSchedulersProbeWorkerFixture {
-      underlyingMaster.pendingMetrics = Seq()
+      underlyingMaster.pendingMetrics = Vector()
 
       val expectedMetrics = Seq(Metric("a", "histogram"), Metric("b", "histogram"), Metric("c", "histogram"), Metric("d", "histogram"), Metric("e", "histogram"))
 
@@ -170,7 +170,7 @@ class MasterSpec extends BaseTest with TestKitBase with ImplicitSender
     }
 
     "when receive a PendingMetrics message with some pending metrics queue the rest of the metrics" in new MasterWithoutSchedulersProbeWorkerFixture {
-      underlyingMaster.pendingMetrics = Seq(Metric("d", "histogram"), Metric("e", "histogram"))
+      underlyingMaster.pendingMetrics = Vector(Metric("d", "histogram"), Metric("e", "histogram"))
 
       val expectedMetrics = Seq(Metric("a", "histogram"), Metric("b", "histogram"), Metric("c", "histogram"), Metric("d", "histogram"), Metric("e", "histogram"))
 
@@ -184,7 +184,7 @@ class MasterSpec extends BaseTest with TestKitBase with ImplicitSender
       val allMetrics = Seq(Metric("a", "histogram"), Metric("b", "histogram"), Metric("c", "histogram"), Metric("d", "histogram"), Metric("e", "histogram"))
 
       underlyingMaster.idleWorkers = Set(worker1, worker2)
-      underlyingMaster.pendingMetrics = Seq(Metric("a", "histogram"), Metric("b", "histogram"), Metric("c", "histogram"), Metric("d", "histogram"), Metric("e", "histogram"))
+      underlyingMaster.pendingMetrics = Vector(Metric("a", "histogram"), Metric("b", "histogram"), Metric("c", "histogram"), Metric("d", "histogram"), Metric("e", "histogram"))
 
       master ! PendingMetrics(allMetrics)
       workerProbe1.expectMsg(Work(Seq(Metric("a", "histogram"))))
