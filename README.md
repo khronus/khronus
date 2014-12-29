@@ -137,7 +137,7 @@ khronus {
   
 ## Query sintax
 
-##### Projections
+#### Projections
 As with any query language, you can select the fields you want to see in the resulted graph. Your query can project:
 
   * **Some specific function:** Supported functions depend on the type of the metric.
@@ -148,8 +148,7 @@ As with any query language, you can select the fields you want to see in the res
     select max | min as minimum from "metricTimer" where time > now()-6h group by time(5m)
     select count from "metricCounter" where time > now()-6h group by time(5m)
 ```
-
-	As you can see, alias for functions are supported, even they are not required
+    As you can see, alias for functions are supported, even they are not required
 
 
   * **All functions:** Using '*' you'll get all supported functions for the given metric type
@@ -184,7 +183,9 @@ As with any query language, you can select the fields you want to see in the res
 	select timer.max  *  -1 as myOperation from "metricTimer" as timer where time > now()-6h group by time(5m)
 ```
 
-##### From metrics...
+
+
+#### From metrics...
 
 Many metrics are supported in queries. They can have an alias. Even more, if you are projecting an operation, metrics **must** have an alias to refer to.
 
@@ -205,7 +206,9 @@ The following query will return a serie with the count per each metric that matc
 	select count from "metric.*" where time > now()-6h group by time(5m)
 ```
 
-##### Filtering
+
+
+#### Filtering
 
 You can filter data using the following keywords: "where", "time", "between", "and" and the operators: >, >=, <, <=
 
@@ -233,14 +236,16 @@ Another example, using between
     select count from "metricCounter" where time between 1419878249s and 1419878599s group by time(5m)
 ```
 		
-##### Group by 
+#### Group by 
 
 This clause is always required because it defines the granularity or resolution of the response.
 If you don't use a valid configured window, it will be adjusted to the nearest configured window (or to the best window given the maximum and the minimum resolution configured).
 
 The clause is 'group by time(n suffix)', where n is a number and suffix is s (seconds), m (minutes) or h (hours):
-    
+
+```sql
 	select * from "metricTimer" where time > now() -1h group by time(30s)
+```
 
 As we said, even if you use a valid configured window the result resolution could be adjusted depending on the maximum and minimum resolution configured. 
 If you don't want this behavior you can use the 'force' keyword. But take in account that it could be a slow operation if you are querying a large period of time with a high resolution:
@@ -248,13 +253,13 @@ If you don't want this behavior you can use the 'force' keyword. But take in acc
 	select * from "metricTimer" where time > now() -1h force group by time(30s)
 
 
-##### Other optional clauses
+#### Other optional clauses
   * limit number
   * order [asc|desc] 
 
-
+```sql
     select a.count as counter | cc.count | 3 as miConstant | cc.count + a.count as sum from "metricTimer" as a | "metricCounter" as cc where time >= now() - 10m group by time(1h) limit 100 order asc
-
+```
 
   
 ## Contributions
