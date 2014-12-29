@@ -250,8 +250,9 @@ The clause is 'group by time(n suffix)', where n is a number and suffix is s (se
 As we said, even if you use a valid configured window the result resolution could be adjusted depending on the maximum and minimum resolution configured. 
 If you don't want this behavior you can use the 'force' keyword. But take in account that it could be a slow operation if you are querying a large period of time with a high resolution:
 
+```sql
 	select * from "metricTimer" where time > now() -1h force group by time(30s)
-
+```
 
 #### Other optional clauses
   * limit number
