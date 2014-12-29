@@ -144,9 +144,10 @@ As with any query language, you can select the fields you want to see in the res
     * for counters: count
     * for timers or gauges: count, max, min, mean, p50, p80, p90, p95, p99, p999
 
-		select max | min as minimum from "metricTimer" where time > now()-6h group by time(5m)
-		
-		select count from "metricCounter" where time > now()-6h group by time(5m)
+```sql
+select max | min as minimum from "metricTimer" where time > now()-6h group by time(5m)
+select count from "metricCounter" where time > now()-6h group by time(5m)
+```
 
 	As you can see, alias for functions are supported, even they are not required
 
