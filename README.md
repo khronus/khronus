@@ -145,8 +145,8 @@ As with any query language, you can select the fields you want to see in the res
     * for timers or gauges: count, max, min, mean, p50, p80, p90, p95, p99, p999
 
 ```sql
-select max | min as minimum from "metricTimer" where time > now()-6h group by time(5m)
-select count from "metricCounter" where time > now()-6h group by time(5m)
+    select max | min as minimum from "metricTimer" where time > now()-6h group by time(5m)
+    select count from "metricCounter" where time > now()-6h group by time(5m)
 ```
 
 	As you can see, alias for functions are supported, even they are not required
@@ -154,71 +154,84 @@ select count from "metricCounter" where time > now()-6h group by time(5m)
 
   * **All functions:** Using '*' you'll get all supported functions for the given metric type
 
-		select * from "metricTimer" where time > now()-30m group by time(5m) 
-
+```sql
+	select * from "metricTimer" where time > now()-30m group by time(5m) 
+```
 
   * **Percentiles function:**
 	 If you are searching for a timer or a gauge you can use percentiles function to return all supported percentiles: 50, 80, 90, 95, 99, 999
 	 Besides that, if you are looking for some specific percentiles you can use the function percentiles(50 80 99), passing the desired parcentiles as arguments 
-	
-		select percentiles from "metricTimer" where time > now()-1h group by time(5m)
-		
-		select percentiles(50 80 99) from "metricTimer" where time > now()-6h group by time(5m)
 
+```sql
+    select percentiles from "metricTimer" where time > now()-1h group by time(5m)
+	select percentiles(50 80 99) from "metricTimer" where time > now()-6h group by time(5m)
+```
 	
   * **A number:** In this case an alias is required and if you are using decimal the number will be rounded.
 
-		select -9.87 as negativeNumber from "metricTimer" where time > now()-6h group by time(5m)
+```sql
+	select -9.87 as negativeNumber from "metricTimer" where time > now()-6h group by time(5m)
+```
 		
 								
   * **A binary operation:**
     Operands can be an scalar or an specific function. In the last case, you must use a metric alias
  	Supported operators are: +, -, *, /
 	Alias for the operation result is required
-		
-		select timer.max - timer.min as myOperation from "metricTimer" as timer where time > now()-6h group by time(5m)
-		
-		select timer.max  *  -1 as myOperation from "metricTimer" as timer where time > now()-6h group by time(5m)
+
+```sql
+	select timer.max - timer.min as myOperation from "metricTimer" as timer where time > now()-6h group by time(5m)
+	select timer.max  *  -1 as myOperation from "metricTimer" as timer where time > now()-6h group by time(5m)
+```
 
 ##### From metrics...
 
 Many metrics are supported in queries. They can have an alias. Even more, if you are projecting an operation, metrics **must** have an alias to refer to.
-    
+
+```sql
     select counter.count  + timer.count as total from "metricTimer" as timer | "metricCounter" as counter where time > now()-2h group by time(5m)
+```
 
 When you don't specify which metric is your function refering to, the result is one serie with the function for each specified metric:
-    
+   
+```sql
     select count from "metricTimer" as timer | "metricCounter" as counter where time > now()-6h group by time(5m)
-	
+```
+        	
 You can use regular expression in order to match metrics. If this the case and the regex matches more than one metric, you can't use an alias (So you can't project operations). 
 The following query will return a serie with the count per each metric that matches the regular expression
-  	
-	select count from "metric.*" where time > now()-6h group by time(5m)
 
+```sql
+	select count from "metric.*" where time > now()-6h group by time(5m)
+```
 
 ##### Filtering
 
 You can filter data using the following keywords: "where", "time", "between", "and" and the operators: >, >=, <, <=
 
 The time series "from" is always required. You can use > or >=
-
+```sql
     select count from "metricCounter" where time > now() - 1h group by time(5m)
+```
 
 The time series "to" is not required, but you can use < or <=
 
+```sql
 	select count from "metricCounter" where time > now() - 3m and time < now() - 50s group by time(5m)
+```
 
 As the examples show, in order to specify times you can use the function now() with some modifiers to substract seconds (s), minutes (m), hours (h), days (d) or weeks (w). 
 Besides that, you can speciffy a timestamp like this:
 
+```sql
 	select count from "metricCounter" where time > 1419878249000 group by time(5m)
-	
 	select count from "metricCounter" where time > 1419878249s group by time(5m)
+```	
 	
 Another example, using between
-    
+```sql    
     select count from "metricCounter" where time between 1419878249s and 1419878599s group by time(5m)
-
+```
 		
 ##### Group by 
 
