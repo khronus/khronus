@@ -40,6 +40,8 @@ object Settings {
 
   object Window {
     val ExecutionDelay: Long = config.getDuration("khronus.windows.execution-delay", MILLISECONDS)
+    val ConfiguredWindows = config.getDurationList("khronus.windows.durations", MILLISECONDS).asScala.map(adjustDuration(_))
+    val WindowDurations = (1 millis) +: ConfiguredWindows
   }
 
   object Dashboard {
@@ -79,15 +81,12 @@ object Settings {
 
   object Histogram {
     private val histogramConfig = config.getConfig("khronus.histogram")
-
-    val ConfiguredWindows = histogramConfig.getDurationList("windows", MILLISECONDS).asScala.map(adjustDuration(_))
     val BucketRetentionPolicy = histogramConfig.getDuration("bucket-retention-policy", SECONDS).toInt
     val SummaryRetentionPolicy = histogramConfig.getDuration("summary-retention-policy", SECONDS).toInt
-    val WindowDurations = (1 millis) +: ConfiguredWindows
-    val TimeWindows = WindowDurations.sliding(2).map { dp ⇒
+    val TimeWindows = Window.WindowDurations.sliding(2).map { dp ⇒
       val previous = dp.head
       val duration = dp.last
-      HistogramTimeWindow(duration, previous, WindowDurations.last != duration)
+      HistogramTimeWindow(duration, previous, Window.WindowDurations.last != duration)
     }.toSeq
 
     val BucketLimit = histogramConfig.getInt("bucket-limit")
@@ -99,15 +98,12 @@ object Settings {
 
   object Counter {
     private val counterConfig = config.getConfig("khronus.counter")
-
-    val ConfiguredWindows = counterConfig.getDurationList("windows", MILLISECONDS).asScala.map(adjustDuration(_))
     val BucketRetentionPolicy = counterConfig.getDuration("bucket-retention-policy", SECONDS).toInt
     val SummaryRetentionPolicy = counterConfig.getDuration("summary-retention-policy", SECONDS).toInt
-    val WindowDurations = (1 millis) +: ConfiguredWindows
-    val TimeWindows = WindowDurations.sliding(2).map { dp ⇒
+    val TimeWindows = Window.WindowDurations.sliding(2).map { dp ⇒
       val previous = dp.head
       val duration = dp.last
-      CounterTimeWindow(duration, previous, WindowDurations.last != duration)
+      CounterTimeWindow(duration, previous, Window.WindowDurations.last != duration)
     }.toSeq
 
     val BucketLimit = counterConfig.getInt("bucket-limit")
@@ -122,14 +118,6 @@ object Settings {
       case durationInMillis if durationInMillis < 60000 ⇒ (durationInMillis millis).toSeconds seconds
       case durationInMillis if durationInMillis < 3600000 ⇒ (durationInMillis millis).toMinutes minutes
       case _ ⇒ (durationInMillis millis).toHours hours
-    }
-  }
-
-  def getConfiguredWindows(metricType: String): Seq[FiniteDuration] = {
-    metricType match {
-      case MetricType.Timer | MetricType.Gauge ⇒ Histogram.ConfiguredWindows.toSeq
-      case MetricType.Counter                  ⇒ Counter.ConfiguredWindows.toSeq
-      case _                                   ⇒ throw new UnsupportedOperationException(s"Unknown metric type $metricType")
     }
   }
 

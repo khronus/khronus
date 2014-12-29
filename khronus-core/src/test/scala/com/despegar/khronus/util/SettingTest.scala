@@ -32,8 +32,4 @@ class SettingTest extends FunSuite with MockitoSugar with Matchers {
       HistogramTimeWindow(1 minute, 30 seconds, false)))
   }
 
-  test("should configure counter time windows properly") {
-    Settings.Counter.TimeWindows shouldBe (Seq(CounterTimeWindow(30 seconds, 1 millis, false)))
-  }
-
 }

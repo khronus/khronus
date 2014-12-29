@@ -1,12 +1,12 @@
 package com.despegar.khronus.store
 
 import com.despegar.khronus.model.{Timestamp, StatisticSummary, Metric}
-import com.despegar.khronus.util.BaseIntegrationTest
+import com.despegar.khronus.util.{Settings, BaseIntegrationTest}
 import org.scalatest.{Matchers,  FunSuite}
 import scala.concurrent.duration._
 
 class CassandraHistogramSummaryStoreTest extends FunSuite with BaseIntegrationTest with Matchers{
-  override val tableNames: Seq[String] = Summaries.histogramSummaryStore.windowDurations.map(duration => Summaries.histogramSummaryStore.tableName(duration))
+  override val tableNames: Seq[String] = Settings.Window.WindowDurations.map(duration => Summaries.histogramSummaryStore.tableName(duration))
 
   test("An StatisticSummary should be capable of serialize and deserialize from Cassandra") {
     val summary = StatisticSummary(Timestamp(1417639860000l),47903,47903,47903,47903,47903,47903,47872,47903,1,47888)

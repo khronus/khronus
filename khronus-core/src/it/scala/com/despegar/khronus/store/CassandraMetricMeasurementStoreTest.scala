@@ -1,13 +1,13 @@
 package com.despegar.khronus.store
 
 import com.despegar.khronus.model._
-import com.despegar.khronus.util.{JacksonJsonSupport, BaseIntegrationTest}
+import com.despegar.khronus.util.{Settings, JacksonJsonSupport, BaseIntegrationTest}
 import org.scalatest.{Matchers, FunSuite}
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class CassandraMetricMeasurementStoreTest extends FunSuite with BaseIntegrationTest with Matchers with JacksonJsonSupport {
-  override val tableNames: Seq[String] = Buckets.histogramBucketStore.windowDurations.map(duration => Buckets.histogramBucketStore.tableName(duration))
+  override val tableNames: Seq[String] = Settings.Window.WindowDurations.map(duration => Buckets.histogramBucketStore.tableName(duration))
 
   test("A measurement should be stored") {
     val json = """  {"metrics":[{"name":"ultimo15","measurements":[{"ts":1418394322000,"values":[133]}],"mtype":"timer"},{"name":"r2d2_cpu_load_five","measurements":[{"ts":1417639706000,"values":[136]}],"mtype":"timer"},{"name":"r2d2_cpu_load_fifteen","measurements":[{"ts":1417639706000,"values":[112.00000000000001]}],"mtype":"timer"}]}  """

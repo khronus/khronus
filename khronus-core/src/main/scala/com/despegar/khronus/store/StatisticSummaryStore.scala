@@ -33,8 +33,6 @@ trait StatisticSummarySupport extends SummaryStoreSupport[StatisticSummary] {
 
 class CassandraStatisticSummaryStore(session: Session) extends CassandraSummaryStore[StatisticSummary](session) with Logging with Measurable {
 
-  override def windowDurations: Seq[Duration] = Settings.Histogram.WindowDurations
-
   override def limit = Settings.Histogram.SummaryLimit
 
   override def fetchSize = Settings.Histogram.SummaryFetchSize

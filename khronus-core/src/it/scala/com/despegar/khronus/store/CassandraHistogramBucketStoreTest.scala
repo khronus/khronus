@@ -3,7 +3,7 @@ package com.despegar.khronus.store
 import com.despegar.khronus.model.BucketNumber._
 import com.despegar.khronus.model.Timestamp._
 import com.despegar.khronus.model.{HistogramBucket, Metric, Timestamp}
-import com.despegar.khronus.util.BaseIntegrationTest
+import com.despegar.khronus.util.{Settings, BaseIntegrationTest}
 import org.HdrHistogram.Histogram
 import org.scalatest.{FunSuite, Matchers}
 
@@ -12,8 +12,7 @@ import scala.util.Random
 
 class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTest with Matchers {
 
-
-  override val tableNames: Seq[String] = Buckets.histogramBucketStore.windowDurations.map(duration => Buckets.histogramBucketStore.tableName(duration))
+  override val tableNames: Seq[String] = Settings.Window.WindowDurations.map(duration => Buckets.histogramBucketStore.tableName(duration))
 
   val testMetric = Metric("testMetric", "histogram")
 

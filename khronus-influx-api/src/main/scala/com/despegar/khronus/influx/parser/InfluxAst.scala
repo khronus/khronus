@@ -18,21 +18,59 @@ package com.despegar.khronus.influx.parser
 
 import scala.concurrent.duration.FiniteDuration
 import com.despegar.khronus.model.Metric
+import com.despegar.khronus.influx.parser.MathOperators.MathOperator
 
-case class InfluxCriteria(projections: Seq[Field],
-  tables: Seq[Metric],
-  filters: List[Filter],
+case class InfluxCriteria(projections: Seq[SimpleProjection],
+  sources: Seq[Source],
+  filters: Seq[Filter],
   groupBy: GroupBy,
   limit: Int = Int.MaxValue,
   orderAsc: Boolean = true)
 
 // SELECT
 sealed trait Projection
+sealed trait SimpleProjection extends Projection
+trait AliasingTable {
+  def tableId: Option[String]
+}
 
-case class Field(name: String, alias: Option[String]) extends Projection
-case class AllField() extends Projection
+case class AllField(tableId: Option[String]) extends Projection with AliasingTable
+
+case class Field(name: String, alias: Option[String], tableId: Option[String]) extends SimpleProjection with AliasingTable
+case class Number(value: Double, alias: Option[String] = None) extends SimpleProjection
+case class Operation(left: SimpleProjection, right: SimpleProjection, operator: MathOperator, alias: String) extends SimpleProjection
+
+object MathOperators {
+
+  trait MathOperator {
+    def symbol: String
+  }
+
+  case object Plus extends MathOperator { val symbol = "+" }
+
+  case object Minus extends MathOperator { val symbol = "-" }
+
+  case object Multiply extends MathOperator { val symbol = "*" }
+
+  case object Divide extends MathOperator { val symbol = "/" }
+
+  def allSymbols: Seq[String] = Seq(Plus.symbol, Minus.symbol, Multiply.symbol, Divide.symbol)
+
+  def getBySymbol(symbol: String) = symbol match {
+    case Plus.symbol     ⇒ Plus
+    case Minus.symbol    ⇒ Minus
+    case Multiply.symbol ⇒ Multiply
+    case Divide.symbol   ⇒ Divide
+    case _               ⇒ throw new IllegalArgumentException(s"Unknown operator $symbol")
+  }
+
+}
 
 case class Identifier(value: String)
+
+// FROM
+case class Table(name: String, alias: Option[String])
+case class Source(metric: Metric, alias: Option[String] = None)
 
 // WHERE
 trait Filter

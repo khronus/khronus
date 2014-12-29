@@ -2,12 +2,14 @@ package com.despegar.khronus.store
 
 import com.despegar.khronus.model.{CounterSummary, Metric, MetricType}
 import com.despegar.khronus.util.BaseIntegrationTest
+import com.despegar.khronus.model.{MetricType, CounterSummary, Metric, StatisticSummary}
+import com.despegar.khronus.util.{Settings, BaseIntegrationTest}
 import org.scalatest.{FunSuite, Matchers}
 
 import scala.concurrent.duration._
 
-class CassandraCounterSummaryStoreTest extends FunSuite with BaseIntegrationTest with Matchers {
-  override val tableNames: Seq[String] = Summaries.counterSummaryStore.windowDurations.map(duration => Summaries.counterSummaryStore.tableName(duration))
+class CassandraCounterSummaryStoreTest extends FunSuite with BaseIntegrationTest with Matchers{
+  override val tableNames: Seq[String] = Settings.Window.WindowDurations.map(duration => Summaries.counterSummaryStore.tableName(duration))
 
   test("An CounterSummary should be capable of serialize and deserialize from Cassandra") {
     val summary = new CounterSummary(22L, 250L)

@@ -32,8 +32,6 @@ trait HistogramBucketSupport extends BucketStoreSupport[HistogramBucket] {
 
 class CassandraHistogramBucketStore(session: Session) extends CassandraBucketStore[HistogramBucket](session) with Logging with Measurable {
 
-  override def windowDurations: Seq[Duration] = Settings.Histogram.WindowDurations
-
   override def limit: Int = Settings.Histogram.BucketLimit
 
   override def fetchSize: Int = Settings.Histogram.BucketFetchSize

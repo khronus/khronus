@@ -23,7 +23,7 @@ import com.datastax.driver.core.{ ResultSet, BatchStatement, Session, SimpleStat
 import com.despegar.khronus.model.{ Metric, Summary }
 import com.despegar.khronus.util.log.Logging
 import com.despegar.khronus.util.{ ConcurrencySupport, Measurable }
-
+import com.despegar.khronus.util.{ Settings, ConcurrencySupport, Measurable }
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
@@ -47,7 +47,7 @@ abstract class CassandraSummaryStore[T <: Summary](session: Session) extends Sum
 
   protected def tableName(duration: Duration): String
 
-  protected def windowDurations: Seq[Duration]
+  protected def windowDurations: Seq[Duration] = Settings.Window.WindowDurations
 
   protected def ttl(windowDuration: Duration): Int
 

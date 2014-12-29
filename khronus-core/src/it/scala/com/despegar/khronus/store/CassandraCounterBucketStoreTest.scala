@@ -3,14 +3,15 @@ package com.despegar.khronus.store
 import com.despegar.khronus.model.BucketNumber._
 import com.despegar.khronus.model.Timestamp._
 import com.despegar.khronus.model.{CounterBucket, Metric, MetricType}
-import com.despegar.khronus.util.BaseIntegrationTest
+import com.despegar.khronus.util.{Settings, BaseIntegrationTest}
 import org.scalatest.{FunSuite, Matchers}
+import com.despegar.khronus.model.{Metric, MetricType, CounterBucket}
 
 import scala.concurrent.duration._
 
 
 class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest with Matchers {
-  override val tableNames: Seq[String] = Buckets.counterBucketStore.windowDurations.map(duration => Buckets.counterBucketStore.tableName(duration))
+  override val tableNames: Seq[String] = Settings.Window.WindowDurations.map(duration => Buckets.counterBucketStore.tableName(duration))
 
   val testMetric = Metric("testMetric", MetricType.Counter)
 

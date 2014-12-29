@@ -27,11 +27,13 @@ import com.despegar.khronus.store.{ MetaSupport, MetaStore }
 import com.despegar.khronus.util.log.Logging
 import scala.concurrent.{ Future, ExecutionContext }
 import com.despegar.khronus.util.ConcurrencySupport
+import com.despegar.khronus.influx.parser.MathOperators.MathOperator
 
 class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSupport with ConcurrencySupport {
 
   class InfluxLexical extends StdLexical
 
+  val Separator = "|"
   override val lexical = new InfluxLexical
 
   lexical.reserved += ("select", "as", "from", "where", "or", "and", "group_by_time", "limit", "between", "null", "date", "time", "now", "order", "asc", "desc", "percentiles", "force",
@@ -39,7 +41,8 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSuppo
 
   lexical.reserved ++= Functions.allNames
 
-  lexical.delimiters += ("*", Operators.Lt, Operators.Eq, Operators.Neq, Operators.Lte, Operators.Gte, Operators.Gt, "(", ")", ",", ".", ";", "-")
+  lexical.delimiters += ("*", Operators.Lt, Operators.Eq, Operators.Neq, Operators.Lte, Operators.Gte, Operators.Gt, Separator, "(", ")", ".", ";")
+  lexical.delimiters ++= MathOperators.allSymbols
 
   implicit val ex: ExecutionContext = executionContext("influx-query-parser-worker")
 
@@ -56,28 +59,52 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSuppo
   }
 
   private def influxQueryParser: Parser[Future[InfluxCriteria]] =
-    "select" ~> projectionParser ~ tableParser ~ opt(filterParser) ~
+    "select" ~> projectionParser ~ "from" ~ tableParser ~ opt(filterParser) ~
       groupByParser ~ opt(limitParser) ~ opt(orderParser) <~ opt(";") ^^ {
-        case projections ~ metricNameRegex ~ filters ~ groupBy ~ limit ~ order ⇒
-          buildInfluxCriteria(metricNameRegex, projections, filters.getOrElse(Nil), groupBy, order.getOrElse(true), limit.getOrElse(Int.MaxValue))
+        case projections ~ _ ~ tables ~ filters ~ groupBy ~ limit ~ order ⇒
+          buildInfluxCriteria(tables, projections, filters.getOrElse(Nil), groupBy, order.getOrElse(true), limit.getOrElse(Int.MaxValue))
       }
 
-  private def buildInfluxCriteria(metricNameRegex: String, projections: Seq[Projection], filters: List[Filter], groupBy: GroupBy, order: Boolean, limit: Int): Future[InfluxCriteria] = {
-    metaStore.searchInSnapshot(getCaseInsensitiveRegex(metricNameRegex)).map(matchedMetrics ⇒ {
+  private def buildInfluxCriteria(tables: Seq[Table], projections: Seq[Projection], filters: Seq[Filter], groupBy: GroupBy, order: Boolean, limit: Int): Future[InfluxCriteria] = {
+    validateAlias(projections, tables)
 
+    val futureSources = tables.collect { case table ⇒ getSources(table) }
+
+    Future.sequence(futureSources).map(f ⇒ {
+      val sources = f.flatten
+      val simpleProjections = buildProjections(projections, sources)
+      InfluxCriteria(simpleProjections, sources, filters, groupBy, limit, order)
+    })
+  }
+
+  private def getSources(table: Table): Future[Seq[Source]] = {
+    metaStore.searchInSnapshot(getCaseInsensitiveRegex(table.name)).map(matchedMetrics ⇒ {
       if (matchedMetrics.isEmpty)
-        throw new UnsupportedOperationException(s"Unsupported query - There isnt any metric matching the regex [$metricNameRegex]")
-      else if (matchedMetrics.count(m ⇒ m.mtype.equals(matchedMetrics.head.mtype)) != matchedMetrics.size)
-        throw new UnsupportedOperationException(s"Unsupported query - Expression [$metricNameRegex] matches different metric types")
+        throw new UnsupportedOperationException(s"Unsupported query - There isnt any metric matching the regex [${table.name}]")
+      else if (matchedMetrics.size > 1 && table.alias != None)
+        throw new UnsupportedOperationException(s"Unsupported query - Regex [${table.name}] matches more than one metric, so it can't have an alias (${table.alias}})")
 
-      matchedMetrics
+      matchedMetrics.collect { case m ⇒ Source(m, table.alias) }
+    })
+  }
 
-    }).map {
-      case metrics ⇒ {
-        val functions = getSelectedFunctions(projections, metrics.head.mtype)
-        InfluxCriteria(functions, metrics, filters, groupBy, limit, order)
-      }
-    }
+  private def validateAlias(projections: Seq[Projection], tables: Seq[Table]): Unit = {
+    val aliasTables = tables.filter(_.alias.isDefined).map(_.alias.get)
+    if (aliasTables.toSet.size < aliasTables.size) throw new UnsupportedOperationException("Different metrics can't use the same alias")
+
+    validateProjectionAlias(projections, aliasTables)
+  }
+
+  private def validateProjectionAlias(projections: Seq[Projection], aliasTables: Seq[String]): Unit = {
+    projections.foreach(p ⇒ p match {
+      case field: AliasingTable ⇒
+        if (field.tableId != None && !aliasTables.contains(field.tableId.get))
+          throw new UnsupportedOperationException(s"Projection is using an invalid alias: ${field.tableId.get} - Table alias: [${aliasTables.mkString(", ")}]")
+      case number: Number ⇒ // Numbers dont have alias
+      case operation: Operation ⇒
+        validateProjectionAlias(Seq(operation.left), aliasTables)
+        validateProjectionAlias(Seq(operation.right), aliasTables)
+    })
   }
 
   def getCaseInsensitiveRegex(metricNameRegex: String) = {
@@ -85,20 +112,59 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSuppo
     s"$caseInsensitiveRegex$metricNameRegex"
   }
 
-  private def getSelectedFunctions(projections: Seq[Projection], metricType: String): Seq[Field] = {
-    val functionsByMetricType = allFunctionsByMetricType(metricType)
-
+  private def buildProjections(projections: Seq[Projection], sources: Seq[Source]): Seq[SimpleProjection] = {
     projections.collect {
-      case Field(name, alias) ⇒
-        if (!functionsByMetricType.contains(name))
-          throw new UnsupportedOperationException(s"$name is an invalid function for a $metricType. Valid options: [${functionsByMetricType.mkString(",")}]")
-        Seq(Field(name, alias))
-      case AllField() ⇒
-        functionsByMetricType.collect {
-          case functionName ⇒ Field(functionName, None)
-        }
+      case AllField(tableAlias) ⇒ buildAllFields(tableAlias, sources)
+      case function: Field      ⇒ buildField(function, sources)
+      case n: Number            ⇒ Seq(n)
+      case op: Operation ⇒
+        val left = buildProjections(Seq(op.left), sources).head
+        val right = buildProjections(Seq(op.right), sources).head
+        Seq(Operation(left, right, op.operator, op.alias))
     }.flatten
 
+  }
+
+  private def buildField(function: Field, sources: Seq[Source]): Seq[Field] = {
+    val matchedSources = function.tableId match {
+      case Some(alias) ⇒ Seq(lookupByAlias(alias, sources))
+      case None        ⇒ sources
+    }
+
+    matchedSources.map {
+      source ⇒
+        validateByMetricType(source.metric.mtype, function)
+        Seq(Field(function.name, function.alias, Some(source.alias.getOrElse(source.metric.name))))
+    }.flatten
+  }
+
+  private def buildAllFields(tableAlias: Option[String], sources: Seq[Source]): Seq[Field] = {
+    val matchedSources = tableAlias match {
+      case Some(alias) ⇒ Seq(lookupByAlias(alias, sources))
+      case None        ⇒ sources
+    }
+
+    matchedSources.map {
+      source ⇒
+        val functionsByMetricType = allFunctionsByMetricType(source.metric.mtype)
+        functionsByMetricType.collect {
+          case functionName ⇒ Field(functionName, None, Some(source.alias.getOrElse(source.metric.name)))
+        }
+    }.flatten
+  }
+
+  private def lookupByAlias(alias: String, sources: Seq[Source]): Source = {
+    sources.filter(s ⇒ s.alias.isDefined && s.alias.get.equals(alias)).head
+  }
+
+  private def validateByMetricType(metricType: String, function: SimpleProjection): Unit = {
+    val functionsByMetricType = allFunctionsByMetricType(metricType)
+    function match {
+      case field: Field ⇒
+        if (!functionsByMetricType.contains(field.name))
+          throw new UnsupportedOperationException(s"${field.name} is an invalid function for a $metricType. Valid options: [${functionsByMetricType.mkString(",")}]")
+      case _ ⇒
+    }
   }
 
   private def allFunctionsByMetricType(metricType: String): Seq[String] = metricType match {
@@ -111,17 +177,59 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSuppo
     allFieldProjectionParser |
       rep(projectionExpressionParser).map(x ⇒ x.flatten)
 
-  private def allFieldProjectionParser: Parser[Seq[Projection]] = "*" ^^ (_ ⇒ Seq(AllField()))
+  private def allFieldProjectionParser: Parser[Seq[Projection]] = opt(ident <~ ".") ~ "*" ^^ {
+    case tableAlias ~ _ ⇒ Seq(AllField(tableAlias))
+  }
 
   private def projectionExpressionParser: Parser[Seq[Projection]] = {
-    (knownFunctionParser | percentilesFunctionParser) ~ opt("as" ~> ident) ~ opt(",") ^^ {
-      case functions ~ alias ~ _ ⇒ functions.map(f ⇒ Field(f.name, alias))
+    opt(ident <~ ".") ~ percentilesFunctionParser <~ opt(Separator) ^^ {
+      case tableAlias ~ functions ⇒ functions.map(f ⇒ Field(f.name, None, tableAlias))
+    } |
+      (operationExpressionParser | simpleFunctionExpressionParser | scalarExpressionParser) <~ opt(Separator) ^^ {
+        case projection ⇒ Seq(projection)
+      }
+  }
+
+  private def simpleFunctionExpressionParser: Parser[SimpleProjection] = {
+    opt(ident <~ ".") ~ knownFunctionParser ~ opt("as" ~> ident) ^^ {
+      case tableAlias ~ function ~ alias ⇒ Field(function.name, alias, tableAlias)
     }
   }
 
-  private def knownFunctionParser: Parser[Seq[Functions.Function]] = {
-    elem(s"Expected some function", { e ⇒ Functions.allNames.contains(e.chars.toString) }) <~ opt("(") <~ opt(ident) <~ opt(")") ^^ {
-      case f ⇒ Seq(Functions.withName(f.chars.toString))
+  private def scalarExpressionParser: Parser[SimpleProjection] = {
+    doubleParser ~ "as" ~ ident ^^ {
+      case doubleNumber ~ _ ~ alias ⇒ Number(doubleNumber, Some(alias))
+    }
+  }
+
+  private def operationExpressionParser: Parser[Operation] = {
+    operandParser ~ operatorExpressionParser ~ operandParser ~ "as" ~ ident ^^ {
+      case left ~ mathOperator ~ right ~ _ ~ alias ⇒ Operation(left, right, mathOperator, alias)
+    }
+  }
+
+  private def operandParser: Parser[SimpleProjection] = {
+    ident ~ "." ~ knownFunctionParser ^^ {
+      case tableAlias ~ _ ~ function ⇒ Field(function.name, None, Some(tableAlias))
+    } |
+      doubleParser ^^ {
+        case doubleNumber ⇒ Number(doubleNumber)
+      }
+  }
+
+  private def operatorExpressionParser: Parser[MathOperator] = {
+    elem(s"Some valid operator [${MathOperators.allSymbols.mkString(",")}]", {
+      e ⇒ MathOperators.allSymbols.contains(e.chars)
+    }) ^^ {
+      case s ⇒ MathOperators.getBySymbol(s.chars)
+    }
+  }
+
+  private def knownFunctionParser: Parser[Functions.Function] = {
+    elem(s"Some function", {
+      e ⇒ Functions.allNames.contains(e.chars.toString)
+    }) <~ opt("(") <~ opt(ident) <~ opt(")") ^^ {
+      case f ⇒ Functions.withName(f.chars.toString)
     }
   }
 
@@ -138,57 +246,54 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSuppo
   }
 
   private def validPercentilesParser: Parser[Int] =
-    elem(s"Expected some valid percentile [${Functions.allPercentileNames.mkString(",")}]", {
+    elem(s"Some valid percentile [${Functions.allPercentileNames.mkString(",")}]", {
       e ⇒ e.chars.forall(_.isDigit) && Functions.allPercentilesValues.contains(e.chars.toInt)
     }) ^^
       (_.chars.toInt)
 
-  private def tableParser: Parser[String] =
-    "from" ~> stringLit ^^ {
-      case metricNameRegex ⇒ metricNameRegex
-    }
+  private def tableParser: Parser[Seq[Table]] =
+    rep(stringLit ~ opt("as" ~> ident) <~ opt(Separator) ^^ {
+      case metricNameRegex ~ aliasTable ⇒ Table(metricNameRegex, aliasTable)
+    })
 
-  private def filterParser: Parser[List[Filter]] = "where" ~> filterExpression
+  private def filterParser: Parser[Seq[Filter]] = "where" ~> filterExpression
 
-  private def filterExpression: Parser[List[Filter]] =
+  private def filterExpression: Parser[Seq[Filter]] =
     rep(
       stringComparatorExpression |
         timestampComparatorExpression |
         timeBetweenExpression |
         relativeTimeExpression).map(x ⇒ x.flatten)
 
-  def stringComparatorExpression: Parser[List[StringFilter]] = {
+  def stringComparatorExpression: Parser[Seq[StringFilter]] = {
     ident ~ (Operators.Eq | Operators.Neq) ~ stringParser <~ opt(Operators.And) ^^ {
       case identifier ~ operator ~ strValue ⇒ List(StringFilter(identifier, operator, strValue))
     }
   }
 
-  def timestampComparatorExpression: Parser[List[TimeFilter]] = {
+  def timestampComparatorExpression: Parser[Seq[TimeFilter]] = {
     "time" ~ (Operators.Lt | Operators.Lte | Operators.Gt | Operators.Gte) ~ timeWithSuffixToMillisParser <~ opt(Operators.And) ^^ {
       case identifier ~ operator ~ timeInMillis ⇒ List(TimeFilter(identifier, operator, timeInMillis))
     }
   }
 
-  def timeBetweenExpression: Parser[List[TimeFilter]] = {
+  def timeBetweenExpression: Parser[Seq[TimeFilter]] = {
     "time" ~ "between" ~ timeWithSuffixToMillisParser ~ "and" ~ timeWithSuffixToMillisParser <~ opt(Operators.And) ^^ {
       case identifier ~ _ ~ millisA ~ _ ~ millisB ⇒ List(TimeFilter(identifier, Operators.Gte, millisA), TimeFilter(identifier, Operators.Lte, millisB))
     }
   }
 
-  def relativeTimeExpression: Parser[List[TimeFilter]] = {
+  def relativeTimeExpression: Parser[Seq[TimeFilter]] = {
     "time" ~ (Operators.Lt | Operators.Lte | Operators.Gt | Operators.Gte) ~ "now" ~ "(" ~ ")" ~ opt("-") ~ opt(timeWithSuffixToMillisParser) <~ opt(Operators.And) ^^ {
-      case identifier ~ operator ~ _ ~ _ ~ _ ~ _ ~ timeInMillis ⇒ {
+      case identifier ~ operator ~ _ ~ _ ~ _ ~ _ ~ timeInMillis ⇒
         List(TimeFilter(identifier, operator, now - timeInMillis.getOrElse(0L)))
-      }
     }
   }
 
   private def timeWithSuffixToMillisParser: Parser[Long] = {
     numericLit ~ opt(TimeSuffixes.Seconds | TimeSuffixes.Minutes | TimeSuffixes.Hours | TimeSuffixes.Days | TimeSuffixes.Weeks) ^^ {
       case number ~ timeUnit ⇒
-        timeUnit.map {
-          toMillis(number, _)
-        }.getOrElse(number.toLong)
+        timeUnit.fold(number.toLong)(toMillis(number, _))
     }
   }
 
@@ -226,9 +331,23 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with MetaSuppo
 
   private def limitParser: Parser[Int] = "limit" ~> numericLit ^^ (_.toInt)
 
-  private def orderParser: Parser[Boolean] = "order" ~> ("asc" | "desc") ^^ { case o ⇒ "asc".equals(o) }
+  private def orderParser: Parser[Boolean] = "order" ~> ("asc" | "desc") ^^ {
+    case o ⇒ "asc".equals(o)
+  }
 
-  private def stringParser: Parser[String] = stringLit ^^ { case s ⇒ s }
+  private def stringParser: Parser[String] = stringLit ^^ {
+    case s ⇒ s
+  }
+
+  private def doubleParser: Parser[Double] = {
+    opt("-") ~ numericLit ~ opt("." ~> numericLit) ^^ {
+      case negativeSign ~ firstPart ~ secondPart ⇒ {
+        val sign = if (negativeSign.isDefined) "-" else ""
+        val decimals = if(secondPart.isDefined) s".${secondPart.get}" else ""
+        s"$sign$firstPart$decimals".toDouble
+      }
+    }
+  }
 
   protected def now: Long = System.currentTimeMillis()
 

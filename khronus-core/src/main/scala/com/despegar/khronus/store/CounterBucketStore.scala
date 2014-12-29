@@ -32,8 +32,6 @@ trait CounterBucketStoreSupport extends BucketStoreSupport[CounterBucket] {
 
 class CassandraCounterBucketStore(session: Session) extends CassandraBucketStore[CounterBucket](session) with Measurable {
 
-  override def windowDurations: Seq[Duration] = Settings.Counter.WindowDurations
-
   override def limit: Int = Settings.Counter.BucketLimit
 
   override def fetchSize: Int = Settings.Counter.BucketFetchSize

@@ -32,8 +32,6 @@ trait CounterSummaryStoreSupport extends SummaryStoreSupport[CounterSummary] {
 
 class CassandraCounterSummaryStore(session: Session) extends CassandraSummaryStore[CounterSummary](session) {
 
-  override def windowDurations: Seq[Duration] = Settings.Counter.WindowDurations
-
   override def limit = Settings.Counter.SummaryLimit
 
   override def fetchSize = Settings.Counter.SummaryFetchSize

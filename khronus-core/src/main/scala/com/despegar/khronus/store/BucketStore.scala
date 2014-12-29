@@ -28,6 +28,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Failure
+import com.despegar.khronus.util.Settings
 
 trait BucketStoreSupport[T <: Bucket] {
 
@@ -46,7 +47,7 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
 
   protected def tableName(duration: Duration): String
 
-  protected def windowDurations: Seq[Duration]
+  protected def windowDurations: Seq[Duration] = Settings.Window.WindowDurations
 
   protected def ttl(windowDuration: Duration): Int
 

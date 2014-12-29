@@ -45,21 +45,17 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
 
     when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
 
-    val query = s"""select count(value) from "$metricName" group by time(2h)"""
+    val query = s"""select count(value) from "$metricName" as aliasTable group by time(2h)"""
     val influxCriteria = await(parser.parse(query))
 
     verify(parser.metaStore).searchInSnapshot(regex)
 
-    val resultedField = influxCriteria.projections(0)
-    resultedField.name should be(Functions.Count.name)
-    resultedField.alias should be(None)
+    verifyField(influxCriteria.projections(0), Functions.Count, None, Some("aliasTable"))
 
-    influxCriteria.tables.size should be(1)
-    influxCriteria.tables(0).name should be(metricName)
+    influxCriteria.sources.size should be(1)
+    verifySource(influxCriteria.sources(0), metricName, Some("aliasTable"))
 
-    influxCriteria.groupBy.duration.length should be(2)
-    influxCriteria.groupBy.duration.unit should be(TimeUnit.HOURS)
-
+    verifyGroupBy(influxCriteria.groupBy, 2, TimeUnit.HOURS)
     influxCriteria.filters should be(Nil)
     influxCriteria.limit should be(Int.MaxValue)
   }
@@ -71,33 +67,22 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
 
     when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
 
-    val query = s"""select mean max as maxValue min(value) from "$metricName" group by time(2h)"""
+    val query = s"""select x.mean, x.max as maxValue, min(value) from "$metricName" as x group by time(2h)"""
     val influxCriteria = await(parser.parse(query))
 
     verify(parser.metaStore).searchInSnapshot(regex)
 
     influxCriteria.projections.size should be(3)
 
-    val firstProjection = influxCriteria.projections(0)
-    firstProjection.name should be(Functions.Mean.name)
-    firstProjection.alias should be(None)
+    verifyField(influxCriteria.projections(0), Functions.Mean, None, Some("x"))
+    verifyField(influxCriteria.projections(1), Functions.Max, Some("maxValue"), Some("x"))
+    verifyField(influxCriteria.projections(2), Functions.Min, None, Some("x"))
 
-    val secondProjection = influxCriteria.projections(1)
-    secondProjection.name should be(Functions.Max.name)
-    secondProjection.alias should be(Some("maxValue"))
+    influxCriteria.sources.size should be(1)
+    verifySource(influxCriteria.sources(0), metricName, Some("x"))
 
-    val thirdProjection = influxCriteria.projections(2)
-    thirdProjection.name should be(Functions.Min.name)
-    thirdProjection.alias should be(None)
-
-    influxCriteria.tables.size should be(1)
-    influxCriteria.tables(0).name should be(metricName)
-
-    influxCriteria.groupBy.duration.length should be(2)
-    influxCriteria.groupBy.duration.unit should be(TimeUnit.HOURS)
-
+    verifyGroupBy(influxCriteria.groupBy, 2, TimeUnit.HOURS)
     influxCriteria.filters should be(Nil)
-
     influxCriteria.limit should be(Int.MaxValue)
   }
 
@@ -108,31 +93,29 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
 
     when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
 
-    val query = s"""select * from "$metricName" group by time (30s)"""
+    val query = s"""select aliasTimer.* from "$metricName" as aliasTimer group by time (30s)"""
     val influxCriteria = await(parser.parse(query))
 
     verify(parser.metaStore).searchInSnapshot(regex)
 
     influxCriteria.projections.size should be(10)
-    val sortedProjections = influxCriteria.projections.sortBy(_.name)
+    val sortedProjections = influxCriteria.projections.sortBy(_.asInstanceOf[Field].name)
 
-    sortedProjections(0).name should be(Functions.Count.name)
-    sortedProjections(1).name should be(Functions.Max.name)
-    sortedProjections(2).name should be(Functions.Mean.name)
-    sortedProjections(3).name should be(Functions.Min.name)
-    sortedProjections(4).name should be(Functions.Percentile50.name)
-    sortedProjections(5).name should be(Functions.Percentile80.name)
-    sortedProjections(6).name should be(Functions.Percentile90.name)
-    sortedProjections(7).name should be(Functions.Percentile95.name)
-    sortedProjections(8).name should be(Functions.Percentile99.name)
-    sortedProjections(9).name should be(Functions.Percentile999.name)
+    verifyField(sortedProjections(0), Functions.Count, None, Some("aliasTimer"))
+    verifyField(sortedProjections(1), Functions.Max, None, Some("aliasTimer"))
+    verifyField(sortedProjections(2), Functions.Mean, None, Some("aliasTimer"))
+    verifyField(sortedProjections(3), Functions.Min, None, Some("aliasTimer"))
+    verifyField(sortedProjections(4), Functions.Percentile50, None, Some("aliasTimer"))
+    verifyField(sortedProjections(5), Functions.Percentile80, None, Some("aliasTimer"))
+    verifyField(sortedProjections(6), Functions.Percentile90, None, Some("aliasTimer"))
+    verifyField(sortedProjections(7), Functions.Percentile95, None, Some("aliasTimer"))
+    verifyField(sortedProjections(8), Functions.Percentile99, None, Some("aliasTimer"))
+    verifyField(sortedProjections(9), Functions.Percentile999, None, Some("aliasTimer"))
 
-    influxCriteria.tables.size should be(1)
-    influxCriteria.tables(0).name should be(metricName)
+    influxCriteria.sources.size should be(1)
+    verifySource(influxCriteria.sources(0), metricName, Some("aliasTimer"))
 
-    influxCriteria.groupBy.duration.length should be(30)
-    influxCriteria.groupBy.duration.unit should be(TimeUnit.SECONDS)
-
+    verifyGroupBy(influxCriteria.groupBy, 30, TimeUnit.SECONDS)
     influxCriteria.filters should be(Nil)
     influxCriteria.limit should be(Int.MaxValue)
   }
@@ -144,20 +127,18 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
 
     when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Counter)) })
 
-    val query = s"""select * from "$metricName" group by time (30s)"""
+    val query = s"""select * from "$metricName" as aliasCounter group by time (30s)"""
     val influxCriteria = await(parser.parse(query))
 
     verify(parser.metaStore).searchInSnapshot(regex)
 
     influxCriteria.projections.size should be(1)
-    influxCriteria.projections(0).name should be(Functions.Count.name)
+    verifyField(influxCriteria.projections(0), Functions.Count, None, Some("aliasCounter"))
 
-    influxCriteria.tables.size should be(1)
-    influxCriteria.tables(0).name should be(metricName)
+    influxCriteria.sources.size should be(1)
+    verifySource(influxCriteria.sources(0), metricName, Some("aliasCounter"))
 
-    influxCriteria.groupBy.duration.length should be(30)
-    influxCriteria.groupBy.duration.unit should be(TimeUnit.SECONDS)
-
+    verifyGroupBy(influxCriteria.groupBy, 30, TimeUnit.SECONDS)
     influxCriteria.filters should be(Nil)
     influxCriteria.limit should be(Int.MaxValue)
   }
@@ -168,47 +149,22 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
 
     when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
 
-    val queryMax = s"""select max from "$metricName" group by time(1m)"""
-    val resultedFieldMax = await(parser.parse(queryMax)).projections(0)
-    resultedFieldMax.name should be(Functions.Max.name)
+    val queryMax = s"""select max, min, mean, count, p50, p80, p90, p95, p99, p999 from "$metricName" group by time(1m)"""
 
-    val queryMin = s"""select min from "$metricName" group by time(1m)"""
-    val resultedFieldMin = await(parser.parse(queryMin)).projections(0)
-    resultedFieldMin.name should be(Functions.Min.name)
+    val projections = await(parser.parse(queryMax)).projections
 
-    val queryMean = s"""select mean from "$metricName" group by time(1m)"""
-    val resultedFieldMean = await(parser.parse(queryMean)).projections(0)
-    resultedFieldMean.name should be(Functions.Mean.name)
+    verifyField(projections(0), Functions.Max, None, Some(s"$metricName"))
+    verifyField(projections(1), Functions.Min, None, Some(s"$metricName"))
+    verifyField(projections(2), Functions.Mean, None, Some(s"$metricName"))
+    verifyField(projections(3), Functions.Count, None, Some(s"$metricName"))
+    verifyField(projections(4), Functions.Percentile50, None, Some(s"$metricName"))
+    verifyField(projections(5), Functions.Percentile80, None, Some(s"$metricName"))
+    verifyField(projections(6), Functions.Percentile90, None, Some(s"$metricName"))
+    verifyField(projections(7), Functions.Percentile95, None, Some(s"$metricName"))
+    verifyField(projections(8), Functions.Percentile99, None, Some(s"$metricName"))
+    verifyField(projections(9), Functions.Percentile999, None, Some(s"$metricName"))
 
-    val queryCount = s"""select count from "$metricName" group by time(1m)"""
-    val resultedFieldCount = await(parser.parse(queryCount)).projections(0)
-    resultedFieldCount.name should be(Functions.Count.name)
-
-    val query50 = s"""select p50 from "$metricName" group by time(30s)"""
-    val resultedField50 = await(parser.parse(query50)).projections(0)
-    resultedField50.name should be(Functions.Percentile50.name)
-
-    val query80 = s"""select p80 from "$metricName" group by time(30s)"""
-    val resultedField80 = await(parser.parse(query80)).projections(0)
-    resultedField80.name should be(Functions.Percentile80.name)
-
-    val query90 = s"""select p90 from "$metricName" group by time(30s)"""
-    val resultedField90 = await(parser.parse(query90)).projections(0)
-    resultedField90.name should be(Functions.Percentile90.name)
-
-    val query95 = s"""select p95 from "$metricName" group by time(30s)"""
-    val resultedField95 = await(parser.parse(query95)).projections(0)
-    resultedField95.name should be(Functions.Percentile95.name)
-
-    val query99 = s"""select p99 from "$metricName" group by time(30s)"""
-    val resultedField99 = await(parser.parse(query99)).projections(0)
-    resultedField99.name should be(Functions.Percentile99.name)
-
-    val query999 = s"""select p999 from "$metricName" group by time(30s)"""
-    val resultedField999 = await(parser.parse(query999)).projections(0)
-    resultedField999.name should be(Functions.Percentile999.name)
-
-    verify(parser.metaStore, times(10)).searchInSnapshot(regex)
+    verify(parser.metaStore).searchInSnapshot(regex)
   }
 
   test("Select fields for a counter should be parsed ok") {
@@ -222,7 +178,7 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
 
     verify(parser.metaStore).searchInSnapshot(regex)
 
-    resultedFieldCounter.name should be(Functions.Count.name)
+    verifyField(resultedFieldCounter, Functions.Count, None, Some(s"$metricName"))
   }
 
   test("All Percentiles function should be parsed ok") {
@@ -232,18 +188,18 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
     when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
 
     val queryAllPercentiles = s"""select percentiles from "$metricName" group by time(30s)"""
-    val projections = await(parser.parse(queryAllPercentiles)).projections
+    val projections = await(parser.parse(queryAllPercentiles)).projections.sortBy(_.asInstanceOf[Field].name)
 
     verify(parser.metaStore).searchInSnapshot(regex)
 
     projections.size should be(6)
 
-    projections(0).name should be(Functions.Percentile50.name)
-    projections(1).name should be(Functions.Percentile80.name)
-    projections(2).name should be(Functions.Percentile90.name)
-    projections(3).name should be(Functions.Percentile95.name)
-    projections(4).name should be(Functions.Percentile99.name)
-    projections(5).name should be(Functions.Percentile999.name)
+    verifyField(projections(0), Functions.Percentile50, None, Some(s"$metricName"))
+    verifyField(projections(1), Functions.Percentile80, None, Some(s"$metricName"))
+    verifyField(projections(2), Functions.Percentile90, None, Some(s"$metricName"))
+    verifyField(projections(3), Functions.Percentile95, None, Some(s"$metricName"))
+    verifyField(projections(4), Functions.Percentile99, None, Some(s"$metricName"))
+    verifyField(projections(5), Functions.Percentile999, None, Some(s"$metricName"))
   }
 
   test("Some Percentiles function should be parsed ok") {
@@ -259,9 +215,96 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
 
     projections.size should be(3)
 
-    projections(0).name should be(Functions.Percentile80.name)
-    projections(1).name should be(Functions.Percentile99.name)
-    projections(2).name should be(Functions.Percentile50.name)
+    verifyField(projections(0), Functions.Percentile80, None, Some(s"$metricName"))
+    verifyField(projections(1), Functions.Percentile99, None, Some(s"$metricName"))
+    verifyField(projections(2), Functions.Percentile50, None, Some(s"$metricName"))
+  }
+
+  test("Projecting operations from single metric should be parsed ok") {
+    val parser = buildParser
+    val regex = parser.getCaseInsensitiveRegex(metricName)
+
+    when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
+
+    val queryMax = s"""select x.p50 + 90 as op1, x.max - x.min as op2, 35 * x.mean as op3, 3 / 4 as op4 from "$metricName" as x group by time(1m)"""
+
+    val projections = await(parser.parse(queryMax)).projections
+
+    val firstOperation = projections(0).asInstanceOf[Operation]
+    verifyField(firstOperation.left, Functions.Percentile50, None, Some("x"))
+    firstOperation.operator should be(MathOperators.Plus)
+    firstOperation.right.asInstanceOf[Number].value should be(90L)
+    firstOperation.alias should be("op1")
+
+    val secondOperation = projections(1).asInstanceOf[Operation]
+    verifyField(secondOperation.left, Functions.Max, None, Some("x"))
+    secondOperation.operator should be(MathOperators.Minus)
+    verifyField(secondOperation.right, Functions.Min, None, Some("x"))
+    secondOperation.alias should be("op2")
+
+    val thirdOperation = projections(2).asInstanceOf[Operation]
+    thirdOperation.left.asInstanceOf[Number].value should be(35L)
+    thirdOperation.operator should be(MathOperators.Multiply)
+    verifyField(thirdOperation.right, Functions.Mean, None, Some("x"))
+    thirdOperation.alias should be("op3")
+
+    val fourthOperation = projections(3).asInstanceOf[Operation]
+    fourthOperation.left.asInstanceOf[Number].value should be(3L)
+    fourthOperation.operator should be(MathOperators.Divide)
+    fourthOperation.right.asInstanceOf[Number].value should be(4L)
+    fourthOperation.alias should be("op4")
+
+    verify(parser.metaStore).searchInSnapshot(regex)
+  }
+
+  test("Projecting operations from different metrics should be parsed ok") {
+    val parser = buildParser
+    val timerMetric1 = "timer-1"
+    val timerMetric2 = "timer-2"
+    val regexTimer1 = parser.getCaseInsensitiveRegex(timerMetric1)
+    val regexTimer2 = parser.getCaseInsensitiveRegex(timerMetric2)
+
+    when(parser.metaStore.searchInSnapshot(regexTimer1)).thenReturn(Future { Seq(Metric(timerMetric1, MetricType.Timer)) })
+    when(parser.metaStore.searchInSnapshot(regexTimer2)).thenReturn(Future { Seq(Metric(timerMetric2, MetricType.Timer)) })
+
+    val queryMax = s"""select x.max + y.min as operation from "$timerMetric1" as x, "$timerMetric2" as y group by time(1m)"""
+
+    val projections = await(parser.parse(queryMax)).projections
+
+    val operation = projections(0).asInstanceOf[Operation]
+    operation.operator should be(MathOperators.Plus)
+    operation.alias should be("operation")
+
+    verifyField(operation.left, Functions.Max, None, Some("x"))
+    verifyField(operation.right, Functions.Min, None, Some("y"))
+
+    verify(parser.metaStore).searchInSnapshot(regexTimer1)
+    verify(parser.metaStore).searchInSnapshot(regexTimer2)
+  }
+
+  test("Query with scalar projection should be parsed ok") {
+    val parser = buildParser
+    val regex = parser.getCaseInsensitiveRegex(metricName)
+
+    when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
+
+    val queryScalar = s"""select 1 as positiveValue, -3 as negativeValue, 12.56 as decimalValue from "$metricName" group by time(30s)"""
+
+    val projections = await(parser.parse(queryScalar)).projections
+
+    val number1 = projections(0).asInstanceOf[Number]
+    number1.value should be(1L)
+    number1.alias should be(Some("positiveValue"))
+
+    val number2 = projections(1).asInstanceOf[Number]
+    number2.value should be(-3L)
+    number2.alias should be(Some("negativeValue"))
+
+    val number3 = projections(2).asInstanceOf[Number]
+    number3.value should be(12.56)
+    number3.alias should be(Some("decimalValue"))
+
+    verify(parser.metaStore).searchInSnapshot(regex)
   }
 
   test("Select from regex matching some metrics should be parsed ok") {
@@ -281,12 +324,54 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
 
     verify(parser.metaStore).searchInSnapshot(regex)
 
-    influxCriteria.projections.size should be(1)
-    influxCriteria.projections(0).name should be(Functions.Count.name)
+    influxCriteria.projections.size should be(2)
+    verifyField(influxCriteria.projections(0), Functions.Count, None, Some(counter1))
+    verifyField(influxCriteria.projections(1), Functions.Count, None, Some(counter2))
 
-    influxCriteria.tables.size should be(2)
-    influxCriteria.tables(0).name should be(counter1)
-    influxCriteria.tables(1).name should be(counter2)
+    influxCriteria.sources.size should be(2)
+    verifySource(influxCriteria.sources(0), counter1, None)
+    verifySource(influxCriteria.sources(1), counter2, None)
+  }
+
+  test("Select with many regex should be parsed ok") {
+    val parser = buildParser
+
+    val counterCommonName = "Counter"
+    val counter1 = s"$counterCommonName-1"
+    val counter2 = s"$counterCommonName-2"
+    val regexCounterCommon = s".*$counterCommonName.*"
+    val regexCounter = parser.getCaseInsensitiveRegex(regexCounterCommon)
+
+    val timerCommonName = "Timer"
+    val timer1 = s"$timerCommonName-1"
+    val timer2 = s"$timerCommonName-2"
+    val regexTimerCommon = s".*$timerCommonName.*"
+    val regexTimer = parser.getCaseInsensitiveRegex(regexTimerCommon)
+
+    val counters = Seq(Metric(counter1, MetricType.Counter), Metric(counter2, MetricType.Counter))
+    when(parser.metaStore.searchInSnapshot(regexCounter)).thenReturn(Future(counters))
+
+    val timers = Seq(Metric(timer1, MetricType.Timer), Metric(timer2, MetricType.Timer))
+    when(parser.metaStore.searchInSnapshot(regexTimer)).thenReturn(Future(timers))
+
+    val queryRegex = s"""select count from "$regexCounterCommon", "$regexTimerCommon" group by time(30s)"""
+    val influxCriteria = await(parser.parse(queryRegex))
+
+    verify(parser.metaStore).searchInSnapshot(regexCounter)
+    verify(parser.metaStore).searchInSnapshot(regexTimer)
+
+    influxCriteria.projections.size should be(4)
+    verifyField(influxCriteria.projections(0), Functions.Count, None, Some(counter1))
+    verifyField(influxCriteria.projections(1), Functions.Count, None, Some(counter2))
+    verifyField(influxCriteria.projections(2), Functions.Count, None, Some(timer1))
+    verifyField(influxCriteria.projections(3), Functions.Count, None, Some(timer2))
+
+    influxCriteria.sources.size should be(4)
+
+    verifySource(influxCriteria.sources(0), counter1, None)
+    verifySource(influxCriteria.sources(1), counter2, None)
+    verifySource(influxCriteria.sources(2), timer1, None)
+    verifySource(influxCriteria.sources(3), timer2, None)
   }
 
   test("Where clause should be parsed ok") {
@@ -300,20 +385,17 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
 
     verify(parser.metaStore).searchInSnapshot(regex)
 
-    val resultedField = influxCriteria.projections(0)
-    resultedField.name should be(Functions.Count.name)
-    resultedField.alias should be(None)
+    verifyField(influxCriteria.projections(0), Functions.Count, None, Some(metricName))
 
-    influxCriteria.tables.size should be(1)
-    influxCriteria.tables(0).name should be(metricName)
+    influxCriteria.sources.size should be(1)
+    verifySource(influxCriteria.sources(0), metricName, None)
 
     val stringFilter = influxCriteria.filters(0).asInstanceOf[StringFilter]
     stringFilter.identifier should be("host")
     stringFilter.operator should be(Operators.Eq)
     stringFilter.value should be("aHost")
 
-    influxCriteria.groupBy.duration.length should be(5)
-    influxCriteria.groupBy.duration.unit should be(TimeUnit.MINUTES)
+    verifyGroupBy(influxCriteria.groupBy, 5, TimeUnit.MINUTES)
 
     influxCriteria.limit should be(Int.MaxValue)
   }
@@ -329,25 +411,15 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
 
     verify(parser.metaStore).searchInSnapshot(regex)
 
-    val resultedField = influxCriteria.projections(0)
-    resultedField.name should be(Functions.Max.name)
-    resultedField.alias should be(None)
+    verifyField(influxCriteria.projections(0), Functions.Max, None, Some(metricName))
 
-    influxCriteria.tables.size should be(1)
-    influxCriteria.tables(0).name should be(metricName)
+    influxCriteria.sources.size should be(1)
+    verifySource(influxCriteria.sources(0), metricName, None)
 
-    val filter1 = influxCriteria.filters(0).asInstanceOf[TimeFilter]
-    filter1.identifier should be("time")
-    filter1.operator should be(Operators.Gte)
-    filter1.value should be(1414508614L)
+    verifyTimeFilter(influxCriteria.filters(0), "time", Operators.Gte, 1414508614L)
+    verifyTimeFilter(influxCriteria.filters(1), "time", Operators.Lt, 1414509500L)
 
-    val filter2 = influxCriteria.filters(1).asInstanceOf[TimeFilter]
-    filter2.identifier should be("time")
-    filter2.operator should be(Operators.Lt)
-    filter2.value should be(1414509500L)
-
-    influxCriteria.groupBy.duration.length should be(5)
-    influxCriteria.groupBy.duration.unit should be(TimeUnit.MINUTES)
+    verifyGroupBy(influxCriteria.groupBy, 5, TimeUnit.MINUTES)
 
     influxCriteria.limit should be(Int.MaxValue)
   }
@@ -363,10 +435,7 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
 
     verify(parser.metaStore).searchInSnapshot(regex)
 
-    val filter1 = influxCriteria.filters(0).asInstanceOf[TimeFilter]
-    filter1.identifier should be("time")
-    filter1.operator should be(Operators.Gte)
-    filter1.value should be(1414508614000L)
+    verifyTimeFilter(influxCriteria.filters(0), "time", Operators.Gte, 1414508614000L)
   }
 
   test("Where clauses like (now - 1h) should be parsed ok") {
@@ -380,40 +449,22 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
     when(mockedParser.metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
 
     val criteriaNow = await(mockedParser.parse(s"""select mean(value) from "$metricName" where time > now() group by time(5m)"""))
-    val filterNow = criteriaNow.filters(0).asInstanceOf[TimeFilter]
-    filterNow.identifier should be("time")
-    filterNow.operator should be(Operators.Gt)
-    filterNow.value should be(mockedNow)
+    verifyTimeFilter(criteriaNow.filters(0), "time", Operators.Gt, mockedNow)
 
     val criteriaNow20s = await(mockedParser.parse(s"""select mean(value) from "$metricName" where time < now() - 20s group by time(5m)"""))
-    val filterNow20s = criteriaNow20s.filters(0).asInstanceOf[TimeFilter]
-    filterNow20s.identifier should be("time")
-    filterNow20s.operator should be(Operators.Lt)
-    filterNow20s.value should be(mockedNow - TimeUnit.SECONDS.toMillis(20))
+    verifyTimeFilter(criteriaNow20s.filters(0), "time", Operators.Lt, mockedNow - TimeUnit.SECONDS.toMillis(20))
 
     val criteriaNow5m = await(mockedParser.parse(s"""select mean(value) from "$metricName" where time <= now() - 5m group by time(5m)"""))
-    val filterNow5m = criteriaNow5m.filters(0).asInstanceOf[TimeFilter]
-    filterNow5m.identifier should be("time")
-    filterNow5m.operator should be(Operators.Lte)
-    filterNow5m.value should be(mockedNow - TimeUnit.MINUTES.toMillis(5))
+    verifyTimeFilter(criteriaNow5m.filters(0), "time", Operators.Lte, mockedNow - TimeUnit.MINUTES.toMillis(5))
 
     val criteriaNow3h = await(mockedParser.parse(s"""select mean(value) from "$metricName" where time >= now() - 3h group by time(5m)"""))
-    val filterNow3h = criteriaNow3h.filters(0).asInstanceOf[TimeFilter]
-    filterNow3h.identifier should be("time")
-    filterNow3h.operator should be(Operators.Gte)
-    filterNow3h.value should be(mockedNow - TimeUnit.HOURS.toMillis(3))
+    verifyTimeFilter(criteriaNow3h.filters(0), "time", Operators.Gte, mockedNow - TimeUnit.HOURS.toMillis(3))
 
     val criteriaNow10d = await(mockedParser.parse(s"""select mean(value) from "$metricName" where time >= now() - 10d group by time(5m)"""))
-    val filterNow10d = criteriaNow10d.filters(0).asInstanceOf[TimeFilter]
-    filterNow10d.identifier should be("time")
-    filterNow10d.operator should be(Operators.Gte)
-    filterNow10d.value should be(mockedNow - TimeUnit.DAYS.toMillis(10))
+    verifyTimeFilter(criteriaNow10d.filters(0), "time", Operators.Gte, mockedNow - TimeUnit.DAYS.toMillis(10))
 
     val criteriaNow2w = await(mockedParser.parse(s"""select mean(value) from "$metricName" where time <= now() - 2w group by time(5m)"""))
-    val filterNow2w = criteriaNow2w.filters(0).asInstanceOf[TimeFilter]
-    filterNow2w.identifier should be("time")
-    filterNow2w.operator should be(Operators.Lte)
-    filterNow2w.value should be(mockedNow - TimeUnit.DAYS.toMillis(14))
+    verifyTimeFilter(criteriaNow2w.filters(0), "time", Operators.Lte, mockedNow - TimeUnit.DAYS.toMillis(14))
 
     verify(mockedParser.metaStore, times(6)).searchInSnapshot(regex)
 
@@ -430,25 +481,15 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
 
     verify(parser.metaStore).searchInSnapshot(regex)
 
-    val resultedField = influxCriteria.projections(0)
-    resultedField.name should be(Functions.Max.name)
-    resultedField.alias should be(None)
+    verifyField(influxCriteria.projections(0), Functions.Max, None, Some(metricName))
 
-    influxCriteria.tables.size should be(1)
-    influxCriteria.tables(0).name should be(metricName)
+    influxCriteria.sources.size should be(1)
+    verifySource(influxCriteria.sources(0), metricName, None)
 
-    val filter1 = influxCriteria.filters(0).asInstanceOf[TimeFilter]
-    filter1.identifier should be("time")
-    filter1.operator should be(Operators.Gte)
-    filter1.value should be(1414508614L)
+    verifyTimeFilter(influxCriteria.filters(0), "time", Operators.Gte, 1414508614L)
+    verifyTimeFilter(influxCriteria.filters(1), "time", Operators.Lte, 1414509500000L)
 
-    val filter2 = influxCriteria.filters(1).asInstanceOf[TimeFilter]
-    filter2.identifier should be("time")
-    filter2.operator should be(Operators.Lte)
-    filter2.value should be(1414509500000L)
-
-    influxCriteria.groupBy.duration.length should be(2)
-    influxCriteria.groupBy.duration.unit should be(TimeUnit.HOURS)
+    verifyGroupBy(influxCriteria.groupBy, 2, TimeUnit.HOURS)
 
     influxCriteria.limit should be(Int.MaxValue)
   }
@@ -461,23 +502,18 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
 
     // Configured windows should be parsed ok
     val influxCriteriaResult30s = await(parser.parse(s"""select count(value) as counter from "$metricName" force group by time(30s)"""))
-    influxCriteriaResult30s.groupBy.forceResolution should be(true)
-    influxCriteriaResult30s.groupBy.duration.length should be(30)
-    influxCriteriaResult30s.groupBy.duration.unit should be(TimeUnit.SECONDS)
+    verifyGroupBy(influxCriteriaResult30s.groupBy, 30, TimeUnit.SECONDS, true)
 
     val influxCriteriaResult1m = await(parser.parse(s"""select min(value) as counter from "$metricName" group by time(1m)"""))
-    influxCriteriaResult1m.groupBy.duration.length should be(1)
-    influxCriteriaResult1m.groupBy.duration.unit should be(TimeUnit.MINUTES)
+    verifyGroupBy(influxCriteriaResult1m.groupBy, 1, TimeUnit.MINUTES)
 
     // Unconfigured window should be parsed ok
     val influxCriteriaResult13s = await(parser.parse(s"""select count from "$metricName" group by time(13s)"""))
-    influxCriteriaResult13s.groupBy.duration.length should be(13)
-    influxCriteriaResult13s.groupBy.duration.unit should be(TimeUnit.SECONDS)
+    verifyGroupBy(influxCriteriaResult13s.groupBy, 13, TimeUnit.SECONDS)
 
     // Decimal windows should be truncated
     val influxCriteriaResultDecimal = await(parser.parse(s"""select count from "$metricName" group by time(0.1s)"""))
-    influxCriteriaResultDecimal.groupBy.duration.length should be(0)
-    influxCriteriaResultDecimal.groupBy.duration.unit should be(TimeUnit.SECONDS)
+    verifyGroupBy(influxCriteriaResultDecimal.groupBy, 0, TimeUnit.SECONDS)
 
     verify(parser.metaStore, times(4)).searchInSnapshot(regex)
   }
@@ -493,15 +529,12 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
 
     verify(parser.metaStore).searchInSnapshot(regex)
 
-    val resultedField = influxCriteria.projections(0)
-    resultedField.name should be(Functions.Percentile50.name)
-    resultedField.alias should be(None)
+    verifyField(influxCriteria.projections(0), Functions.Percentile50, None, Some(metricName))
 
-    influxCriteria.tables.size should be(1)
-    influxCriteria.tables(0).name should be(metricName)
+    influxCriteria.sources.size should be(1)
+    verifySource(influxCriteria.sources(0), metricName, None)
 
-    influxCriteria.groupBy.duration.length should be(1)
-    influxCriteria.groupBy.duration.unit should be(TimeUnit.MINUTES)
+    verifyGroupBy(influxCriteria.groupBy, 1, TimeUnit.MINUTES)
 
     influxCriteria.filters should be(Nil)
     influxCriteria.limit should be(10)
@@ -533,30 +566,20 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
 
     verify(parser.metaStore).searchInSnapshot(regex)
 
-    val resultedField = influxCriteria.projections(0)
-    resultedField.name should be("count")
-    resultedField.alias should be(Some("counter"))
+    verifyField(influxCriteria.projections(0), Functions.Count, Some("counter"), Some(metricName))
 
-    influxCriteria.tables.size should be(1)
-    influxCriteria.tables(0).name should be(metricName)
+    influxCriteria.sources.size should be(1)
+    verifySource(influxCriteria.sources(0), metricName, None)
 
-    val filter1 = influxCriteria.filters(0).asInstanceOf[TimeFilter]
-    filter1.identifier should be("time")
-    filter1.operator should be(Operators.Gt)
-    filter1.value should be(1000L)
-
-    val filter2 = influxCriteria.filters(1).asInstanceOf[TimeFilter]
-    filter2.identifier should be("time")
-    filter2.operator should be(Operators.Lte)
-    filter2.value should be(5000L)
+    verifyTimeFilter(influxCriteria.filters(0), "time", Operators.Gt, 1000L)
+    verifyTimeFilter(influxCriteria.filters(1), "time", Operators.Lte, 5000L)
 
     val filter3 = influxCriteria.filters(2).asInstanceOf[StringFilter]
     filter3.identifier should be("host")
     filter3.operator should be(Operators.Neq)
     filter3.value should be("aHost")
 
-    influxCriteria.groupBy.duration.length should be(30)
-    influxCriteria.groupBy.duration.unit should be(TimeUnit.SECONDS)
+    verifyGroupBy(influxCriteria.groupBy, 30, TimeUnit.SECONDS)
 
     influxCriteria.limit should be(550)
 
@@ -589,6 +612,10 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
     intercept[UnsupportedOperationException] { buildParser.parse("select max(value) from") }
   }
 
+  test("Query using a table alias that dont exist should fail") {
+    intercept[UnsupportedOperationException] { buildParser.parse(s"""select a.max from "$metricName" group by time (30s)""") }
+  }
+
   test("Query with unclosed string literal should fail") {
     intercept[UnsupportedOperationException] { buildParser.parse(s"""select max(value) from "$metricName" where host = 'host""") }
   }
@@ -602,11 +629,19 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
   }
 
   test("Select * with other projection should fail") {
-    intercept[UnsupportedOperationException] { buildParser.parse(s"""select * aValue from "$metricName" group by time(30s)""") }
+    intercept[UnsupportedOperationException] { buildParser.parse(s"""select * max from "$metricName" group by time(30s)""") }
   }
 
   test("Select an invalid field for a counter should fail") {
     verifyQueryFail(metricName, s"""select max(value) from "$metricName" group by time(30s)""", MetricType.Counter)
+  }
+
+  test("Select an invalid operator should fail") {
+    verifyQueryFail(metricName, s"""select max(value) & 3 from "$metricName" group by time(30s)""", MetricType.Timer)
+  }
+
+  test("Select with operation without operator should fail") {
+    verifyQueryFail(metricName, s"""select max 3 from "$metricName" group by time(30s)""", MetricType.Timer)
   }
 
   test("Select with unknown order should fail") {
@@ -615,6 +650,19 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
 
   test("Select with invalid percentile function should fail") {
     intercept[UnsupportedOperationException] { buildParser.parse(s"""select percentiles(12) from "$metricName" group by time(30s)""") }
+  }
+
+  test("Repeting table alias should fail") {
+    verifyQueryFail(metricName, s"""select * from "$metricName" as x, "$metricName" as x group by time(30s)""")
+  }
+
+  test("Projection using inexistent table alias should fail") {
+    verifyQueryFail(metricName, s"""select y.count from "$metricName" as x group by time(30s)""")
+  }
+
+  test("Operation using inexistent table alias should fail") {
+    verifyQueryFail(metricName, s"""select y.count + x.max as operation from "$metricName" as x group by time(30s)""")
+    verifyQueryFail(metricName, s"""select x.count + y.max as operation from "$metricName" as x group by time(30s)""")
   }
 
   private def verifyQueryFail(metric: String, query: String, metricType: String = MetricType.Timer) = {
@@ -629,23 +677,28 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
     }
   }
 
-  test("Select from regex matching different metric types should fail") {
-    val parser = buildParser
+  private def verifyField(projection: Projection, expectedFunction: Functions.Function, expectedFieldAlias: Option[String], expectedTableAlias: Option[String]) = {
+    projection.asInstanceOf[Field].name should be(expectedFunction.name)
+    projection.asInstanceOf[Field].alias should be(expectedFieldAlias)
+    projection.asInstanceOf[Field].tableId should be(expectedTableAlias)
+  }
 
-    val commonName = "Metric"
-    val counterMetricName = s"counter$commonName"
-    val timerMetricName = s"$commonName-Timer"
-    val regexCounter = s".*$commonName.*"
-    val regex = parser.getCaseInsensitiveRegex(regexCounter)
+  private def verifySource(source: Source, expectedMetricName: String, expectedTableAlias: Option[String]) = {
+    source.metric.name should be(expectedMetricName)
+    source.alias should be(expectedTableAlias)
+  }
 
-    val metrics = Seq(Metric(counterMetricName, MetricType.Counter), Metric(timerMetricName, MetricType.Timer))
+  private def verifyTimeFilter(filter: Filter, expectedIdentifier: String, expectedOperator: String, millis: Long) = {
+    val timeFilter = filter.asInstanceOf[TimeFilter]
+    timeFilter.identifier should be(expectedIdentifier)
+    timeFilter.operator should be(expectedOperator)
+    timeFilter.value should be(millis)
+  }
 
-    when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future(metrics))
-
-    intercept[UnsupportedOperationException] {
-      await(parser.parse(s"""select count from "$regexCounter" group by time(30s)"""))
-      verify(parser.metaStore).searchInSnapshot(regex)
-    }
+  private def verifyGroupBy(groupBy: GroupBy, expectedDurationLength: Int, expectedDurationUnit: TimeUnit, expectedForced: Boolean = false) = {
+    groupBy.duration.length should be(expectedDurationLength)
+    groupBy.duration.unit should be(expectedDurationUnit)
+    groupBy.forceResolution should be(expectedForced)
   }
 
   private def await[T](f: ⇒ Future[T]): T = Await.result(f, 10 seconds)
