@@ -145,6 +145,7 @@ As with any query language, you can select the fields you want to see in the res
     * for timers or gauges: count, max, min, mean, p50, p80, p90, p95, p99, p999
 
 		select max | min as minimum from "metricTimer" where time > now()-6h group by time(5m)
+		
 		select count from "metricCounter" where time > now()-6h group by time(5m)
 
 	As you can see, alias for functions are supported, even they are not required
@@ -160,6 +161,7 @@ As with any query language, you can select the fields you want to see in the res
 	 Besides that, if you are looking for some specific percentiles you can use the function percentiles(50 80 99), passing the desired parcentiles as arguments 
 	
 		select percentiles from "metricTimer" where time > now()-1h group by time(5m)
+		
 		select percentiles(50 80 99) from "metricTimer" where time > now()-6h group by time(5m)
 
 	
@@ -174,6 +176,7 @@ As with any query language, you can select the fields you want to see in the res
 	Alias for the operation result is required
 		
 		select timer.max - timer.min as myOperation from "metricTimer" as timer where time > now()-6h group by time(5m)
+		
 		select timer.max  *  -1 as myOperation from "metricTimer" as timer where time > now()-6h group by time(5m)
 
 ##### From metrics...
@@ -208,6 +211,7 @@ As the examples show, in order to specify times you can use the function now() w
 Besides that, you can speciffy a timestamp like this:
 
 	select count from "metricCounter" where time > 1419878249000 group by time(5m)
+	
 	select count from "metricCounter" where time > 1419878249s group by time(5m)
 	
 Another example, using between
@@ -236,6 +240,7 @@ If you don't want this behavior you can use the 'force' keyword. But take in acc
 
 
     select a.count as counter | cc.count | 3 as miConstant | cc.count + a.count as sum from "metricTimer" as a | "metricCounter" as cc where time >= now() - 10m group by time(1h) limit 100 order asc
+
 
   
 ## Contributions
