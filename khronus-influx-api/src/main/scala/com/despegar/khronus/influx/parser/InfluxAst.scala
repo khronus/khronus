@@ -25,7 +25,8 @@ case class InfluxCriteria(projections: Seq[SimpleProjection],
   filters: Seq[Filter],
   groupBy: GroupBy,
   limit: Int = Int.MaxValue,
-  orderAsc: Boolean = true)
+  orderAsc: Boolean = true,
+  fillValue: Option[Long] = None)
 
 // SELECT
 sealed trait Projection
@@ -44,15 +45,41 @@ object MathOperators {
 
   trait MathOperator {
     def symbol: String
+
+    def apply(firstOperand: Long, secondOperand: Long): Long
   }
 
-  case object Plus extends MathOperator { val symbol = "+" }
+  case object Plus extends MathOperator {
+    val symbol = "+"
 
-  case object Minus extends MathOperator { val symbol = "-" }
+    def apply(firstOperand: Long, secondOperand: Long): Long = {
+      firstOperand + secondOperand
+    }
+  }
 
-  case object Multiply extends MathOperator { val symbol = "*" }
+  case object Minus extends MathOperator {
+    val symbol = "-"
 
-  case object Divide extends MathOperator { val symbol = "/" }
+    def apply(firstOperand: Long, secondOperand: Long): Long = {
+      firstOperand - secondOperand
+    }
+  }
+
+  case object Multiply extends MathOperator {
+    val symbol = "*"
+
+    def apply(firstOperand: Long, secondOperand: Long): Long = {
+      firstOperand * secondOperand
+    }
+  }
+
+  case object Divide extends MathOperator {
+    val symbol = "/"
+
+    def apply(firstOperand: Long, secondOperand: Long): Long = {
+      firstOperand + secondOperand
+    }
+  }
 
   def allSymbols: Seq[String] = Seq(Plus.symbol, Minus.symbol, Multiply.symbol, Divide.symbol)
 

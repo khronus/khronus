@@ -53,84 +53,35 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
 
         val slice = buildSlice(influxCriteria.filters)
         val timeWindow = adjustResolution(slice, influxCriteria.groupBy)
-        val alignedFrom = alignTimestamp(slice.from, timeWindow, false)
-        val alignedTo = alignTimestamp(slice.to, timeWindow, true)
+        val timeRangeMillis = buildTimeRangeMillis(slice, timeWindow)
 
-        val summariesBySourceMap = influxCriteria.sources.foldLeft(Map.empty[String, Future[Map[Long, Summary]]])((acc, source) ⇒ {
-          val tableId = source.alias.getOrElse(source.metric.name)
-          val summaries = getStore(source.metric.mtype).readAll(source.metric.name, timeWindow, slice, influxCriteria.orderAsc, influxCriteria.limit)
-          val summariesByTs = summaries.map(f ⇒ f.foldLeft(Map.empty[Long, Summary])((acc, summary) ⇒ acc + (summary.timestamp.ms -> summary)))
-          acc + (tableId -> summariesByTs)
-        })
+        val summariesBySourceMap = getSummariesBySourceMap(influxCriteria, timeWindow, slice)
+        buildInfluxSeries(influxCriteria.projections, timeRangeMillis, summariesBySourceMap, influxCriteria.fillValue)
 
-        val futuresInfluxSeries = influxCriteria.projections.map {
-          case field: Field ⇒ {
-            generateSeq(field, alignedFrom, alignedTo, timeWindow, summariesBySourceMap).map(values ⇒
-              toInfluxSeries(values, field.alias.getOrElse(field.name), field.tableId.get))
-          }
-          case number: Number ⇒ {
-            generateSeq(number, alignedFrom, alignedTo, timeWindow, summariesBySourceMap).map(values ⇒
-              toInfluxSeries(values, number.alias.get))
-          }
-          case operation: Operation ⇒ {
-            for {
-              leftValues ← generateSeq(operation.left, alignedFrom, alignedTo, timeWindow, summariesBySourceMap)
-              rightValues ← generateSeq(operation.right, alignedFrom, alignedTo, timeWindow, summariesBySourceMap)
-            } yield {
-              val resultedValues = leftValues.zip(rightValues).foldLeft(Seq.empty[TimeSeriesValue])((acc, tuple) ⇒ acc :+ calculate(tuple._1, tuple._2, operation.operator))
-              toInfluxSeries(resultedValues.view, operation.alias)
-            }
-          }
+    }.flatMap(Future.sequence(_))
+  }
+
+  private def buildSlice(filters: Seq[Filter]): Slice = {
+    var from = 1L
+    var to = now
+    filters foreach {
+      case filter: TimeFilter ⇒
+        filter.operator match {
+          case Operators.Gt  ⇒ from = filter.value + 1
+          case Operators.Gte ⇒ from = filter.value
+          case Operators.Lt  ⇒ to = filter.value - 1
+          case Operators.Lte ⇒ to = filter.value
         }
-
-        futuresInfluxSeries
-    }.flatMap(Future.sequence(_).map(_.flatten))
-  }
-
-  case class TimeSeriesValue(timestamp: Long, value: Long)
-
-  private def alignTimestamp(timestamp: Long, timeWindow: FiniteDuration, floorRounding: Boolean): Long = {
-    if (timestamp % timeWindow.toMillis == 0)
-      timestamp
-    else {
-      val division = timestamp / timeWindow.toMillis
-      if (floorRounding) division * timeWindow.toMillis else (division + 1) * timeWindow.toMillis
-    }
-  }
-
-  private def calculate(firstOperand: TimeSeriesValue, secondOperand: TimeSeriesValue, operator: MathOperators.MathOperator): TimeSeriesValue = {
-    val result = operator match {
-      case MathOperators.Plus     ⇒ firstOperand.value + secondOperand.value
-      case MathOperators.Minus    ⇒ firstOperand.value - secondOperand.value
-      case MathOperators.Multiply ⇒ firstOperand.value * secondOperand.value
-      case MathOperators.Divide   ⇒ firstOperand.value / secondOperand.value
-    }
-    TimeSeriesValue(firstOperand.timestamp, result)
-  }
-
-  private def generateSeq(simpleProjection: SimpleProjection, alignedFrom: Long, alignedTo: Long, timeWindow: FiniteDuration, summariesMap: Map[String, Future[Map[Long, Summary]]]): Future[SeqView[TimeSeriesValue, Seq[_]]] =
-    simpleProjection match {
-      case field: Field   ⇒ generateSummarySeq(alignedFrom, alignedTo, timeWindow.toMillis, field.name, summariesMap(field.tableId.get))
-      case number: Number ⇒ generateScalarSeq(alignedFrom, alignedTo, timeWindow.toMillis, number.value)
-      case _              ⇒ throw new UnsupportedOperationException("Nested operations are not supported yet")
+      case StringFilter(_, _, _) ⇒ //TODO
     }
 
-  private def generateScalarSeq(fromMillis: Long, toMillis: Long, timeWindow: Long, scalar: Double): Future[SeqView[TimeSeriesValue, Seq[_]]] = {
-    Future { (fromMillis to toMillis by timeWindow).view.map(ts ⇒ TimeSeriesValue(ts, math.round(scalar))) }
+    if (from == 1L)
+      throw new UnsupportedOperationException("From clause required");
+
+    Slice(from, to)
   }
 
-  private def generateSummarySeq(fromMillis: Long, toMillis: Long, timeWindow: Long, function: String, summariesByTs: Future[Map[Long, Summary]]): Future[SeqView[TimeSeriesValue, Seq[_]]] = {
-    summariesByTs.map(summariesMap ⇒ {
-      (fromMillis to toMillis by timeWindow).view.collect {
-        case timestamp ⇒
-          val value = summariesMap.get(timestamp) match {
-            case Some(summary) ⇒ summary.get(function)
-            case None          ⇒ 0
-          }
-          TimeSeriesValue(timestamp, value)
-      }
-    })
-  }
+  protected def now = System.currentTimeMillis()
 
   private def adjustResolution(slice: Slice, groupBy: GroupBy): FiniteDuration = {
     val sortedWindows = Settings.Window.ConfiguredWindows.toSeq.sortBy(_.toMillis).reverse
@@ -163,6 +114,30 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
 
   private def millisBetween(some: FiniteDuration, other: FiniteDuration) = Math.abs(some.toMillis - other.toMillis)
 
+  private def buildTimeRangeMillis(slice: Slice, timeWindow: FiniteDuration): TimeRangeMillis = {
+    val alignedFrom = alignTimestamp(slice.from, timeWindow, floorRounding = false)
+    val alignedTo = alignTimestamp(slice.to, timeWindow, floorRounding = true)
+    TimeRangeMillis(alignedFrom, alignedTo, timeWindow.toMillis)
+  }
+
+  private def alignTimestamp(timestamp: Long, timeWindow: FiniteDuration, floorRounding: Boolean): Long = {
+    if (timestamp % timeWindow.toMillis == 0)
+      timestamp
+    else {
+      val division = timestamp / timeWindow.toMillis
+      if (floorRounding) division * timeWindow.toMillis else (division + 1) * timeWindow.toMillis
+    }
+  }
+
+  private def getSummariesBySourceMap(influxCriteria: InfluxCriteria, timeWindow: FiniteDuration, slice: Slice) = {
+    influxCriteria.sources.foldLeft(Map.empty[String, Future[Map[Long, Summary]]])((acc, source) ⇒ {
+      val tableId = source.alias.getOrElse(source.metric.name)
+      val summaries = getStore(source.metric.mtype).readAll(source.metric.name, timeWindow, slice, influxCriteria.orderAsc, influxCriteria.limit)
+      val summariesByTs = summaries.map(f ⇒ f.foldLeft(Map.empty[Long, Summary])((acc, summary) ⇒ acc + (summary.timestamp.ms -> summary)))
+      acc + (tableId -> summariesByTs)
+    })
+  }
+
   private def getStore(metricType: String) = metricType match {
     case MetricType.Timer | MetricType.Gauge ⇒ getStatisticSummaryStore
     case MetricType.Counter                  ⇒ getCounterSummaryStore
@@ -173,41 +148,74 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
 
   protected def getCounterSummaryStore: SummaryStore[CounterSummary] = Summaries.counterSummaryStore
 
-  private def toInfluxSeries(timeSeriesValues: SeqView[TimeSeriesValue, Seq[_]], projectionName: String, metricName: String = ""): Seq[InfluxSeries] = {
-    log.info(s"Building Influx series: Projection [$projectionName] - Metric [$metricName]")
-
-    val pointsPerFunction = TrieMap[String, Vector[Vector[Long]]]()
-
-    timeSeriesValues.foreach(tsValue ⇒ pointsPerFunction.put(projectionName, pointsPerFunction.getOrElse(projectionName, Vector.empty) :+ Vector(tsValue.timestamp, tsValue.value)))
-
-    pointsPerFunction.collect {
-      case (functionName, points) ⇒ InfluxSeries(metricName, Vector(influxTimeKey, functionName), points)
-    }.toSeq
-  }
-
-  private def buildSlice(filters: Seq[Filter]): Slice = {
-    var from = 1L
-    var to = now
-    filters foreach {
-      case filter: TimeFilter ⇒ {
-        filter.operator match {
-          case Operators.Gt  ⇒ { from = filter.value + 1}
-          case Operators.Gte ⇒ { from = filter.value}
-          case Operators.Lt  ⇒ { to = filter.value - 1}
-          case Operators.Lte ⇒ { to = filter.value}
+  private def buildInfluxSeries(projections: Seq[SimpleProjection], timeRangeMillis: TimeRangeMillis, summariesBySourceMap: Map[String, Future[Map[Long, Summary]]], defaultValue: Option[Long]): Seq[Future[InfluxSeries]] = {
+    projections.map {
+      case field: Field ⇒ {
+        generateSeq(field, timeRangeMillis, summariesBySourceMap, defaultValue).map(values ⇒
+          toInfluxSeries(values, field.alias.getOrElse(field.name), field.tableId.get))
+      }
+      case number: Number ⇒ {
+        generateSeq(number, timeRangeMillis, summariesBySourceMap, defaultValue).map(values ⇒
+          toInfluxSeries(values, number.alias.get))
+      }
+      case operation: Operation ⇒ {
+        for {
+          leftValues ← generateSeq(operation.left, timeRangeMillis, summariesBySourceMap, defaultValue)
+          rightValues ← generateSeq(operation.right, timeRangeMillis, summariesBySourceMap, defaultValue)
+        } yield {
+          val resultedValues = zipByTimestamp(leftValues, rightValues, operation.operator)
+          toInfluxSeries(resultedValues, operation.alias)
         }
       }
-      case StringFilter(_, _, _) ⇒ //TODO
     }
-
-    if (from == 1L)
-      throw new UnsupportedOperationException("From clause required");
-
-    Slice(from, to)
   }
 
-  protected def now = System.currentTimeMillis()
+  private def generateSeq(simpleProjection: SimpleProjection, timeRangeMillis: TimeRangeMillis, summariesMap: Map[String, Future[Map[Long, Summary]]], defaultValue: Option[Long]): Future[Map[Long, Long]] =
+    simpleProjection match {
+      case field: Field   ⇒ generateSummarySeq(timeRangeMillis, field.name, summariesMap(field.tableId.get), defaultValue)
+      case number: Number ⇒ generateScalarSeq(timeRangeMillis, number.value)
+      case _              ⇒ throw new UnsupportedOperationException("Nested operations are not supported yet")
+    }
+
+  private def generateScalarSeq(timeRangeMillis: TimeRangeMillis, scalar: Double): Future[Map[Long, Long]] = {
+    val roundedScalar = math.round(scalar)
+    Future { (timeRangeMillis.from to timeRangeMillis.to by timeRangeMillis.timeWindow).map(ts ⇒ ts -> roundedScalar).toMap }
+  }
+
+  private def generateSummarySeq(timeRangeMillis: TimeRangeMillis, function: String, summariesByTs: Future[Map[Long, Summary]], defaultValue: Option[Long]): Future[Map[Long, Long]] = {
+    summariesByTs.map(summariesMap ⇒ {
+      (timeRangeMillis.from to timeRangeMillis.to by timeRangeMillis.timeWindow).foldLeft(Map.empty[Long, Long])((acc, currentTimestamp) ⇒
+        if (summariesMap.get(currentTimestamp).isDefined) {
+          acc + (currentTimestamp -> summariesMap(currentTimestamp).get(function))
+        } else if (defaultValue.isDefined) {
+          acc + (currentTimestamp -> defaultValue.get)
+        } else {
+          acc
+        })
+    })
+  }
+
+  private def zipByTimestamp(tsValues1: Map[Long, Long], tsValues2: Map[Long, Long], operator: MathOperators.MathOperator): Map[Long, Long] = {
+    val zippedByTimestamp = for (timestamp ← tsValues1.keySet.intersect(tsValues2.keySet))
+      yield (timestamp, calculate(tsValues1(timestamp), tsValues2(timestamp), operator))
+
+    zippedByTimestamp.toMap
+  }
+
+  private def calculate(firstOperand: Long, secondOperand: Long, operator: MathOperators.MathOperator): Long = {
+    operator(firstOperand, secondOperand)
+  }
+
+  private def toInfluxSeries(timeSeriesValues: Map[Long, Long], projectionName: String, metricName: String = ""): InfluxSeries = {
+    log.info(s"Building Influx serie for projection [$projectionName] - Metric [$metricName]")
+
+    val points = timeSeriesValues.foldLeft(Vector.empty[Vector[Long]])((acc, current) ⇒ acc :+ Vector(current._1, current._2))
+    InfluxSeries(metricName, Vector(influxTimeKey, projectionName), points)
+  }
+
 }
+
+case class TimeRangeMillis(from: Long, to: Long, timeWindow: Long)
 
 object InfluxQueryResolver {
   //matches list series /expression/

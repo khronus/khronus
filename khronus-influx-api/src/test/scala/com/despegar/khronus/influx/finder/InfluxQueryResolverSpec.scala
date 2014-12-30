@@ -274,11 +274,9 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     influxSerie.columns(0) should be(InfluxQueryResolver.influxTimeKey)
     influxSerie.columns(1) should be("theOperation")
 
-    influxSerie.points.size should be(2)
+    influxSerie.points.size should be(1)
     assertPoint(influxSerie.points(0), from, 300000L)
-    assertPoint(influxSerie.points(1), to, 0L)
   }
-
 
   test("Select with a configured resolution between configured limits returns the desired window") {
     // 80 h  / 5 minutes = 960 points (ok, between 700 and 1000)
