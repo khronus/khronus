@@ -95,7 +95,6 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
         busyWorkers += worker
         idleWorkers = idleWorkers.tail
         pendingMetrics = pending
-        log.info(s"${pending.size} pending metrics after dispatch")
       }
 
     case Register(worker) ⇒
@@ -112,7 +111,6 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
         incrementCounter("fastDispatch")
         worker ! Work(currentBatch)
         pendingMetrics = pending
-        log.info(s"${pending.size} pending metrics after fast-dispatch")
       } else {
         log.debug(s"Pending metrics is empty. Adding worker ${worker.path} to worker idle list")
         idleWorkers += worker

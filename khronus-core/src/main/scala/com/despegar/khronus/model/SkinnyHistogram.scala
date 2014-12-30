@@ -74,18 +74,18 @@ class SkinnyHistogram(lowestValue: Long, maxValue: Long, precision: Int) extends
   }
 
   private def countsDiffs: Seq[(Int, Long)] = {
-    var seq = Seq[(Int, Long)]()
+    var vectorBuilder = Vector.newBuilder[(Int, Long)]
     var lastValue: Long = 0
     var lastIdx: Int = 0
     for (i ← (0 to (counts.length - 1))) {
       val (idx, value) = (i, counts(i))
       if (value > 0) {
-        seq = seq :+ ((idx - lastIdx), (value - lastValue))
+        vectorBuilder += (((idx - lastIdx), (value - lastValue)))
         lastIdx = idx
         lastValue = value
       }
     }
-    seq
+    vectorBuilder.result()
   }
 
 }
@@ -134,16 +134,29 @@ object SkinnyHistogram {
     skinnyHistogram.resetNormalizingIndexOffset(normalizingIndexOffset)
     var lastIdx = 0
     var lastFreq = 0L
+    var minNonZeroIndex: Int = -1
     (1 to idxArrayLength) foreach { _ ⇒
       val idx = input.readVarInt(true) + lastIdx
       val freq = input.readVarLong(false) + lastFreq
       skinnyHistogram.setCountAtNormalizedIndex(idx, freq)
       lastIdx = idx
       lastFreq = freq
-    }
-    skinnyHistogram.setTotalCount(totalCount)
 
-    skinnyHistogram.establishInternalTackingValues()
+      if (minNonZeroIndex != -1 && lastIdx != 0) {
+        minNonZeroIndex = lastIdx
+      }
+
+    }
+    skinnyHistogram.resetMaxValue(0)
+    skinnyHistogram.resetMinNonZeroValue(Long.MaxValue)
+    if (lastIdx >= 0) {
+      skinnyHistogram.updatedMaxValue(skinnyHistogram.highestEquivalentValue(skinnyHistogram.valueFromIndex(lastIdx)))
+    }
+    if (minNonZeroIndex >= 0) {
+      skinnyHistogram.updateMinNonZeroValue(skinnyHistogram.valueFromIndex(minNonZeroIndex))
+    }
+
+    skinnyHistogram.setTotalCount(totalCount)
 
     skinnyHistogram
   }
