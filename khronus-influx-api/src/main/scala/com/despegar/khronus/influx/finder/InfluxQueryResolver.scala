@@ -209,7 +209,7 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
   private def toInfluxSeries(timeSeriesValues: Map[Long, Long], projectionName: String, metricName: String = ""): InfluxSeries = {
     log.info(s"Building Influx serie for projection [$projectionName] - Metric [$metricName]")
 
-    val points = timeSeriesValues.foldLeft(Vector.empty[Vector[Long]])((acc, current) ⇒ acc :+ Vector(current._1, current._2))
+    val points = timeSeriesValues.toSeq.sortBy(_._1).foldLeft(Vector.empty[Vector[Long]])((acc, current) ⇒ acc :+ Vector(current._1, current._2))
     InfluxSeries(metricName, Vector(influxTimeKey, projectionName), points)
   }
 
