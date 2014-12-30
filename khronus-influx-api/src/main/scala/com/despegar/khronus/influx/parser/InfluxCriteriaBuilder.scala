@@ -9,7 +9,7 @@ trait InfluxCriteriaBuilder extends MetaSupport with ConcurrencySupport {
 
   implicit val ex: ExecutionContext = executionContext("influx-query-parser-worker")
 
-  def buildInfluxCriteria(tables: Seq[Table], projections: Seq[Projection], filters: Seq[Filter], groupBy: GroupBy, order: Boolean, limit: Int): Future[InfluxCriteria] = {
+  def buildInfluxCriteria(tables: Seq[Table], projections: Seq[Projection], filters: Seq[Filter], groupBy: GroupBy, fill: Option[Long], order: Boolean, limit: Int): Future[InfluxCriteria] = {
     validateAlias(projections, tables)
 
     val futureSources = tables.collect { case table ⇒ getSources(table) }
@@ -17,7 +17,7 @@ trait InfluxCriteriaBuilder extends MetaSupport with ConcurrencySupport {
     Future.sequence(futureSources).map(f ⇒ {
       val sources = f.flatten
       val simpleProjections = buildProjections(projections, sources)
-      InfluxCriteria(simpleProjections, sources, filters, groupBy, limit, order)
+      InfluxCriteria(simpleProjections, sources, filters, groupBy, fill, limit, order)
     })
   }
 

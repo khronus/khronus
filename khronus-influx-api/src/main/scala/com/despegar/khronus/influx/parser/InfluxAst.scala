@@ -24,9 +24,9 @@ case class InfluxCriteria(projections: Seq[SimpleProjection],
   sources: Seq[Source],
   filters: Seq[Filter],
   groupBy: GroupBy,
+  fillValue: Option[Long] = None,
   limit: Int = Int.MaxValue,
-  orderAsc: Boolean = true,
-  fillValue: Option[Long] = None)
+  orderAsc: Boolean = true)
 
 // SELECT
 sealed trait Projection

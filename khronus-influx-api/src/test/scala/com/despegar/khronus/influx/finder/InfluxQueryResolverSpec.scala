@@ -278,6 +278,53 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     assertPoint(influxSerie.points(0), from, 300000L)
   }
 
+  test("Select with a filling number returns influx series ok") {
+    val counterName = "counterMetric"
+    val timerName = "timerMetric"
+    val regexCounter = parser.getCaseInsensitiveRegex(counterName)
+    val regexTimer = parser.getCaseInsensitiveRegex(timerName)
+
+    val duration = 5 minutes
+    val window96 = duration.toMillis * 96
+    val window97 = duration.toMillis * 97
+    val window98 = duration.toMillis * 98
+    val window99 = duration.toMillis * 99
+    val window100 = duration.toMillis * 100
+
+    when(metaStore.searchInSnapshot(regexCounter)).thenReturn(Future { Seq(Metric(counterName, MetricType.Counter)) })
+    when(metaStore.searchInSnapshot(regexTimer)).thenReturn(Future { Seq(Metric(timerName, MetricType.Timer)) })
+
+    val query = s"""select ti.max + co.count as theOperation from "$counterName" as co, "$timerName" as ti where time >= $window96 and time <= $window100 force group by time (5m) fill(-1)"""
+
+    val counter97 = CounterSummary(window97, 30L)
+    val counter98 = CounterSummary(window98, 30L)
+    when(getCounterSummaryStore.readAll(counterName, FiniteDuration(5, TimeUnit.MINUTES), Slice(window96, window100), true, Int.MaxValue)).thenReturn(Future { Seq(counter97, counter98) })
+
+    val timer98 = StatisticSummary(window98, 50L, 50L, 50L, 50L, 50L, 50L, 50L, 50L, 50L, 50L)
+    val timer99 = StatisticSummary(window99, 50L, 50L, 50L, 50L, 50L, 50L, 50L, 50L, 50L, 50L)
+    when(getStatisticSummaryStore.readAll(timerName, FiniteDuration(5, TimeUnit.MINUTES), Slice(window96, window100), true, Int.MaxValue)).thenReturn(Future { Seq(timer98, timer99) })
+
+    val results = await(search(query))
+
+    verify(metaStore).searchInSnapshot(regexCounter)
+    verify(metaStore).searchInSnapshot(regexTimer)
+    verify(getCounterSummaryStore).readAll(counterName, FiniteDuration(5, TimeUnit.MINUTES), Slice(window96, window100), true, Int.MaxValue)
+    verify(getStatisticSummaryStore).readAll(timerName, FiniteDuration(5, TimeUnit.MINUTES), Slice(window96, window100), true, Int.MaxValue)
+
+    results.size should be(1)
+    val influxSerie = results(0)
+    influxSerie.name should be("")
+    influxSerie.columns(0) should be(InfluxQueryResolver.influxTimeKey)
+    influxSerie.columns(1) should be("theOperation")
+
+    influxSerie.points.size should be(5)
+    assertPoint(influxSerie.points(0), window96, -2L)
+    assertPoint(influxSerie.points(1), window97, 29L)
+    assertPoint(influxSerie.points(2), window98, 80L)
+    assertPoint(influxSerie.points(3), window99, 49L)
+    assertPoint(influxSerie.points(4), window100, -2L)
+  }
+
   test("Select with a configured resolution between configured limits returns the desired window") {
     // 80 h  / 5 minutes = 960 points (ok, between 700 and 1000)
     testAdjustResolution(FiniteDuration(80, HOURS), "5m", FiniteDuration(5, MINUTES))

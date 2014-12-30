@@ -57,6 +57,8 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
 
     verifyGroupBy(influxCriteria.groupBy, 2, TimeUnit.HOURS)
     influxCriteria.filters should be(Nil)
+
+    influxCriteria.fillValue should be(None)
     influxCriteria.limit should be(Int.MaxValue)
   }
 
@@ -516,6 +518,27 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
     verifyGroupBy(influxCriteriaResultDecimal.groupBy, 0, TimeUnit.SECONDS)
 
     verify(parser.metaStore, times(4)).searchInSnapshot(regex)
+  }
+
+  test("select with fill option should be parsed ok") {
+    val parser = buildParser
+    val regex = parser.getCaseInsensitiveRegex(metricName)
+
+    when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
+
+    val query = s"""select mean from "$metricName" group by time(1m) fill(999)"""
+    val influxCriteria = await(parser.parse(query))
+
+    verify(parser.metaStore).searchInSnapshot(regex)
+
+    verifyField(influxCriteria.projections(0), Functions.Mean, None, Some(metricName))
+
+    influxCriteria.sources.size should be(1)
+    verifySource(influxCriteria.sources(0), metricName, None)
+
+    verifyGroupBy(influxCriteria.groupBy, 1, TimeUnit.MINUTES)
+
+    influxCriteria.fillValue should be(Some(999))
   }
 
   test("Limit clause should be parsed ok") {
