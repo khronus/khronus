@@ -15,13 +15,13 @@
  */
 package com.despegar.khronus.model
 
-import java.io.{ PrintStream, ByteArrayOutputStream, StringWriter }
+import java.io.{ ByteArrayOutputStream, PrintStream }
 
-import com.despegar.khronus.util.Measurable
+import com.despegar.khronus.util.log.Logging
+import com.despegar.khronus.util.{ Measurable, Pool }
 import org.HdrHistogram.{ Histogram, SkinnyHistogram }
 
 import scala.util.{ Failure, Try }
-import com.despegar.khronus.util.log.Logging
 
 class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Histogram) extends Bucket(bucketNumber) with Logging {
 
@@ -36,7 +36,7 @@ class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Hi
     val max = histogram.getMaxValue
     val count = histogram.getTotalCount
     val mean = histogram.getMean
-
+    HistogramBucket.histogramPool.release(histogram)
     StatisticSummary(timestamp, p50, p80, p90, p95, p99, p999, min, max, count, mean.toLong)
   }.recoverWith[StatisticSummary] {
     case e: Exception ⇒
@@ -52,8 +52,12 @@ class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Hi
 
 object HistogramBucket extends Measurable {
 
+  val histogramPool = Pool[Histogram]("histogramPool", newHistogram _, 4, {
+    _.reset()
+  })
+
   implicit def sumHistograms(buckets: Seq[HistogramBucket]): Histogram = measureTime("sumHistograms", "sumHistograms") {
-    val histogram = HistogramBucket.newHistogram
+    val histogram = histogramPool.take()
     buckets.foreach(bucket ⇒ histogram.add(bucket.histogram))
     histogram
   }

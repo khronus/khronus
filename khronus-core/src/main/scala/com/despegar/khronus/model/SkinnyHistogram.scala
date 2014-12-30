@@ -3,6 +3,7 @@ package org.HdrHistogram
 import java.nio.ByteBuffer
 import java.util.zip.{ Deflater, Inflater }
 
+import com.despegar.khronus.model.HistogramBucket
 import com.despegar.khronus.util.Pool
 import com.esotericsoftware.kryo.io.{ Input, Output }
 
@@ -129,7 +130,7 @@ object SkinnyHistogram {
     val totalCount = input.readVarLong(true)
     val idxArrayLength = input.readVarInt(true)
 
-    val skinnyHistogram = new SkinnyHistogram(lowest, highest, significantValueDigits)
+    val skinnyHistogram = HistogramBucket.histogramPool.take()
     skinnyHistogram.setIntegerToDoubleValueConversionRatio(integerToDoubleValueConversionRatio)
     skinnyHistogram.resetNormalizingIndexOffset(normalizingIndexOffset)
     var lastIdx = 0

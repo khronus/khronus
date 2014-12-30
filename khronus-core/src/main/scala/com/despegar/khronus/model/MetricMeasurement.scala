@@ -48,17 +48,6 @@ case class MetricMeasurement(name: String, mtype: String, measurements: List[Mea
 
 }
 
-object MetricMeasurementUtils {
-  implicit def fromMetricMeasurementsToHistogramBuckets(metricMeasurements: List[Measurement]): List[HistogramBucket] = {
-    metricMeasurements.map(measurement ⇒ new HistogramBucket(BucketNumber(measurement.ts, 1 millis), histogramOf(measurement.values))).toList
-  }
-  private def histogramOf(values: Seq[Long]): Histogram = {
-    val histogram = HistogramBucket.newHistogram
-    values.foreach(histogram.recordValue(_))
-    histogram
-  }
-}
-
 case class Measurement(ts: Long, @JsonDeserialize(contentAs = classOf[java.lang.Long]) values: Seq[Long])
 
 case class MetricBatch(metrics: List[MetricMeasurement])
