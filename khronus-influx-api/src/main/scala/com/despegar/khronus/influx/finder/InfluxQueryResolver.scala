@@ -56,7 +56,7 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
         val timeRangeMillis = buildTimeRangeMillis(slice, timeWindow)
 
         val summariesBySourceMap = getSummariesBySourceMap(influxCriteria, timeWindow, slice)
-        buildInfluxSeries(influxCriteria.projections, timeRangeMillis, summariesBySourceMap, influxCriteria.fillValue)
+        buildInfluxSeries(influxCriteria, timeRangeMillis, summariesBySourceMap)
 
     }.flatMap(Future.sequence(_))
   }
@@ -148,23 +148,23 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
 
   protected def getCounterSummaryStore: SummaryStore[CounterSummary] = Summaries.counterSummaryStore
 
-  private def buildInfluxSeries(projections: Seq[SimpleProjection], timeRangeMillis: TimeRangeMillis, summariesBySourceMap: Map[String, Future[Map[Long, Summary]]], defaultValue: Option[Long]): Seq[Future[InfluxSeries]] = {
-    projections.map {
+  private def buildInfluxSeries(influxCriteria: InfluxCriteria, timeRangeMillis: TimeRangeMillis, summariesBySourceMap: Map[String, Future[Map[Long, Summary]]]): Seq[Future[InfluxSeries]] = {
+    influxCriteria.projections.map {
       case field: Field ⇒ {
-        generateSeq(field, timeRangeMillis, summariesBySourceMap, defaultValue).map(values ⇒
-          toInfluxSeries(values, field.alias.getOrElse(field.name), field.tableId.get))
+        generateSeq(field, timeRangeMillis, summariesBySourceMap, influxCriteria.fillValue).map(values ⇒
+          toInfluxSeries(values, field.alias.getOrElse(field.name), influxCriteria.orderAsc, field.tableId.get))
       }
       case number: Number ⇒ {
-        generateSeq(number, timeRangeMillis, summariesBySourceMap, defaultValue).map(values ⇒
-          toInfluxSeries(values, number.alias.get))
+        generateSeq(number, timeRangeMillis, summariesBySourceMap, influxCriteria.fillValue).map(values ⇒
+          toInfluxSeries(values, number.alias.get, influxCriteria.orderAsc))
       }
       case operation: Operation ⇒ {
         for {
-          leftValues ← generateSeq(operation.left, timeRangeMillis, summariesBySourceMap, defaultValue)
-          rightValues ← generateSeq(operation.right, timeRangeMillis, summariesBySourceMap, defaultValue)
+          leftValues ← generateSeq(operation.left, timeRangeMillis, summariesBySourceMap, influxCriteria.fillValue)
+          rightValues ← generateSeq(operation.right, timeRangeMillis, summariesBySourceMap, influxCriteria.fillValue)
         } yield {
           val resultedValues = zipByTimestamp(leftValues, rightValues, operation.operator)
-          toInfluxSeries(resultedValues, operation.alias)
+          toInfluxSeries(resultedValues, operation.alias, influxCriteria.orderAsc)
         }
       }
     }
@@ -206,10 +206,12 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
     operator(firstOperand, secondOperand)
   }
 
-  private def toInfluxSeries(timeSeriesValues: Map[Long, Long], projectionName: String, metricName: String = ""): InfluxSeries = {
+  private def toInfluxSeries(timeSeriesValues: Map[Long, Long], projectionName: String, ascendingOrder: Boolean, metricName: String = ""): InfluxSeries = {
     log.info(s"Building Influx serie for projection [$projectionName] - Metric [$metricName]")
 
-    val points = timeSeriesValues.toSeq.sortBy(_._1).foldLeft(Vector.empty[Vector[Long]])((acc, current) ⇒ acc :+ Vector(current._1, current._2))
+    val sortedTimeSeriesValues = if (ascendingOrder) timeSeriesValues.toSeq.sortBy(_._1) else timeSeriesValues.toSeq.sortBy(-_._1)
+
+    val points = sortedTimeSeriesValues.foldLeft(Vector.empty[Vector[Long]])((acc, current) ⇒ acc :+ Vector(current._1, current._2))
     InfluxSeries(metricName, Vector(influxTimeKey, projectionName), points)
   }
 
