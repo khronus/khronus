@@ -57,6 +57,6 @@ object HistogramBucket extends Measurable {
     histogram
   }
 
-  def newHistogram = new Histogram(3600000000000L, 3)
+  def newHistogram = new SkinnyHistogram(3600000000000L, 3)
 }
 
