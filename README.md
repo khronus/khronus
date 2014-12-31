@@ -135,7 +135,7 @@ khronus {
 
 ![Khronus in Action](site/khronus-dashboard-screenshot.png)
   
-## Query sintax
+## Query sintax for Grafana
 
 #### Projections
 As with any query language, you can select the fields you want to see in the resulted graph. Your query can project:
@@ -257,9 +257,10 @@ If you don't want this behavior you can use the 'force' keyword. But take in acc
 #### Other optional clauses
   * limit number
   * order [asc|desc] 
+  * fill(number): Complete the time series with this number when there is no value
 
 ```sql
-    select a.count as counter | cc.count | 3 as miConstant | cc.count + a.count as sum from "metricTimer" as a | "metricCounter" as cc where time >= now() - 10m group by time(1h) limit 100 order asc
+    select a.count as counter | cc.count | 3 as miConstant | cc.count + a.count as sum from "metricTimer" as a | "metricCounter" as cc where time >= now() - 10m group by time(1h) fill(-1) limit 100 order asc
 ```
 
   
