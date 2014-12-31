@@ -77,7 +77,7 @@ object MathOperators {
     val symbol = "/"
 
     def apply(firstOperand: Long, secondOperand: Long): Long = {
-      firstOperand + secondOperand
+      firstOperand / secondOperand
     }
   }
 
