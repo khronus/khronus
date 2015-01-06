@@ -66,7 +66,7 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
   windowDurations.foreach(window ⇒ {
     log.info(s"Initializing table ${tableName(window)}")
     retry(MaxRetries, s"Creating ${tableName(window)} table") {
-      session.execute(s"create table if not exists ${tableName(window)} (metric text, timestamp bigint, buckets list<blob>, primary key (metric, timestamp)) with gc_grace_seconds = 0;")
+      session.execute(s"create table if not exists ${tableName(window)} (metric text, timestamp bigint, buckets list<blob>, primary key (metric, timestamp)) with gc_grace_seconds = 0 and compaction = {'class': 'LeveledCompactionStrategy' };")
     }
   })
 
