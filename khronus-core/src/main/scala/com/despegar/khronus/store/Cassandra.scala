@@ -46,7 +46,7 @@ object CassandraCluster extends Logging with CassandraClusterConfiguration {
 trait CassandraClusterConfiguration {
   val settingsCassandra = Settings.CassandraCluster
 
-  private val poolingOptions = new PoolingOptions().setMaxConnectionsPerHost(HostDistance.LOCAL, settingsCassandra.MaxConnectionsPerHost)
+  private val poolingOptions = new PoolingOptions().setMaxConnectionsPerHost(HostDistance.REMOTE, settingsCassandra.MaxConnectionsPerHost)
   private val socketOptions = new SocketOptions().setConnectTimeoutMillis(settingsCassandra.ConnectionTimeout).setReadTimeoutMillis(settingsCassandra.SocketTimeout)
   private val loadBalancingPolicy = new TokenAwarePolicy(new RoundRobinPolicy)
   private val retryPolicy = new LoggingRetryPolicy(DefaultRetryPolicy.INSTANCE)
