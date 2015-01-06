@@ -130,7 +130,7 @@ object SkinnyHistogram {
     val totalCount = input.readVarLong(true)
     val idxArrayLength = input.readVarInt(true)
 
-    val skinnyHistogram = HistogramBucket.histogramPool.take()
+    val skinnyHistogram = HistogramBucket.newHistogram
     skinnyHistogram.setIntegerToDoubleValueConversionRatio(integerToDoubleValueConversionRatio)
     skinnyHistogram.resetNormalizingIndexOffset(normalizingIndexOffset)
     var lastIdx = 0

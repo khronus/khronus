@@ -60,11 +60,9 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
 
   private def storeHistogramMetric(metric: Metric, metricMeasurement: MetricMeasurement) = {
     storeGrouped(metric, metricMeasurement) { (bucketNumber, measurements) ⇒
-      val histogram = HistogramBucket.histogramPool.take()
+      val histogram = HistogramBucket.newHistogram
       measurements.foreach(measurement ⇒ skipNegativeValues(metricMeasurement, measurement.values).foreach(value ⇒ histogram.recordValue(value)))
-      histogramBucketStore.store(metric, 1 millis, Seq(new HistogramBucket(bucketNumber, histogram))).andThen {
-        case _ ⇒ HistogramBucket.histogramPool.release(histogram)
-      }
+      histogramBucketStore.store(metric, 1 millis, Seq(new HistogramBucket(bucketNumber, histogram)))
     }
   }
 
