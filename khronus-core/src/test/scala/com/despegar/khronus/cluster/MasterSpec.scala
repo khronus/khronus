@@ -177,7 +177,7 @@ class MasterSpec extends BaseTest with TestKitBase with ImplicitSender
       master ! PendingMetrics(expectedMetrics)
 
       assert(pendingMetrics.size == expectedMetrics.size)
-      assert(pendingMetrics == Seq(Metric("d", "histogram"), Metric("e", "histogram"), Metric("a", "histogram"), Metric("b", "histogram"), Metric("c", "histogram")))
+      assert(pendingMetrics == Vector(Metric("d", "histogram"), Metric("e", "histogram"), Metric("a", "histogram"), Metric("b", "histogram"), Metric("c", "histogram")))
     }
 
     "when receive a PendingMetrics message with pending metrics and idle workers assign work" in new MasterWithoutSchedulersProbeWorkerFixture {
@@ -190,21 +190,21 @@ class MasterSpec extends BaseTest with TestKitBase with ImplicitSender
       workerProbe1.expectMsg(Work(Seq(Metric("a", "histogram"))))
       workerProbe2.expectMsg(Work(Seq(Metric("b", "histogram"))))
       assert(idleWorkers.isEmpty)
-      assert(pendingMetrics == Seq(Metric("c", "histogram"), Metric("d", "histogram"), Metric("e", "histogram")))
+      assert(pendingMetrics == Vector(Metric("c", "histogram"), Metric("d", "histogram"), Metric("e", "histogram")))
 
       underlyingMaster.idleWorkers = Set(worker1, worker2)
       master ! PendingMetrics(allMetrics)
       workerProbe1.expectMsg(Work(Seq(Metric("c", "histogram"))))
       workerProbe2.expectMsg(Work(Seq(Metric("d", "histogram"))))
       assert(idleWorkers.isEmpty)
-      assert(pendingMetrics == Seq(Metric("e", "histogram"), Metric("a", "histogram"), Metric("b", "histogram")))
+      assert(pendingMetrics == Vector(Metric("e", "histogram"), Metric("a", "histogram"), Metric("b", "histogram")))
 
       underlyingMaster.idleWorkers = Set(worker1, worker2)
       master ! PendingMetrics(allMetrics)
       workerProbe1.expectMsg(Work(Seq(Metric("e", "histogram"))))
       workerProbe2.expectMsg(Work(Seq(Metric("a", "histogram"))))
       assert(idleWorkers.isEmpty)
-      assert(pendingMetrics == Seq(Metric("b", "histogram"), Metric("c", "histogram"), Metric("d", "histogram")))
+      assert(pendingMetrics == Vector(Metric("b", "histogram"), Metric("c", "histogram"), Metric("d", "histogram")))
     }
 
   }

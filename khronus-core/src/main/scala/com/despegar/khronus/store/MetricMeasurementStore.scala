@@ -4,8 +4,8 @@ import com.despegar.khronus.model.{ Metric, MetricMeasurement, _ }
 import com.despegar.khronus.util.ConcurrencySupport
 import com.despegar.khronus.util.log.Logging
 
-import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration._
+import scala.concurrent.{ ExecutionContext, Future }
 
 trait MetricMeasurementStoreSupport {
   def metricStore: MetricMeasurementStore = CassandraMetricMeasurementStore
@@ -60,9 +60,11 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
 
   private def storeHistogramMetric(metric: Metric, metricMeasurement: MetricMeasurement) = {
     storeGrouped(metric, metricMeasurement) { (bucketNumber, measurements) ⇒
-      val histogram = HistogramBucket.newHistogram
+      val histogram = HistogramBucket.histogramPool.take()
       measurements.foreach(measurement ⇒ skipNegativeValues(metricMeasurement, measurement.values).foreach(value ⇒ histogram.recordValue(value)))
-      histogramBucketStore.store(metric, 1 millis, Seq(new HistogramBucket(bucketNumber, histogram)))
+      histogramBucketStore.store(metric, 1 millis, Seq(new HistogramBucket(bucketNumber, histogram))).andThen {
+        case _ ⇒ HistogramBucket.histogramPool.release(histogram)
+      }
     }
   }
 
