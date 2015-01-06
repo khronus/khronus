@@ -145,7 +145,7 @@ As with any query language, you can select the fields you want to see in the res
     * for timers or gauges: count, max, min, mean, p50, p80, p90, p95, p99, p999
 
 ```sql
-    select max | min as minimum from "metricTimer" where time > now()-6h group by time(5m)
+    select max , min as minimum from "metricTimer" where time > now()-6h group by time(5m)
     select count from "metricCounter" where time > now()-6h group by time(5m)
 ```
     As you can see, alias for functions are supported, even they are not required
@@ -190,13 +190,13 @@ As with any query language, you can select the fields you want to see in the res
 Many metrics are supported in queries. They can have an alias. Even more, if you are projecting an operation, metrics **must** have an alias to refer to.
 
 ```sql
-    select counter.count  + timer.count as total from "metricTimer" as timer | "metricCounter" as counter where time > now()-2h group by time(5m)
+    select counter.count  + timer.count as total from "metricTimer" as timer, "metricCounter" as counter where time > now()-2h group by time(5m)
 ```
 
 When you don't specify which metric is your function refering to, the result is one serie with the function for each specified metric:
    
 ```sql
-    select count from "metricTimer" as timer | "metricCounter" as counter where time > now()-6h group by time(5m)
+    select count from "metricTimer" as timer, "metricCounter" as counter where time > now()-6h group by time(5m)
 ```
         	
 You can use regular expression in order to match metrics. If this the case and the regex matches more than one metric, you can't use an alias (So you can't project operations). 
@@ -260,7 +260,7 @@ If you don't want this behavior you can use the 'force' keyword. But take in acc
   * fill(number): Complete the time series with this number when there is no value
 
 ```sql
-    select a.count as counter | cc.count | 3 as miConstant | cc.count + a.count as sum from "metricTimer" as a | "metricCounter" as cc where time >= now() - 10m group by time(1h) fill(-1) limit 100 order asc
+    select a.count as counter , cc.count, 3 as miConstant, cc.count + a.count as sum from "metricTimer" as a, "metricCounter" as cc where time >= now() - 10m group by time(1h) fill(-1) limit 100 order asc
 ```
 
   
