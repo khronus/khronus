@@ -28,7 +28,7 @@ object Dependencies {
   val hdrHistogram        =       "org.hdrhistogram"                %   "HdrHistogram"                % "2.0.3"
   val specs2              =       "org.specs2"          	          %%  "specs2-core"   		          % "2.3.11"
   val mockito             =       "org.mockito"         	          %   "mockito-all"   		          % "1.9.5"
-  val cassandraDriver     =       "com.datastax.cassandra"          %   "cassandra-driver-core"       % "2.1.3"
+  val cassandraDriver     =       "com.datastax.cassandra"          %   "cassandra-driver-core"       % "2.1.4"
   val kryo                =       "com.esotericsoftware.kryo"       %   "kryo"                        % "2.24.0"
   val scalaLogging        =       "com.typesafe.scala-logging"      %%  "scala-logging"               % "3.1.0"
   val slf4j               =       "org.slf4j"                       %   "slf4j-api"                   % "1.7.7"
