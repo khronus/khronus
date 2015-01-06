@@ -14,13 +14,12 @@ Khronus does not have its own dashboard to graph it's metrics. It is focused on 
 ## Status
 
 Khronus is being actively developed. It is currently being used in production at [Despegar.com]
-We plan to integrate it with Kibana too.
 
 ## Features
 
 * It supports `timers, gauges and counters`.
 * Configurable series resolution (30 seconds, 1 minute, 10 minutes, etc)
-* Measures well. No more average of percentiles.
+* Percentiles done right. No more average of averages.
 * Fast, very fast retrieving of metrics.
 * Scalable.
 * High available.
@@ -124,7 +123,7 @@ khronus {
 ```
 ## Implementation details
 
-  * Built in Scala
+  * Scala
   * Akka cluster
   * Spray.io
   * HdrHistogram
