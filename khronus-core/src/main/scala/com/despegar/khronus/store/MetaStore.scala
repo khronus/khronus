@@ -141,10 +141,11 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
       }
   }
 
-  def put(metrics: Seq[MetricMetadata]): Future[Unit] = executeChunked(metrics, Settings.CassandraMeta.insertChunkSize) {
-    metricsChunk ⇒
+  def put(metrics: Seq[MetricMetadata]): Future[Unit] = //executeChunked(metrics, Settings.CassandraMeta.insertChunkSize) {
+    //metricsChunk ⇒
+  {
       val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
-      metricsChunk.foreach {
+    metrics.foreach {
         metricMetadata ⇒ batchStmt.add(InsertStmt.bind(MetricsKey, asString(metricMetadata.metric), Long.box(metricMetadata.timestamp.ms)))
       }
 
