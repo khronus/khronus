@@ -67,16 +67,19 @@ object Settings {
   object CassandraMeta {
     private val cassandraCfg = config.getConfig("khronus.cassandra.meta")
     val ReplicationFactor = cassandraCfg.getInt("rf")
+    val insertChunkSize = cassandraCfg.getInt("insert-chunk-size")
   }
 
   object CassandraBuckets {
     private val cassandraCfg = config.getConfig("khronus.cassandra.buckets")
     val ReplicationFactor = cassandraCfg.getInt("rf")
+    val insertChunkSize = cassandraCfg.getInt("insert-chunk-size")
   }
 
   object CassandraSummaries {
     private val cassandraCfg = config.getConfig("khronus.cassandra.summaries")
     val ReplicationFactor = cassandraCfg.getInt("rf")
+    val insertChunkSize = cassandraCfg.getInt("insert-chunk-size")
   }
 
   object Histogram {
