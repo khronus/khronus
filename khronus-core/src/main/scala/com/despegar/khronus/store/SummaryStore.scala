@@ -89,7 +89,7 @@ abstract class CassandraSummaryStore[T <: Summary](session: Session) extends Sum
     ifNotEmpty(summaries) {
       log.debug(s"$metric - Storing ${summaries.size} summaries ($summaries) of $windowDuration")
 
-      val batchStmt = new BatchStatement();
+      val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
       summaries.foreach(summary ⇒ batchStmt.add(stmtPerWindow(windowDuration).insert.bind(metric.name, Long.box(summary.timestamp.ms), serializeSummary(summary))))
 
       val future: Future[Unit] = session.executeAsync(batchStmt)

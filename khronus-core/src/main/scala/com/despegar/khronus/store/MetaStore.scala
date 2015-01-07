@@ -141,13 +141,13 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
   }
 
   private def put(metrics: Seq[MetricMetadata]): Future[Unit] = {
-    val batchStmt = new BatchStatement();
+    val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
     metrics.foreach {
       metricMetadata ⇒ batchStmt.add(InsertStmt.bind(MetricsKey, asString(metricMetadata.metric), Long.box(metricMetadata.timestamp.ms)))
     }
 
     val future: Future[ResultSet] = session.executeAsync(batchStmt)
-    future.map(_ ⇒ log.debug(s"Stored meta (batch) successfully"))
+    future.map(_ ⇒ log.debug(s"Stored meta (unlogged batch) successfully"))
       .andThen {
         case Failure(reason) ⇒ log.error("Failed to store meta", reason)
       }

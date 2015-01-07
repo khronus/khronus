@@ -86,7 +86,7 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
     ifNotEmpty(buckets) {
       log.debug(s"${p(metric, windowDuration)} - Storing ${buckets.length} buckets")
 
-      val batchStmt = new BatchStatement();
+      val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
       buckets.foreach(bucket ⇒ {
         val serializedBucket = serializeBucket(metric, windowDuration, bucket)
         log.info(s"${p(metric, windowDuration)} Storing a bucket of ${serializedBucket.limit()} bytes")
