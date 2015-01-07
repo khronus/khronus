@@ -5,11 +5,11 @@ Khronus - A reactive time series database [![Build Status](https://api.travis-ci
 
 Khronus is a open source distributed reactive time series database. It is designed to store, analyze and process a huge amount of metrics.
 
-It measures well. It correctly and precisely analyze and process timers and gauges using the great [HdrHistogram] by Gil Tene. It is space efficient and has data tunable retention policies. It relies on both `Akka Cluster` and `Cassandra` to scale and being resilient.
+It measures well. It correctly and precisely analyzes and processes timers and gauges using the great [HdrHistogram] by Gil Tene. It is space-efficient and has data tunable retention policies. It relies on both `Akka Cluster` and `Cassandra` to scale and be resilient.
 
-It is very fast to query `percentiles, counts, min, max` and other forms of metrics, even if they have a lot of measurements.
+It is very fast to query `percentiles, counts, min, max` and other forms of metrics, even if they have a lot of samples.
 
-Khronus does not have its own dashboard to graph it's metrics. It is focused on analyzing and retrieving time series data. It can be integrated with `Grafana` through the `InfluxDB api` though.
+Khronus does not have its own dashboard to graph its metrics. It is focused on analyzing and retrieving time series data. It can be integrated with `Grafana` through the `InfluxDB api` though.
 
 ## Status
 
@@ -20,11 +20,11 @@ Khronus is being actively developed. It is currently being used in production at
 * Support for `timers, gauges and counters`.
 * Configurable series resolution (30 seconds, 1 minute, 10 minutes, etc)
 * Percentiles done right. No more average of averages.
-* Fast, very fast retrieving of metrics.
+* Fast, very fast retrieval of metrics.
 * Scalable.
 * Highly available.
-* REST Api for push data.
-* Implements InfluxDB protocol for using Grafana.
+* REST Api for pushing data.
+* Implements InfluxDB protocol in order to use Grafana.
 
 ## Installation
 
@@ -150,14 +150,14 @@ As with any query language, you can select the fields you want to see in the res
     As you can see, alias for functions are supported, even they are not required
 
 
-  * **All functions:** Using '*' you'll get all supported functions for the given metric type
+  * **All functions:** Using '*' you'll get all the supported functions for the given metric type
 
 ```sql
 	select * from "metricTimer" where time > now()-30m group by time(5m) 
 ```
 
   * **Percentiles function:**
-	 If you are searching for a timer or a gauge you can use percentiles function to return all supported percentiles: 50, 80, 90, 95, 99, 999
+	 If you are searching for a timer or a gauge you can use ```sql percentiles``` function to return all supported percentiles: 50, 80, 90, 95, 99, 999
 	 Besides that, if you are looking for some specific percentiles you can use the function percentiles(50 80 99), passing the desired parcentiles as arguments 
 
 ```sql
@@ -165,7 +165,7 @@ As with any query language, you can select the fields you want to see in the res
 	select percentiles(50 80 99) from "metricTimer" where time > now()-6h group by time(5m)
 ```
 	
-  * **A number:** In this case an alias is required and if you are using decimal the number will be rounded.
+  * **A number:** In this case an alias is required and if you pass a fractional number, it will be rounded.
 
 ```sql
 	select -9.87 as negativeNumber from "metricTimer" where time > now()-6h group by time(5m)
@@ -173,7 +173,7 @@ As with any query language, you can select the fields you want to see in the res
 		
 								
   * **A binary operation:**
-    Operands can be an scalar or an specific function. In the last case, you must use a metric alias
+    Operands can be an scalar or an specific function. In the latter case, you must use a metric alias
  	Supported operators are: +, -, *, /
 	Alias for the operation result is required
 
