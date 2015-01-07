@@ -7,9 +7,9 @@ Khronus is a open source distributed reactive time series database. It is design
 
 It measures well. It correctly and precisely analyze and process timers and gauges using the great [HdrHistogram] by Gil Tene. It is space efficient and has data tunable retention policies. It relies on both `Akka Cluster` and `Cassandra` to scale and being resilient.
 
-It is very fast to query `percentiles, counts, min, max` and others from metrics even if they have a lot of measurements.
+It is very fast to query `percentiles, counts, min, max` and other forms of metrics, even if they have a lot of measurements.
 
-Khronus does not have its own dashboard to graph it's metrics. It is focused on analyzing and retrieving time series data. Currently it can be integrated with `Grafana` through the `InfluxDB api`.
+Khronus does not have its own dashboard to graph it's metrics. It is focused on analyzing and retrieving time series data. It can be integrated with `Grafana` through the `InfluxDB api` though.
 
 ## Status
 
@@ -17,14 +17,14 @@ Khronus is being actively developed. It is currently being used in production at
 
 ## Features
 
-* It supports `timers, gauges and counters`.
+* Support for `timers, gauges and counters`.
 * Configurable series resolution (30 seconds, 1 minute, 10 minutes, etc)
 * Percentiles done right. No more average of averages.
 * Fast, very fast retrieving of metrics.
 * Scalable.
-* High available.
-* REST Api for push data
-* Implements InfluxDB protocol for use with Grafana
+* Highly available.
+* REST Api for push data.
+* Implements InfluxDB protocol for using Grafana.
 
 ## Installation
 
@@ -34,7 +34,7 @@ Go to releases and download the last stable version.
 
 ### Install a Cassandra cluster
 
-Khronus requires Cassandra 2.x. For installation look [official documentation](https://wiki.apache.org/cassandra/GettingStarted)
+Khronus requires Cassandra 2.x. For installation read the [official documentation](https://wiki.apache.org/cassandra/GettingStarted)
 
 ### Configure
 
@@ -130,11 +130,11 @@ khronus {
   * Cassandra
 
 
-## Sreenshots
+## Screenshots
 
 ![Khronus in Action](site/khronus-dashboard-screenshot.png)
   
-## Query sintax for Grafana
+## Query syntax for Grafana
 
 #### Projections
 As with any query language, you can select the fields you want to see in the resulted graph. Your query can project:
@@ -186,20 +186,20 @@ As with any query language, you can select the fields you want to see in the res
 
 #### From metrics...
 
-Many metrics are supported in queries. They can have an alias. Even more, if you are projecting an operation, metrics **must** have an alias to refer to.
+Many metrics are supported in queries. They can have an alias. If you are projecting an operation, metrics **must** have an alias to refer to.
 
 ```sql
     select counter.count  + timer.count as total from "metricTimer" as timer, "metricCounter" as counter where time > now()-2h group by time(5m)
 ```
 
-When you don't specify which metric is your function refering to, the result is one serie with the function for each specified metric:
+If you don't specify which metric your function refers to, the result is one series with the function for each specified metric:
    
 ```sql
     select count from "metricTimer" as timer, "metricCounter" as counter where time > now()-6h group by time(5m)
 ```
         	
-You can use regular expression in order to match metrics. If this the case and the regex matches more than one metric, you can't use an alias (So you can't project operations). 
-The following query will return a serie with the count per each metric that matches the regular expression
+You can use regular expression in order to match metrics. If the regex matches more than one metric, you can't use an alias (So you can't project operations). 
+The following query will return a series with the count per each metric that matches the regular expression
 
 ```sql
 	select count from "metric.*" where time > now()-6h group by time(5m)
@@ -222,8 +222,8 @@ The time series "to" is not required, but you can use < or <=
 	select count from "metricCounter" where time > now() - 3m and time < now() - 50s group by time(5m)
 ```
 
-As the examples show, in order to specify times you can use the function now() with some modifiers to substract seconds (s), minutes (m), hours (h), days (d) or weeks (w). 
-Besides that, you can speciffy a timestamp like this:
+As shown in the examples, in order to specify times you can use the function now() with some modifiers to substract seconds (s), minutes (m), hours (h), days (d) or weeks (w). 
+Besides that, you can specify a timestamp like this:
 
 ```sql
 	select count from "metricCounter" where time > 1419878249000 group by time(5m)
