@@ -13,6 +13,15 @@ trait ConcurrencySupport extends Logging {
 
   private def fixedThreadPool(name: String, threads: Int): ExecutorService = {
     val pool = Executors.newFixedThreadPool(threads, ThreadFactory(name))
+    pool.asInstanceOf[ThreadPoolExecutor].setRejectedExecutionHandler(new RejectedExecutionHandler {
+      override def rejectedExecution(r: Runnable, executor: ThreadPoolExecutor): Unit = {
+        if (!executor.isShutdown) {
+          val exception = new RejectedExecutionException(s"Task $r rejected from pool $name = $executor")
+          log.error(s"Reject task from $name", exception)
+          throw exception
+        }
+      }
+    })
     manage(pool, name)
     pool
   }
@@ -24,7 +33,7 @@ trait ConcurrencySupport extends Logging {
   }
 
   def executionContext(name: String, threads: Int = Runtime.getRuntime.availableProcessors()): ExecutionContext = {
-    ExecutionContext.fromExecutor(fixedThreadPool(name, threads))
+    ExecutionContext.fromExecutor(fixedThreadPool(name, threads), (t: Throwable) ⇒ Unit)
   }
 
   private def manage(pool: ExecutorService, name: String) = if (Settings.InternalMetrics.Enabled) {
