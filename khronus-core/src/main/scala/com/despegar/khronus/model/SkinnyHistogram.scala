@@ -31,27 +31,10 @@ class SkinnyHistogram(lowestValue: Long, maxValue: Long, precision: Int) extends
     compressedDataLength + 12
   }
 
-  //COPY PASTED FROM HDR SINCE IS PRIVATE THERE
-  private def countsArrayIndex(value: Long): Int = {
-    val bucketIndex: Int = getBucketIndex(value)
-    val subBucketIndex: Int = getSubBucketIndex(value, bucketIndex)
-    return countsArrayIndex(bucketIndex, subBucketIndex)
-  }
-
-  //COPY PASTED FROM HDR SINCE IS PRIVATE THERE
-  private def countsArrayIndex(bucketIndex: Int, subBucketIndex: Int): Int = {
-    assert((subBucketIndex < subBucketCount))
-    assert((bucketIndex == 0 || (subBucketIndex >= subBucketHalfCount)))
-    val bucketBaseIndex: Int = (bucketIndex + 1) << subBucketHalfCountMagnitude
-    val offsetInBucket: Int = subBucketIndex - subBucketHalfCount
-    return bucketBaseIndex + offsetInBucket
-  }
-
   override def encodeIntoByteBuffer(buffer: ByteBuffer): Int = {
     val output = new Output(buffer.array())
 
     val maxValue: Long = getMaxValue
-    val relevantLength = countsArrayIndex(maxValue) + 1
 
     output.writeInt(normalizingIndexOffset)
     output.writeVarInt(numberOfSignificantValueDigits, true)
@@ -94,10 +77,10 @@ class SkinnyHistogram(lowestValue: Long, maxValue: Long, precision: Int) extends
 object SkinnyHistogram {
   private val encodingCompressedCookieBase: Int = 130
   private val defaultCompressionLevel = -1
-  private val inflatersPool = Pool[Inflater]("inflatersPool", () ⇒ new Inflater(), 4, {
+  private val inflatersPool = Pool[Inflater]("inflatersPool", 4, () ⇒ new Inflater(), {
     _.reset()
   })
-  private val deflatersPool = Pool[Deflater]("deflatersPool", () ⇒ new Deflater(defaultCompressionLevel), 4, {
+  private val deflatersPool = Pool[Deflater]("deflatersPool", 4, () ⇒ new Deflater(defaultCompressionLevel), {
     _.reset()
   })
 

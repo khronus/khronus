@@ -3,33 +3,32 @@ package com.despegar.khronus.util
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicLong
 
-case class Pool[T](name: String, factoryFunction: () ⇒ T, initInstances: Int, releaseFunction: T ⇒ Unit = { i: T ⇒ () }) {
-  val instances = new AtomicLong()
-  instances.set(initInstances)
-  val maxInstances = initInstances * 2
-  val objects = new ConcurrentLinkedQueue[T]()
+case class Pool[T](name: String, instances: Int, createInstance: () ⇒ T, releaseInstance: (T) ⇒ Unit = { i: T ⇒ () }) {
+  private val pooledInstancesCount = new AtomicLong(instances)
+  private val pooledInstances = new ConcurrentLinkedQueue[T]()
 
-  (1 to initInstances) foreach { _ ⇒ objects.offer(factoryFunction()) }
+  (1 to instances) foreach { _ ⇒ pooledInstances.offer(createInstance()) }
 
   def take(): T = {
-    val pooledInstance = objects.poll()
+    val pooledInstance = pooledInstances.poll()
     if (pooledInstance == null) {
-      return factoryFunction()
+      return createInstance()
     }
-    instances.decrementAndGet()
+    pooledInstancesCount.decrementAndGet()
     return pooledInstance
   }
 
   def release(instance: T) = {
-    releaseFunction(instance)
-    if (instances.intValue() < maxInstances) {
-      instances.incrementAndGet()
-      objects.offer(instance)
+    releaseInstance(instance)
+    if (pooledInstancesCount.incrementAndGet() <= instances) {
+      pooledInstances.offer(instance)
+    } else {
+      pooledInstancesCount.decrementAndGet()
     }
   }
 
   def close() = {
-    objects.clear()
+    pooledInstances.clear()
   }
 }
 

@@ -27,6 +27,7 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable.Buffer
 import scala.concurrent.{ Future, Promise }
 import scala.util.{ Failure, Success }
+import com.despegar.khronus.util.Settings
 
 case class MetricMetadata(metric: Metric, timestamp: Timestamp)
 
@@ -140,18 +141,19 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
       }
   }
 
-  private def put(metrics: Seq[MetricMetadata]): Future[Unit] = {
-    val batchStmt = new BatchStatement();
-    metrics.foreach {
-      metricMetadata ⇒ batchStmt.add(InsertStmt.bind(MetricsKey, asString(metricMetadata.metric), Long.box(metricMetadata.timestamp.ms)))
-    }
-
-    val future: Future[ResultSet] = session.executeAsync(batchStmt)
-    future.map(_ ⇒ log.debug(s"Stored meta (batch) successfully"))
-      .andThen {
-        case Failure(reason) ⇒ log.error("Failed to store meta", reason)
+  def put(metrics: Seq[MetricMetadata]): Future[Unit] = //executeChunked("meta", metrics, Settings.CassandraMeta.insertChunkSize) {
+    //metricsChunk ⇒
+    {
+      val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
+      metrics.foreach {
+        metricMetadata ⇒ batchStmt.add(InsertStmt.bind(MetricsKey, asString(metricMetadata.metric), Long.box(metricMetadata.timestamp.ms)))
       }
-  }
+
+      val future: Future[ResultSet] = session.executeAsync(batchStmt)
+      future.map(_ ⇒ log.debug(s"Stored meta chunk successfully")).andThen {
+        case Failure(reason) ⇒ log.error(s"Failed to execute meta chunk operation", reason)
+      }
+    }
 
   private def asString(metric: Metric) = s"${metric.name}|${metric.mtype}"
 

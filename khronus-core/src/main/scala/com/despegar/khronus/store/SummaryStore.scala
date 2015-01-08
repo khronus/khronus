@@ -27,7 +27,7 @@ import com.despegar.khronus.util.{ Settings, ConcurrencySupport, Measurable }
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
-import scala.util.Failure
+import scala.util.{ Success, Failure }
 
 case class Slice(from: Long = -1L, to: Long)
 
@@ -85,18 +85,19 @@ abstract class CassandraSummaryStore[T <: Summary](session: Session) extends Sum
     (windowDuration, Statements(insert, Map(QueryAsc -> selectAsc, QueryDesc -> selectDesc), None))
   }).toMap
 
-  def store(metric: Metric, windowDuration: Duration, summaries: Seq[T]): Future[Unit] = {
-    ifNotEmpty(summaries) {
-      log.debug(s"$metric - Storing ${summaries.size} summaries ($summaries) of $windowDuration")
+  def store(metric: Metric, windowDuration: Duration, summaries: Seq[T]): Future[Unit] = //executeChunked(s"summary of $metric-$windowDuration", summaries, Settings.CassandraSummaries.insertChunkSize) {
+    //summariesChunk ⇒
+    {
+      log.info(s"$metric - Storing ${summaries.size} summaries ($summaries) of $windowDuration")
 
-      val batchStmt = new BatchStatement();
+      val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
       summaries.foreach(summary ⇒ batchStmt.add(stmtPerWindow(windowDuration).insert.bind(metric.name, Long.box(summary.timestamp.ms), serializeSummary(summary))))
 
       val future: Future[Unit] = session.executeAsync(batchStmt)
-
-      future.andThen { case Failure(reason) ⇒ log.error(s"$metric - Storing summary of $windowDuration failed", reason) }
+      future.andThen {
+        case Failure(reason) ⇒ log.error(s"Failed to execute chunk summary of $metric-$windowDuration", reason)
+      }
     }
-  }
 
   def sliceUntilNow(metric: Metric, windowDuration: Duration): Future[Seq[T]] = {
     val slice = Slice(to = now)
@@ -115,13 +116,5 @@ abstract class CassandraSummaryStore[T <: Summary](session: Session) extends Sum
   }
 
   private def now = System.currentTimeMillis()
-
-  def ifNotEmpty(col: Seq[Any])(f: Future[Unit]): Future[Unit] = {
-    if (col.size > 0) {
-      f
-    } else {
-      Future.successful(())
-    }
-  }
 
 }
