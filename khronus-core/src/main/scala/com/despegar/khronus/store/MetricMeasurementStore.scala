@@ -49,10 +49,10 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
 
   private def track(metric: Metric) = {
     if (isNew(metric)) {
-      log.info(s"Got a new metric: $metric. Will store metadata for it")
+      log.debug(s"Got a new metric: $metric. Will store metadata for it")
       storeMetadata(metric)
     } else {
-      log.info(s"$metric is already known. No need to store meta for it")
+      log.debug(s"$metric is already known. No need to store meta for it")
     }
   }
 
