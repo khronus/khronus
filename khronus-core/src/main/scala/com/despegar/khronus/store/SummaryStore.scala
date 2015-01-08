@@ -85,18 +85,15 @@ abstract class CassandraSummaryStore[T <: Summary](session: Session) extends Sum
     (windowDuration, Statements(insert, Map(QueryAsc -> selectAsc, QueryDesc -> selectDesc), None))
   }).toMap
 
-  def store(metric: Metric, windowDuration: Duration, summaries: Seq[T]): Future[Unit] = //executeChunked(s"summary of $metric-$windowDuration", summaries, Settings.CassandraSummaries.insertChunkSize) {
-    //summariesChunk ⇒
-    {
-      log.info(s"$metric - Storing ${summaries.size} summaries ($summaries) of $windowDuration")
+  def store(metric: Metric, windowDuration: Duration, summaries: Seq[T]): Future[Unit] = executeChunked(s"summary of $metric-$windowDuration", summaries, Settings.CassandraSummaries.insertChunkSize) {
+    summariesChunk ⇒
+      log.info(s"$metric - Storing ${summariesChunk.size} summaries ($summariesChunk) of $windowDuration")
 
       val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
-      summaries.foreach(summary ⇒ batchStmt.add(stmtPerWindow(windowDuration).insert.bind(metric.name, Long.box(summary.timestamp.ms), serializeSummary(summary))))
+      summariesChunk.foreach(summary ⇒ batchStmt.add(stmtPerWindow(windowDuration).insert.bind(metric.name, Long.box(summary.timestamp.ms), serializeSummary(summary))))
 
       val future: Future[Unit] = session.executeAsync(batchStmt)
-      future.andThen {
-        case Failure(reason) ⇒ log.error(s"Failed to execute chunk summary of $metric-$windowDuration", reason)
-      }
+      future
   }
 
   def sliceUntilNow(metric: Metric, windowDuration: Duration): Future[Seq[T]] = {
