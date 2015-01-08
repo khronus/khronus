@@ -18,13 +18,13 @@ Khronus is being actively developed. It is currently being used in production at
 ## Features
 
 * Support for `timers, gauges and counters`.
-* Configurable series resolution (30 seconds, 1 minute, 10 minutes, etc)
+* Configurable series resolution (30 seconds, 1 minute, 10 minutes, etc).
 * Percentiles done right. No more average of averages.
 * Fast, very fast retrieval of metrics.
-* Scalable.
+* Highly scalable.
 * Highly available.
 * REST Api for pushing data.
-* Implements InfluxDB protocol in order to use Grafana.
+* Grafana integration through the InfluxDB api.
 
 ## Installation
 
