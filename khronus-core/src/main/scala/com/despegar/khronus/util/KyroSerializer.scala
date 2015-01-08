@@ -31,13 +31,13 @@ trait Serializer[A] {
 
 class KryoSerializer[T](name: String, hintedClasses: List[Class[_]] = List.empty) extends Serializer[T] {
 
-  val pool = Pool[Kryo](name, () ⇒ {
+  val pool = Pool[Kryo](name, 10, () ⇒ {
     val kryo = new Kryo()
     kryo.setReferences(false)
     kryo.setInstantiatorStrategy(new StdInstantiatorStrategy)
     hintedClasses.foreach(hintedClass ⇒ kryo.register(hintedClass))
     kryo
-  }, 10)
+  })
 
   override def serialize(anObject: T): Array[Byte] = {
     val kryoHolder = pool.take()
