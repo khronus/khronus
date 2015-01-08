@@ -1,11 +1,11 @@
 package org.HdrHistogram
 
 import java.nio.ByteBuffer
-import java.util.zip.{Deflater, Inflater}
+import java.util.zip.{ Deflater, Inflater }
 
 import com.despegar.khronus.model.HistogramBucket
 import com.despegar.khronus.util.Pool
-import com.esotericsoftware.kryo.io.{Input, Output}
+import com.esotericsoftware.kryo.io.{ Input, Output }
 
 class SkinnyHistogram(lowestValue: Long, maxValue: Long, precision: Int) extends Histogram(lowestValue, maxValue, precision) {
 
