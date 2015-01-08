@@ -51,28 +51,4 @@ class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest 
     bucketsFromCassandra(0)._2() shouldEqual bucketFromThePast
   }
 
-  test("should remove buckets") {
-
-    val bucket1 = new CounterBucket((250L, 30 seconds), 200L)
-    val bucket2 = new CounterBucket((250L, 30 seconds), 200L)
-
-    await {
-      Buckets.counterBucketStore.store(testMetric, 30 seconds, Seq(bucket1, bucket2))
-    }
-
-    val storedBuckets = await {
-      Buckets.counterBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)
-    }
-    storedBuckets should have length 2
-
-    await {
-      Buckets.counterBucketStore.remove(testMetric, 30 seconds, storedBuckets.map(_._1))
-    }
-    val bucketsFromCassandra = await {
-      Buckets.counterBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)
-    }
-
-    bucketsFromCassandra should be('empty)
-  }
-
 }

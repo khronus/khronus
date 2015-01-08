@@ -22,13 +22,12 @@ import com.datastax.driver.core.utils.Bytes
 import com.datastax.driver.core.{ BatchStatement, ResultSet, Session, SimpleStatement }
 import com.despegar.khronus.model.{ Bucket, Metric, Timestamp }
 import com.despegar.khronus.util.log.Logging
-import com.despegar.khronus.util.{ ConcurrencySupport, Measurable }
+import com.despegar.khronus.util.{ ConcurrencySupport, Measurable, Settings }
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Failure
-import com.despegar.khronus.util.Settings
 
 trait BucketStoreSupport[T <: Bucket] {
 
@@ -37,8 +36,6 @@ trait BucketStoreSupport[T <: Bucket] {
 
 trait BucketStore[T <: Bucket] {
   def store(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit]
-
-  def remove(metric: Metric, windowDuration: Duration, bucketTimestamps: Seq[Timestamp]): Future[Unit]
 
   def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[Seq[(Timestamp, () ⇒ T)]]
 }
@@ -95,18 +92,6 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
 
       val future: Future[Unit] = session.executeAsync(batchStmt)
       future.andThen { case Failure(reason) ⇒ log.error(s"$metric - Storing metrics ${metric.name} failed", reason) }
-    }
-  }
-
-  def remove(metric: Metric, windowDuration: Duration, bucketTimestamps: Seq[Timestamp]): Future[Unit] = {
-    ifNotEmpty(bucketTimestamps) {
-      log.debug(s"${p(metric, windowDuration)} - Removing ${bucketTimestamps.length} buckets")
-
-      val batchStmt = new BatchStatement();
-      bucketTimestamps.foreach(bucket ⇒ batchStmt.add(stmtPerWindow(windowDuration).delete.get.bind(metric.name, Long.box(bucket.ms))))
-
-      val future: Future[Unit] = session.executeAsync(batchStmt)
-      future.andThen { case Failure(reason) ⇒ log.error(s"$metric - Removing metrics ${metric.name} failed", reason) }
     }
   }
 

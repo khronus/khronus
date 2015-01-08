@@ -46,7 +46,6 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar with TimeWindowTe
     when(window.bucketStore.store(metric, windowDuration, myBuckets)).thenReturn(Future {})
     when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](neverProcessedTimestamp))
     when(window.summaryStore.store(metric, windowDuration, mySummaries)).thenReturn(Future {})
-    when(window.bucketStore.remove(metric, previousWindowDuration, uniqueTimestampsPreviousBuckets)).thenReturn(Future {})
 
     //call method to test
     Await.result(window.process(metric, tick), 5 seconds)
@@ -77,7 +76,6 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar with TimeWindowTe
     when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](60000L))
     when(window.bucketStore.store(metric, windowDuration, Seq())).thenReturn(Future {})
     when(window.summaryStore.store(metric, windowDuration, Seq())).thenReturn(Future {})
-    when(window.bucketStore.remove(metric, previousWindowDuration, previousUndeletedBucketsUniqueTimestamps)).thenReturn(Future {})
 
     //call method to test
     Await.result(window.process(metric, tick), 5 seconds)
@@ -100,7 +98,6 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar with TimeWindowTe
     when(window.bucketStore.slice(Matchers.eq(metric), any[Timestamp], any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future(Seq()))
     when(window.bucketStore.store(metric, windowDuration, Seq())).thenReturn(Future {})
     when(window.summaryStore.store(metric, windowDuration, Seq())).thenReturn(Future {})
-    when(window.bucketStore.remove(metric, previousWindowDuration, Seq())).thenReturn(Future {})
     when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](neverProcessedTimestamp))
 
     //call method to test

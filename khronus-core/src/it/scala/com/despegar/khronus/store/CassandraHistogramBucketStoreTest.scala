@@ -53,33 +53,6 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
     bucketTuplesFromCassandra(0)._2() shouldEqual bucketFromThePast
   }
 
-  test("should remove buckets") {
-    implicit val context = scala.concurrent.ExecutionContext.Implicits.global
-
-    val bucket1 = new HistogramBucket((1, 30 seconds), HistogramBucket.newHistogram)
-    val bucket2 = new HistogramBucket((2, 30 seconds), HistogramBucket.newHistogram)
-
-    await {
-      Buckets.histogramBucketStore.store(testMetric, 30 seconds, Seq(bucket1, bucket2))
-    }
-
-    val storedTuples = await {
-      Buckets.histogramBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)
-    }
-
-    storedTuples should have length 2
-
-    await {
-      Buckets.histogramBucketStore.remove(testMetric, 30 seconds, storedTuples.map(_._1))
-    }
-
-    val bucketTuplesFromCassandra = await {
-      Buckets.histogramBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)
-    }
-
-    bucketTuplesFromCassandra should be('empty)
-  }
-
   private def fill(histogram: Histogram) = {
     (1 to 10000) foreach { i => histogram.recordValue(Random.nextInt(200))}
   }
