@@ -19,6 +19,7 @@ package com.despegar.khronus.influx.parser
 import scala.concurrent.duration.FiniteDuration
 import com.despegar.khronus.model.Metric
 import com.despegar.khronus.influx.parser.MathOperators.MathOperator
+import scala.math._
 
 case class InfluxCriteria(projections: Seq[SimpleProjection],
   sources: Seq[Source],
@@ -77,7 +78,10 @@ object MathOperators {
     val symbol = "/"
 
     def apply(firstOperand: Long, secondOperand: Long): Long = {
-      firstOperand / secondOperand
+      if (secondOperand == 0l) {
+        throw new UnsupportedOperationException("Could not divide by zero")
+      }
+      round(firstOperand.toFloat / secondOperand)
     }
   }
 
