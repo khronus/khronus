@@ -79,20 +79,21 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
     (windowDuration, Statements(insert, Map(SliceQuery -> select), Some(delete)))
   }).toMap
 
-  def store(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit] = {
-    ifNotEmpty(buckets) {
-      log.debug(s"${p(metric, windowDuration)} - Storing ${buckets.length} buckets")
+  def store(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit] = executeChunked(s"bucket of $metric-$windowDuration", buckets, Settings.CassandraBuckets.insertChunkSize) {
+    bucketsChunk ⇒
+      {
+        log.debug(s"${p(metric, windowDuration)} - Storing chunk of ${bucketsChunk.length} buckets")
 
-      val batchStmt = new BatchStatement();
-      buckets.foreach(bucket ⇒ {
-        val serializedBucket = serializeBucket(metric, windowDuration, bucket)
-        log.info(s"${p(metric, windowDuration)} Storing a bucket of ${serializedBucket.limit()} bytes")
-        batchStmt.add(stmtPerWindow(windowDuration).insert.bind(Seq(serializedBucket).asJava, metric.name, Long.box(bucket.timestamp.ms)))
-      })
+        val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
+        bucketsChunk.foreach(bucket ⇒ {
+          val serializedBucket = serializeBucket(metric, windowDuration, bucket)
+          log.debug(s"${p(metric, windowDuration)} Storing a bucket of ${serializedBucket.limit()} bytes")
+          batchStmt.add(stmtPerWindow(windowDuration).insert.bind(Seq(serializedBucket).asJava, metric.name, Long.box(bucket.timestamp.ms)))
+        })
 
-      val future: Future[Unit] = session.executeAsync(batchStmt)
-      future.andThen { case Failure(reason) ⇒ log.error(s"$metric - Storing metrics ${metric.name} failed", reason) }
-    }
+        val future: Future[Unit] = session.executeAsync(batchStmt)
+        future
+      }
   }
 
   def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[Seq[(Timestamp, () ⇒ T)]] = measureFutureTime("slice", metric, sourceWindow) {
