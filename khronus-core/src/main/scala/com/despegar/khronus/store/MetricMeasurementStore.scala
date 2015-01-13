@@ -1,7 +1,7 @@
 package com.despegar.khronus.store
 
 import com.despegar.khronus.model.{ Metric, MetricMeasurement, _ }
-import com.despegar.khronus.util.ConcurrencySupport
+import com.despegar.khronus.util.{ Settings, ConcurrencySupport }
 import com.despegar.khronus.util.log.Logging
 
 import scala.concurrent.duration._
@@ -72,7 +72,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
       acc.flatMap { _ ⇒
         val timestamp = measurementsGroup._1
         val bucketNumber = timestamp.toBucketNumber(1 millis)
-        if (!alreadyProcessed(bucketNumber)) {
+        if (!alreadyProcessed(metric, bucketNumber)) {
           block(bucketNumber, measurementsGroup._2)
         } else {
           Future.successful(())
@@ -95,7 +95,25 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
     okValues
   }
 
-  private def alreadyProcessed(bucketNumber: BucketNumber) = false //how?
+  private def alreadyProcessed(metric: Metric, bucketNumber: BucketNumber) = {
+    Future {
+      val smallWindow = Settings.Histogram.TimeWindows(0)
+      val lastProcessTick = Tick.current(Settings.Histogram.TimeWindows)
+      val bucketNumberAligned = bucketNumber.startTimestamp().alignedTo(smallWindow.duration).toBucketNumber(smallWindow.duration)
+
+      if (bucketNumberAligned < lastProcessTick.bucketNumber) {
+        log.warn(s"$metric Metric timestamp (${date(bucketNumberAligned.startTimestamp().ms)}}) is older than the last processed tick (${date(lastProcessTick.startTimestamp.ms)}}). Metric value will be ignored!")
+      } else {
+        //avoid race condition with possible tick execution
+        val nextPossibleTick = Tick.current(Settings.Histogram.TimeWindows, System.currentTimeMillis() + 5000L)
+        if (bucketNumberAligned < nextPossibleTick.bucketNumber) {
+          log.warn(s"$metric Metric timestamp (${date(bucketNumberAligned.startTimestamp().ms)}}) is in a possible tick execution bucket number (${date(nextPossibleTick.startTimestamp.ms)}}) . If that the case, the metric value will be ignored!")
+        }
+      }
+    }
+
+    false
+  }
 
   //ok, this has to be improved. maybe scheduling a reload at some interval and only going to meta if not found
   private def isNew(metric: Metric) = !metaStore.contains(metric)
