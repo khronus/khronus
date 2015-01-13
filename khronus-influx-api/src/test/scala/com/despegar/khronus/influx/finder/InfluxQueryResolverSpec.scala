@@ -398,15 +398,15 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
 
   }
 
-  private def assertInfluxSeries(series: InfluxSeries, expectedName: String, expectedFunction: String, expectedMillis: Long, expectedValue: Long) = {
+  private def assertInfluxSeries(series: InfluxSeries, expectedName: String, expectedFunction: String, expectedMillis: Long, expectedValue: Double) = {
     series.name should be(expectedName)
     series.columns(0) should be(InfluxQueryResolver.influxTimeKey)
     series.columns(1) should be(expectedFunction)
     assertPoint(series.points(0), expectedMillis, expectedValue)
   }
 
-  private def assertPoint(vector: Vector[Long], timestamp: Long, value: Long) = {
-    vector(0) should be(timestamp)
+  private def assertPoint(vector: Vector[Double], timestamp: Long, value: Double) = {
+    vector(0) should be(timestamp.toDouble)
     vector(1) should be(value)
   }
 

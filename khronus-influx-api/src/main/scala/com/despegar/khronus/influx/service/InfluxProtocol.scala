@@ -16,5 +16,5 @@
 
 package com.despegar.khronus.influx.service
 
-case class InfluxSeries(name: String, columns: Vector[String] = Vector.empty, points: Vector[Vector[Long]] = Vector.empty)
+case class InfluxSeries(name: String, columns: Vector[String] = Vector.empty, points: Vector[Vector[Double]] = Vector.empty)
 case class Dashboard(name: String, columns: Vector[String] = Vector.empty, points: Vector[Vector[String]] = Vector.empty)

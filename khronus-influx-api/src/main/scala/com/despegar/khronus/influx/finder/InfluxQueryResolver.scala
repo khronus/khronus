@@ -170,48 +170,48 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
     }
   }
 
-  private def generateSeq(simpleProjection: SimpleProjection, timeRangeMillis: TimeRangeMillis, summariesMap: Map[String, Future[Map[Long, Summary]]], defaultValue: Option[Long]): Future[Map[Long, Long]] =
+  private def generateSeq(simpleProjection: SimpleProjection, timeRangeMillis: TimeRangeMillis, summariesMap: Map[String, Future[Map[Long, Summary]]], defaultValue: Option[Long]): Future[Map[Long, Double]] =
     simpleProjection match {
       case field: Field   ⇒ generateSummarySeq(timeRangeMillis, field.name, summariesMap(field.tableId.get), defaultValue)
       case number: Number ⇒ generateScalarSeq(timeRangeMillis, number.value)
       case _              ⇒ throw new UnsupportedOperationException("Nested operations are not supported yet")
     }
 
-  private def generateScalarSeq(timeRangeMillis: TimeRangeMillis, scalar: Double): Future[Map[Long, Long]] = {
-    val roundedScalar = math.round(scalar)
-    Future { (timeRangeMillis.from to timeRangeMillis.to by timeRangeMillis.timeWindow).map(ts ⇒ ts -> roundedScalar).toMap }
+  private def generateScalarSeq(timeRangeMillis: TimeRangeMillis, scalar: Double): Future[Map[Long, Double]] = {
+    Future { (timeRangeMillis.from to timeRangeMillis.to by timeRangeMillis.timeWindow).map(ts ⇒ ts -> scalar).toMap }
   }
 
-  private def generateSummarySeq(timeRangeMillis: TimeRangeMillis, function: String, summariesByTs: Future[Map[Long, Summary]], defaultValue: Option[Long]): Future[Map[Long, Long]] = {
+  private def generateSummarySeq(timeRangeMillis: TimeRangeMillis, function: String, summariesByTs: Future[Map[Long, Summary]], defaultValue: Option[Long]): Future[Map[Long, Double]] = {
     summariesByTs.map(summariesMap ⇒ {
-      (timeRangeMillis.from to timeRangeMillis.to by timeRangeMillis.timeWindow).foldLeft(Map.empty[Long, Long])((acc, currentTimestamp) ⇒
+      (timeRangeMillis.from to timeRangeMillis.to by timeRangeMillis.timeWindow).foldLeft(Map.empty[Long, Double])((acc, currentTimestamp) ⇒
         if (summariesMap.get(currentTimestamp).isDefined) {
-          acc + (currentTimestamp -> summariesMap(currentTimestamp).get(function))
+          acc + (currentTimestamp -> summariesMap(currentTimestamp).get(function).toDouble)
         } else if (defaultValue.isDefined) {
-          acc + (currentTimestamp -> defaultValue.get)
+          acc + (currentTimestamp -> defaultValue.get.toDouble)
         } else {
           acc
         })
     })
   }
 
-  private def zipByTimestamp(tsValues1: Map[Long, Long], tsValues2: Map[Long, Long], operator: MathOperators.MathOperator): Map[Long, Long] = {
+  private def zipByTimestamp(tsValues1: Map[Long, Double], tsValues2: Map[Long, Double], operator: MathOperators.MathOperator): Map[Long, Double] = {
     val zippedByTimestamp = for (timestamp ← tsValues1.keySet.intersect(tsValues2.keySet))
       yield (timestamp, calculate(tsValues1(timestamp), tsValues2(timestamp), operator))
 
     zippedByTimestamp.toMap
   }
 
-  private def calculate(firstOperand: Long, secondOperand: Long, operator: MathOperators.MathOperator): Long = {
+  private def calculate(firstOperand: Double, secondOperand: Double, operator: MathOperators.MathOperator): Double = {
     operator(firstOperand, secondOperand)
   }
 
-  private def toInfluxSeries(timeSeriesValues: Map[Long, Long], projectionName: String, ascendingOrder: Boolean, metricName: String = ""): InfluxSeries = {
+  private def toInfluxSeries(timeSeriesValues: Map[Long, Double], projectionName: String, ascendingOrder: Boolean, metricName: String = ""): InfluxSeries = {
     log.info(s"Building Influx serie for projection [$projectionName] - Metric [$metricName]")
 
     val sortedTimeSeriesValues = if (ascendingOrder) timeSeriesValues.toSeq.sortBy(_._1) else timeSeriesValues.toSeq.sortBy(-_._1)
 
-    val points = sortedTimeSeriesValues.foldLeft(Vector.empty[Vector[Long]])((acc, current) ⇒ acc :+ Vector(current._1, current._2))
+    val points = sortedTimeSeriesValues.foldLeft(Vector.empty[Vector[Double]])((acc, current) ⇒
+      acc :+ Vector(current._1.toDouble, BigDecimal(current._2).setScale(4, BigDecimal.RoundingMode.HALF_UP).toDouble))
     InfluxSeries(metricName, Vector(influxTimeKey, projectionName), points)
   }
 

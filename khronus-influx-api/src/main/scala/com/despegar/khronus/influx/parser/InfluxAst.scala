@@ -47,13 +47,13 @@ object MathOperators {
   trait MathOperator {
     def symbol: String
 
-    def apply(firstOperand: Long, secondOperand: Long): Long
+    def apply(firstOperand: Double, secondOperand: Double): Double
   }
 
   case object Plus extends MathOperator {
     val symbol = "+"
 
-    def apply(firstOperand: Long, secondOperand: Long): Long = {
+    def apply(firstOperand: Double, secondOperand: Double): Double = {
       firstOperand + secondOperand
     }
   }
@@ -61,7 +61,7 @@ object MathOperators {
   case object Minus extends MathOperator {
     val symbol = "-"
 
-    def apply(firstOperand: Long, secondOperand: Long): Long = {
+    def apply(firstOperand: Double, secondOperand: Double): Double = {
       firstOperand - secondOperand
     }
   }
@@ -69,7 +69,7 @@ object MathOperators {
   case object Multiply extends MathOperator {
     val symbol = "*"
 
-    def apply(firstOperand: Long, secondOperand: Long): Long = {
+    def apply(firstOperand: Double, secondOperand: Double): Double = {
       firstOperand * secondOperand
     }
   }
@@ -77,11 +77,11 @@ object MathOperators {
   case object Divide extends MathOperator {
     val symbol = "/"
 
-    def apply(firstOperand: Long, secondOperand: Long): Long = {
+    def apply(firstOperand: Double, secondOperand: Double): Double = {
       if (secondOperand == 0l) {
         throw new UnsupportedOperationException("Could not divide by zero")
       }
-      round(firstOperand.toFloat / secondOperand)
+      firstOperand / secondOperand
     }
   }
 
