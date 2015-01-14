@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import com.despegar.khronus.model._
 import com.despegar.khronus.util.log.Logging
-import com.despegar.khronus.util.{Measurable, Settings}
+import com.despegar.khronus.util.{ Measurable, Settings }
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -50,7 +50,7 @@ object InMemoryBucketCache extends BucketCache with Logging with Measurable {
   }
 
   def cacheBuckets(metric: Metric, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber, buckets: Seq[Bucket]): Unit = {
-    if (metric.mtype.equals(MetricType.Counter) || (toBucketNumber.number - fromBucketNumber.number) > MaximumCacheStore) return;
+    if (metric.mtype.equals(MetricType.Counter) || (toBucketNumber.number - fromBucketNumber.number) > MaximumCacheStore) return ;
     val cache = metricCacheOf(metric)
     buckets.foreach { bucket ⇒
       val value: Any = if (metric.mtype.equals(MetricType.Timer) || metric.mtype.equals(MetricType.Gauge)) {
@@ -81,7 +81,7 @@ object InMemoryBucketCache extends BucketCache with Logging with Measurable {
       Some(noEmptyBuckets.map { bucket ⇒
         (bucket._1.startTimestamp(), () ⇒ {
           if (metric.mtype.equals(MetricType.Timer) || metric.mtype.equals(MetricType.Gauge)) {
-            HistogramSerializer.deserialize(bucket._2.asInstanceOf[Array[Byte]]).asInstanceOf[T]
+            new HistogramBucket(bucket._1, HistogramSerializer.deserialize(bucket._2.asInstanceOf[Array[Byte]])).asInstanceOf[T]
           } else {
             bucket._2.asInstanceOf[T]
           }
@@ -109,7 +109,7 @@ object InMemoryBucketCache extends BucketCache with Logging with Measurable {
   private def takeRecursive(metricCache: MetricCache, bucketNumber: BucketNumber, until: BucketNumber, buckets: List[(BucketNumber, Any)] = List[(BucketNumber, Any)]()): List[(BucketNumber, Any)] = {
     if (bucketNumber < until) {
       val bucket = metricCache.remove(bucketNumber)
-      takeRecursive(metricCache, bucketNumber + 1, until, if (bucket != null) buckets :+(bucketNumber, bucket) else buckets)
+      takeRecursive(metricCache, bucketNumber + 1, until, if (bucket != null) buckets :+ (bucketNumber, bucket) else buckets)
     } else {
       buckets
     }
