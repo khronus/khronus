@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import com.despegar.khronus.model._
 import com.despegar.khronus.util.log.Logging
-import com.despegar.khronus.util.{ Measurable, Settings }
+import com.despegar.khronus.util.{Measurable, Settings}
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -31,6 +31,7 @@ object InMemoryBucketCache extends BucketCache with Logging with Measurable {
   type MetricCache = ConcurrentHashMap[BucketNumber, Any]
   private val cachedBuckets = new ConcurrentHashMap[Metric, MetricCache]()
   private val lastKnownTick = new AtomicReference[Tick]()
+  private val MaximumCacheStore = 2
 
   def markProcessedTick(metric: Metric, tick: Tick) = {
     val previousKnownTick = lastKnownTick.getAndSet(tick)
@@ -49,7 +50,7 @@ object InMemoryBucketCache extends BucketCache with Logging with Measurable {
   }
 
   def cacheBuckets(metric: Metric, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber, buckets: Seq[Bucket]): Unit = {
-    if (metric.mtype.equals(MetricType.Counter)) return;
+    if (metric.mtype.equals(MetricType.Counter) || (toBucketNumber.number - fromBucketNumber.number) > MaximumCacheStore) return;
     val cache = metricCacheOf(metric)
     buckets.foreach { bucket ⇒
       val value: Any = if (metric.mtype.equals(MetricType.Timer) || metric.mtype.equals(MetricType.Gauge)) {
@@ -94,7 +95,7 @@ object InMemoryBucketCache extends BucketCache with Logging with Measurable {
 
   @tailrec
   private def fillEmptyBucketsIfNecessary(cache: MetricCache, bucketNumber: BucketNumber, until: BucketNumber): Unit = {
-    if (bucketNumber <= until) {
+    if (bucketNumber < until) {
       cache.putIfAbsent(bucketNumber, EmptyBucket)
       fillEmptyBucketsIfNecessary(cache, bucketNumber + 1, until)
     }
@@ -108,7 +109,7 @@ object InMemoryBucketCache extends BucketCache with Logging with Measurable {
   private def takeRecursive(metricCache: MetricCache, bucketNumber: BucketNumber, until: BucketNumber, buckets: List[(BucketNumber, Any)] = List[(BucketNumber, Any)]()): List[(BucketNumber, Any)] = {
     if (bucketNumber < until) {
       val bucket = metricCache.remove(bucketNumber)
-      takeRecursive(metricCache, bucketNumber + 1, until, if (bucket != null) buckets :+ (bucketNumber, bucket) else buckets)
+      takeRecursive(metricCache, bucketNumber + 1, until, if (bucket != null) buckets :+(bucketNumber, bucket) else buckets)
     } else {
       buckets
     }
