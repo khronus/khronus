@@ -1,7 +1,7 @@
 
 /*
  * =========================================================================================
- * Copyright © 2014 the khronus project <https://github.com/hotels-tech/khronus>
+ * Copyright © 2015 the khronus project <https://github.com/hotels-tech/khronus>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
