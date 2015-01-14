@@ -34,7 +34,7 @@ object InMemoryBucketCache extends BucketCache with Logging with Measurable {
 
   def markProcessedTick(metric: Metric, tick: Tick) = {
     val previousKnownTick = lastKnownTick.getAndSet(tick)
-    if (previousKnownTick != tick) {
+    if (previousKnownTick != tick && previousKnownTick != null) {
       cachedBuckets.keySet().asScala.foreach { metric ⇒
         if (noCachedBucketFor(metric, previousKnownTick.bucketNumber)) {
           incrementCounter("bucketCache.noMetricAffinity")
@@ -45,7 +45,7 @@ object InMemoryBucketCache extends BucketCache with Logging with Measurable {
   }
 
   private def noCachedBucketFor(metric: Metric, bucketNumber: BucketNumber): Boolean = {
-    !metricCacheOf(metric).keySet().asScala.exists(_.equals(bucketNumber))
+    !metricCacheOf(metric).keySet().asScala.exists(a ⇒ a.equals(bucketNumber))
   }
 
   def cacheBuckets(metric: Metric, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber, buckets: Seq[Bucket]) = {
