@@ -36,7 +36,7 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with InfluxCri
   val Separator = ","
   override val lexical = new InfluxLexical
 
-  lexical.reserved += ("select", "as", "from", "where", "or", "and", "group_by_time", "fill", "limit", "between", "null", "date", "time", "now", "order", "asc", "desc", "percentiles", "force",
+  lexical.reserved += ("select", "as", "from", "where", "or", "and", "group_by_time", "fill", "scale", "limit", "between", "null", "date", "time", "now", "order", "asc", "desc", "percentiles", "force",
     TimeSuffixes.Seconds, TimeSuffixes.Minutes, TimeSuffixes.Hours, TimeSuffixes.Days, TimeSuffixes.Weeks)
 
   lexical.reserved ++= Functions.allNames
@@ -58,9 +58,9 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with InfluxCri
 
   private def influxQueryParser: Parser[Future[InfluxCriteria]] =
     "select" ~> projectionParser ~ "from" ~ tableParser ~ opt(filterParser) ~
-      groupByParser ~ opt(fillerParser) ~ opt(limitParser) ~ opt(orderParser) <~ opt(";") ^^ {
-        case projections ~ _ ~ tables ~ filters ~ groupBy ~ fill ~ limit ~ order ⇒
-          buildInfluxCriteria(tables, projections, filters.getOrElse(Nil), groupBy, fill, order.getOrElse(true), limit.getOrElse(Int.MaxValue))
+      groupByParser ~ opt(fillerParser) ~ opt(scaleParser) ~ opt(limitParser) ~ opt(orderParser) <~ opt(";") ^^ {
+        case projections ~ _ ~ tables ~ filters ~ groupBy ~ fill ~ scale ~ limit ~ order ⇒
+          buildInfluxCriteria(tables, projections, filters.getOrElse(Nil), groupBy, fill, scale, order.getOrElse(true), limit.getOrElse(Int.MaxValue))
       }
 
   private def projectionParser: Parser[Seq[Projection]] =
@@ -219,8 +219,12 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with InfluxCri
       }
     }
 
-  private def fillerParser: Parser[Long] = "fill" ~> "(" ~> doubleParser <~ ")" ^^ {
-    case fillNumber ⇒ math.round(fillNumber)
+  private def fillerParser: Parser[Double] = "fill" ~> "(" ~> doubleParser <~ ")" ^^ {
+    case fillNumber ⇒ fillNumber
+  }
+
+  private def scaleParser: Parser[Double] = "scale" ~> "(" ~> doubleParser <~ ")" ^^ {
+    case scaleNumber ⇒ scaleNumber
   }
 
   private def limitParser: Parser[Int] = "limit" ~> numericLit ^^ (_.toInt)

@@ -256,10 +256,11 @@ If you don't want this behavior you can use the 'force' keyword. But take in acc
 #### Other optional clauses
   * limit number
   * order [asc|desc] 
-  * fill(number): Complete the time series with this number when there is no value
+  * fill(doubleValue): Complete the time series with this number when there is no value
+  * scale(doubleValue): Multiply all values by this factor
 
 ```sql
-    select a.count as counter , cc.count, 3 as miConstant, cc.count + a.count as sum from "metricTimer" as a, "metricCounter" as cc where time >= now() - 10m group by time(1h) fill(-1) limit 100 order asc
+    select a.count as counter , cc.count, 3 as miConstant, cc.count + a.count as sum from "metricTimer" as a, "metricCounter" as cc where time >= now() - 10m group by time(1h) fill(-1) scale(0.1) limit 100 order asc
 ```
 
   

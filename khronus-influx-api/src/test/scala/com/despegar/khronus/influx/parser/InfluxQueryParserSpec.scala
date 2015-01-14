@@ -563,6 +563,28 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
     influxCriteria.limit should be(10)
   }
 
+  test("Scale should be parsed ok") {
+    val parser = buildParser
+    val regex = parser.getCaseInsensitiveRegex(metricName)
+
+    when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
+
+    val query = s"""select max(value) from "$metricName" group by time(1m) scale(-0.2)"""
+    val influxCriteria = await(parser.parse(query))
+
+    verify(parser.metaStore).searchInSnapshot(regex)
+
+    verifyField(influxCriteria.projections(0), Functions.Max, None, Some(metricName))
+
+    influxCriteria.sources.size should be(1)
+    verifySource(influxCriteria.sources(0), metricName, None)
+
+    verifyGroupBy(influxCriteria.groupBy, 1, TimeUnit.MINUTES)
+
+    influxCriteria.filters should be(Nil)
+    influxCriteria.scale should be(Some(-0.2))
+  }
+
   test("Order clause should be parsed ok") {
     val parser = buildParser
     val regex = parser.getCaseInsensitiveRegex(metricName)

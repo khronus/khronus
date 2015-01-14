@@ -25,7 +25,8 @@ case class InfluxCriteria(projections: Seq[SimpleProjection],
   sources: Seq[Source],
   filters: Seq[Filter],
   groupBy: GroupBy,
-  fillValue: Option[Long] = None,
+  fillValue: Option[Double] = None,
+  scale: Option[Double] = None,
   limit: Int = Int.MaxValue,
   orderAsc: Boolean = true)
 
