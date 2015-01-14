@@ -115,7 +115,12 @@ object InMemoryBucketCache extends BucketCache with Logging with Measurable {
 
   private def metricCacheOf(metric: Metric): MetricCache = {
     val metricCache = cachedBuckets.get(metric)
-    if (metricCache != null) metricCache else cachedBuckets.putIfAbsent(metric, new MetricCache())
+    if (metricCache != null) metricCache
+    else {
+      val cache: MetricCache = new ConcurrentHashMap()
+      val previous = cachedBuckets.putIfAbsent(metric, cache)
+      if (previous != null) previous else cache
+    }
   }
 
 }
