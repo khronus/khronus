@@ -32,16 +32,24 @@ case class InfluxCriteria(projections: Seq[SimpleProjection],
 
 // SELECT
 sealed trait Projection
-sealed trait SimpleProjection extends Projection
+sealed trait SimpleProjection extends Projection {
+  def seriesId: String
+}
 trait AliasingTable {
   def tableId: Option[String]
 }
 
 case class AllField(tableId: Option[String]) extends Projection with AliasingTable
 
-case class Field(name: String, alias: Option[String], tableId: Option[String]) extends SimpleProjection with AliasingTable
-case class Number(value: Double, alias: Option[String] = None) extends SimpleProjection
-case class Operation(left: SimpleProjection, right: SimpleProjection, operator: MathOperator, alias: String) extends SimpleProjection
+case class Field(name: String, alias: Option[String], tableId: Option[String]) extends SimpleProjection with AliasingTable {
+  override def seriesId = s"${tableId.getOrElse("")}.${alias.getOrElse(name)}"
+}
+case class Number(value: Double, alias: Option[String] = None) extends SimpleProjection {
+  override def seriesId = alias.getOrElse("")
+}
+case class Operation(left: SimpleProjection, right: SimpleProjection, operator: MathOperator, alias: String) extends SimpleProjection {
+  override def seriesId = alias
+}
 
 object MathOperators {
 

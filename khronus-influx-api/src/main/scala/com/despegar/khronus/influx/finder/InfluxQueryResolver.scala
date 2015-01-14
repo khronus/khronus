@@ -149,7 +149,7 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
   protected def getCounterSummaryStore: SummaryStore[CounterSummary] = Summaries.counterSummaryStore
 
   private def buildInfluxSeries(influxCriteria: InfluxCriteria, timeRangeMillis: TimeRangeMillis, summariesBySourceMap: Map[String, Future[Map[Long, Summary]]]): Seq[Future[InfluxSeries]] = {
-    influxCriteria.projections.map {
+    influxCriteria.projections.sortBy(_.seriesId).map {
       case field: Field ⇒ {
         generateSeq(field, timeRangeMillis, summariesBySourceMap, influxCriteria.fillValue).map(values ⇒
           toInfluxSeries(values, field.alias.getOrElse(field.name), influxCriteria.orderAsc, influxCriteria.scale, field.tableId.get))
