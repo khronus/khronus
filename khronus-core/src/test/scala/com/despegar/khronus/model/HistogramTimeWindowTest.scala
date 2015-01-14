@@ -21,7 +21,7 @@ import java.io.IOException
 import com.despegar.khronus.model.BucketNumber._
 import com.despegar.khronus.model.Timestamp._
 import com.despegar.khronus.store._
-import com.despegar.khronus.util.MonitoringSupportMock
+import com.despegar.khronus.util.{ BucketCacheSupportMock, MonitoringSupportMock }
 import org.HdrHistogram.Histogram
 import org.mockito.Matchers
 import org.mockito.Matchers._
@@ -265,12 +265,13 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindow
   }
 
   private def mockedWindow(windowDuration: FiniteDuration, previousWindowDuration: FiniteDuration) = {
-    val window = new HistogramTimeWindow(windowDuration, previousWindowDuration) with HistogramBucketSupport with StatisticSummarySupport with MetaSupport with MonitoringSupportMock {
+    val window = new HistogramTimeWindow(windowDuration, previousWindowDuration) with HistogramBucketSupport with StatisticSummarySupport with MetaSupport with MonitoringSupportMock with BucketCacheSupportMock {
       override val bucketStore = mock[BucketStore[HistogramBucket]]
 
       override val summaryStore = mock[SummaryStore[StatisticSummary]]
 
       override val metaStore = mock[MetaStore]
+
     }
     window
   }

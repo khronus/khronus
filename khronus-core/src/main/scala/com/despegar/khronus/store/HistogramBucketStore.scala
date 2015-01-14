@@ -37,23 +37,39 @@ class CassandraHistogramBucketStore(session: Session) extends CassandraBucketSto
   override def fetchSize: Int = Settings.Histogram.BucketFetchSize
 
   override def toBucket(windowDuration: Duration, timestamp: Long, histogram: Array[Byte]) = {
-    new HistogramBucket(Timestamp(timestamp).toBucketNumber(windowDuration), deserializeHistogram(histogram))
+    new HistogramBucket(Timestamp(timestamp).toBucketNumberOf(windowDuration), deserializeHistogram(histogram))
   }
 
   override def tableName(duration: Duration) = s"histogramBucket${duration.length}${duration.unit}"
 
   def serializeBucket(metric: Metric, windowDuration: Duration, bucket: HistogramBucket): ByteBuffer = {
-    val buffer = ByteBuffer.allocate(bucket.histogram.getEstimatedFootprintInBytes)
-    val bytesEncoded = bucket.histogram.encodeIntoCompressedByteBuffer(buffer)
+    val bytes = HistogramSerializer.serialize(bucket.histogram)
+    val bytesEncoded = bytes.length
     log.debug(s"$metric- Histogram of $windowDuration with ${bucket.histogram.getTotalCount()} measures encoded and compressed into $bytesEncoded bytes")
     recordGauge(formatLabel("serializedBucketBytes", metric, windowDuration), bytesEncoded)
-    buffer.limit(bytesEncoded)
-    buffer.rewind()
-    buffer
+    ByteBuffer.wrap(bytes)
   }
 
-  private def deserializeHistogram(bytes: Array[Byte]): Histogram = SkinnyHistogram.decodeFromCompressedByteBuffer(ByteBuffer.wrap(bytes), 0)
+  private def deserializeHistogram(bytes: Array[Byte]): Histogram = HistogramSerializer.deserialize(bytes)
 
   override def ttl(windowDuration: Duration): Int = Settings.Histogram.BucketRetentionPolicy
+
+}
+
+object HistogramSerializer {
+
+  def serialize(histogram: Histogram): Array[Byte] = {
+    val buffer = ByteBuffer.allocate(histogram.getEstimatedFootprintInBytes)
+    val bytesEncoded = histogram.encodeIntoCompressedByteBuffer(buffer)
+    val bytes = new Array[Byte](bytesEncoded)
+    buffer.limit(bytesEncoded)
+    buffer.rewind()
+    buffer.get(bytes)
+    bytes
+  }
+
+  def deserialize(bytes: Array[Byte]): Histogram = {
+    SkinnyHistogram.decodeFromCompressedByteBuffer(ByteBuffer.wrap(bytes), 0)
+  }
 
 }

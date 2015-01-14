@@ -37,7 +37,8 @@ trait BucketStoreSupport[T <: Bucket] {
 trait BucketStore[T <: Bucket] {
   def store(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit]
 
-  def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[Seq[(Timestamp, () ⇒ T)]]
+  /** Slice over the buckets of the given 'metric' and 'windowDuration' from a Timestamp (inclusive) to a Timestamp (exclusive) */
+  def slice(metric: Metric, from: Timestamp, to: Timestamp, windowDuration: Duration): Future[Seq[(Timestamp, () ⇒ T)]]
 }
 
 abstract class CassandraBucketStore[T <: Bucket](session: Session) extends BucketStore[T] with Logging with Measurable with ConcurrencySupport with CassandraUtils {
@@ -71,7 +72,7 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
     log.info("creating prepared statements...")
     val insert = session.prepare(s"update ${tableName(windowDuration)} using ttl ${ttl(windowDuration)} set buckets = buckets + ? where metric = ? and timestamp = ? ; ")
 
-    val simpleStmt = new SimpleStatement(s"select timestamp, buckets from ${tableName(windowDuration)} where metric = ? and timestamp >= ? and timestamp <= ? limit ?;")
+    val simpleStmt = new SimpleStatement(s"select timestamp, buckets from ${tableName(windowDuration)} where metric = ? and timestamp >= ? and timestamp < ? limit ?;")
     simpleStmt.setFetchSize(fetchSize)
     val select = session.prepare(simpleStmt)
 

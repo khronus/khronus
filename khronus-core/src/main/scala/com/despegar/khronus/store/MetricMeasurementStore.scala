@@ -71,7 +71,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
     groupedMeasurements.foldLeft(Future.successful(())) { (acc, measurementsGroup) ⇒
       acc.flatMap { _ ⇒
         val timestamp = measurementsGroup._1
-        val bucketNumber = timestamp.toBucketNumber(1 millis)
+        val bucketNumber = timestamp.toBucketNumberOf(1 millis)
         if (!alreadyProcessed(bucketNumber)) {
           block(bucketNumber, measurementsGroup._2)
         } else {

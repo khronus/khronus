@@ -5,7 +5,7 @@ import java.io.IOException
 import com.despegar.khronus.model.BucketNumber._
 import com.despegar.khronus.model.Timestamp._
 import com.despegar.khronus.store._
-import com.despegar.khronus.util.MonitoringSupportMock
+import com.despegar.khronus.util.{ BucketCacheSupportMock, MonitoringSupportMock }
 import org.mockito.Matchers
 import org.mockito.Matchers._
 import org.mockito.Mockito._
@@ -210,7 +210,7 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar with TimeWindowTe
   }
 
   private def mockedWindow(windowDuration: FiniteDuration, previousWindowDuration: FiniteDuration) = {
-    val window = new CounterTimeWindow(windowDuration, previousWindowDuration) with CounterBucketStoreSupport with CounterSummaryStoreSupport with MetaSupport with MonitoringSupportMock {
+    val window = new CounterTimeWindow(windowDuration, previousWindowDuration) with CounterBucketStoreSupport with CounterSummaryStoreSupport with MetaSupport with MonitoringSupportMock with BucketCacheSupportMock {
       override val bucketStore = mock[BucketStore[CounterBucket]]
 
       override val summaryStore = mock[SummaryStore[CounterSummary]]

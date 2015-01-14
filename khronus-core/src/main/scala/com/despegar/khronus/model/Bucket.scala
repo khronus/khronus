@@ -10,7 +10,11 @@ abstract case class Bucket(bucketNumber: BucketNumber) {
 }
 
 case class Timestamp(ms: Long) {
-  def toBucketNumber(duration: Duration): BucketNumber = toBucketNumber(duration, Math.floor _)
+  /** Returns a BucketNumber of the given Duration using this Timestamp as it's startTimestamp */
+  def toBucketNumberOf(duration: Duration): BucketNumber = toBucketNumber(duration, Math.floor _)
+
+  /** Returns a BucketNumber of the given Duration using this Timestamp as it's endTimestamp */
+  def fromEndTimestampToBucketNumberOf(duration: Duration): BucketNumber = toBucketNumber(duration, Math.floor _) - 1
 
   private def toBucketNumber(duration: Duration, f: Double ⇒ Double) = {
     if (ms < 0) {
@@ -47,13 +51,19 @@ case class BucketNumber(number: Long, duration: Duration) {
     Timestamp(duration.toMillis * (number + 1))
   }
 
-  def ~(duration: Duration) = startTimestamp().toBucketNumber(duration)
+  def ~(duration: Duration) = startTimestamp().toBucketNumberOf(duration)
 
   def <(otherBucketNumber: BucketNumber) = startTimestamp().ms < otherBucketNumber.startTimestamp().ms
+
+  def <=(otherBucketNumber: BucketNumber) = startTimestamp().ms <= otherBucketNumber.startTimestamp().ms
 
   def >(otherBucketNumber: BucketNumber) = startTimestamp().ms > otherBucketNumber.startTimestamp().ms
 
   def -(aNumber: Int): BucketNumber = BucketNumber(number - aNumber, duration)
+
+  def +(aNumber: Int): BucketNumber = BucketNumber(number + aNumber, duration)
+
+  def following: BucketNumber = this + 1
 
   override def toString() = s"BucketNumber($number, $duration) from ${date(startTimestamp().ms)} to ${date(endTimestamp().ms)}"
 
