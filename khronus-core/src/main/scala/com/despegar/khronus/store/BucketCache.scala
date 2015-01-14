@@ -48,7 +48,8 @@ object InMemoryBucketCache extends BucketCache with Logging with Measurable {
     !metricCacheOf(metric).keySet().asScala.exists(a ⇒ a.equals(bucketNumber))
   }
 
-  def cacheBuckets(metric: Metric, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber, buckets: Seq[Bucket]) = {
+  def cacheBuckets(metric: Metric, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber, buckets: Seq[Bucket]): Unit = {
+    if (metric.mtype.equals(MetricType.Counter)) return;
     val cache = metricCacheOf(metric)
     buckets.foreach { bucket ⇒
       val value: Any = if (metric.mtype.equals(MetricType.Timer) || metric.mtype.equals(MetricType.Gauge)) {
@@ -67,7 +68,7 @@ object InMemoryBucketCache extends BucketCache with Logging with Measurable {
   }
 
   def take[T <: Bucket](metric: Metric, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber): Option[Seq[(Timestamp, () ⇒ T)]] = {
-    if (fromBucketNumber.duration == Settings.Window.WindowDurations(0)) return None
+    if (fromBucketNumber.duration == Settings.Window.WindowDurations(0) || metric.mtype.equals(MetricType.Counter)) return None
     val buckets = takeRecursive(metricCacheOf(metric), fromBucketNumber, toBucketNumber)
     val expectedBuckets = toBucketNumber.number - fromBucketNumber.number
     if (buckets.size == expectedBuckets) {
