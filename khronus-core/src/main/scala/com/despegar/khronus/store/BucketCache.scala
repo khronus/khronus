@@ -34,6 +34,8 @@ object InMemoryBucketCache extends BucketCache with Logging with Measurable {
 
   private val enabled = Settings.BucketCache.Enabled
 
+  log.info(s"BucketCache is ${if (enabled) "enabled" else "disabled"}")
+
   def markProcessedTick(metric: Metric, tick: Tick) = if (enabled) {
     val previousKnownTick = lastKnownTick.getAndSet(tick)
     if (previousKnownTick != tick && previousKnownTick != null) {

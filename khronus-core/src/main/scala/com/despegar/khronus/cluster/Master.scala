@@ -77,7 +77,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
       val sortedPendingMetrics = sortPendingMetrics()
 
-      pendingMetrics ++= metrics.sortBy(_.name) filterNot (metric ⇒ sortedPendingMetrics(metric))
+      pendingMetrics ++= metrics filterNot (metric ⇒ sortedPendingMetrics(metric))
 
       if (busyWorkers.nonEmpty) log.warning(s"There are still ${busyWorkers.size} busy workers from previous Tick. This may mean that either workers are still processing metrics or Terminated message has not been received yet")
       else start = System.currentTimeMillis()
