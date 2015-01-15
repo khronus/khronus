@@ -131,7 +131,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
   private def recordSystemMetrics(metrics: Seq[Metric]) {
     val metricsSize = metrics.size
 
-    log.info(s"Metrics received: $metricsSize, Pending metrics: ${pendingMetrics.size}, ${idleWorkers.size} idle workers, ${busyWorkers.size} busy workers")
+    log.info(s"Starting Tick. Metrics received: $metricsSize, Pending metrics from previous Tick: ${pendingMetrics.size}, ${idleWorkers.size} idle workers, ${busyWorkers.size} busy workers")
     log.debug(s"Pending metrics: $pendingMetrics workers idle: $idleWorkers")
     log.debug(s"Idle workers: $idleWorkers")
 

@@ -115,6 +115,16 @@ object Settings {
     val SummaryFetchSize = counterConfig.getInt("summary-fetch-size")
   }
 
+  object BucketCache {
+    private val bucketCacheConfig = config.getConfig("khronus.bucket-cache")
+
+    val Enabled = bucketCacheConfig.getBoolean("enabled")
+
+    val MaximumCacheStore = bucketCacheConfig.getInt("maximum-cache-store")
+
+    def IsEnabledFor(metricType: String): Boolean = Option(bucketCacheConfig.getBoolean(metricType)).getOrElse(false)
+  }
+
   private def adjustDuration(durationInMillis: Long): FiniteDuration = {
     durationInMillis match {
       case durationInMillis if durationInMillis < 1000 ⇒ durationInMillis millis
