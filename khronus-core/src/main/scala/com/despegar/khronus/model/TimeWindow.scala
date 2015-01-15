@@ -100,7 +100,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
       val toBucketNumber = tick.bucketNumber.following ~ duration ~ previousWindowDuration
 
       //TODO: refactor me
-      bucketCache.take(metric, fromBucketNumber, toBucketNumber).map { buckets ⇒ Future.successful(buckets) }.getOrElse {
+      bucketCache.take[T](metric, fromBucketNumber, toBucketNumber).map { buckets ⇒ Future.successful(buckets) }.getOrElse {
         bucketStore.slice(metric, fromBucketNumber.startTimestamp(), toBucketNumber.startTimestamp(), previousWindowDuration) andThen {
           case Success(previousBuckets) ⇒
             if (previousBuckets.isEmpty) {
