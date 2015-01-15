@@ -18,11 +18,12 @@ package com.despegar.khronus.cluster
 
 import akka.actor._
 import akka.routing.{ Broadcast, FromConfig }
-import com.despegar.khronus.model.{ MonitoringSupport, Metric }
+import com.despegar.khronus.model.{ Metric, MonitoringSupport }
 import com.despegar.khronus.store.MetaSupport
 import com.despegar.khronus.util.Settings
 import us.theatr.akka.quartz.{ AddCronScheduleFailure, _ }
 
+import scala.collection.SortedSet
 import scala.concurrent.Future
 import scala.util.control.NonFatal
 import scala.util.{ Failure, Success }
@@ -74,12 +75,14 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
     case PendingMetrics(metrics) ⇒
       recordSystemMetrics(metrics)
 
-      val sortedPendingMetrics = collection.SortedSet(pendingMetrics: _*)(Ordering[String].on[Metric] { _.name })
+      val sortedPendingMetrics = sortPendingMetrics()
 
-      pendingMetrics ++= metrics filterNot (metric ⇒ sortedPendingMetrics(metric))
+      pendingMetrics ++= metrics.sortBy(_.name) filterNot (metric ⇒ sortedPendingMetrics(metric))
 
-      if (busyWorkers.nonEmpty) log.warning(s"There are still busy workers from previous Tick: $busyWorkers. This may mean that either workers are still processing metrics or Terminated message has not been received yet")
+      if (busyWorkers.nonEmpty) log.warning(s"There are still ${busyWorkers.size} busy workers from previous Tick. This may mean that either workers are still processing metrics or Terminated message has not been received yet")
       else start = System.currentTimeMillis()
+
+      idleWorkers = idleWorkers.toSeq.sorted.toSet
 
       while (pendingMetrics.nonEmpty && idleWorkers.nonEmpty) {
 
@@ -150,6 +153,12 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
     }
   }
 
+  private def sortPendingMetrics(): SortedSet[Metric] = {
+    collection.SortedSet(pendingMetrics: _*)(Ordering[String].on[Metric] {
+      _.name
+    })
+  }
+
   override def postStop(): Unit = {
     super.postStop()
 
@@ -174,9 +183,13 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 }
 
 object Master {
+
   case object Tick
+
   case class PendingMetrics(metrics: Seq[Metric])
+
   case class Initialize(cronExpression: String, router: ActorRef)
+
   case class MasterConfig(cronExpression: String)
 
   def props: Props = Props(classOf[Master])
