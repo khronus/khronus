@@ -36,23 +36,23 @@ class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport {
 
   def process(metrics: Seq[Metric]): Future[Unit] = {
     val tick = currentTick()
-    metrics.foldLeft(Future.successful(())) { (previousMetricFuture, metric) =>
-      previousMetricFuture.flatMap { _ =>
+    metrics.foldLeft(Future.successful(())) { (previousMetricFuture, metric) ⇒
+      previousMetricFuture.flatMap { _ ⇒
         process(metric, tick)
       }
     }
   }
 
   def currentTick(): Tick = {
-      Tick()
+    Tick()
   }
 
   def process(metric: Metric, currentTick: Tick): Future[Unit] = {
     //TODO: please refactor me
     val windows: Seq[TimeWindow[_, _]] = if (metric.mtype == "counter") countersWindows else histrogramsWindows
 
-    windows.filter(mustExecute(_, metric, currentTick)).foldLeft(Future.successful[Unit](())) { (previousWindow, timeWindow) =>
-      previousWindow.flatMap(_ => timeWindow.process(metric, currentTick))
+    windows.filter(mustExecute(_, metric, currentTick)).foldLeft(Future.successful[Unit](())) { (previousWindow, timeWindow) ⇒
+      previousWindow.flatMap(_ ⇒ timeWindow.process(metric, currentTick))
     }.andThen {
       case Success(_) ⇒ metaStore.update(metric, currentTick.endTimestamp)
     }

@@ -54,9 +54,8 @@ object InMemoryBucketCache extends BucketCache with Logging with Measurable {
 
   def cacheBuckets(metric: Metric, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber, buckets: Seq[Bucket]): Unit = if (enabled && Settings.BucketCache.IsEnabledFor(metric.mtype)) {
     if ((toBucketNumber.number - fromBucketNumber.number) > Settings.BucketCache.MaximumCacheStore) {
-      log.warn("Exceeding maximum cache store")
-      return;
-    } 
+      return ;
+    }
     log.info(s"Caching ${(toBucketNumber.number - fromBucketNumber.number)} buckets of ${fromBucketNumber.duration} for $metric")
     val cache = metricCacheOf(metric)
     buckets.foreach { bucket ⇒

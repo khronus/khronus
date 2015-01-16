@@ -6,13 +6,13 @@ import com.despegar.khronus.util.log.Logging
 import scala.concurrent.duration.Duration
 
 case class Tick(bucketNumber: BucketNumber) extends Logging {
-  
-  private val windowsToBeExecuted = Settings.Window.ConfiguredWindows.filter( windowDuration => mustExecute(windowDuration)) 
-  
+
+  private val windowsToBeExecuted = Settings.Window.ConfiguredWindows.filter(windowDuration ⇒ mustExecute(windowDuration))
+
   def mustExecute(timeWindow: TimeWindow[_, _]): Boolean = {
     windowsToBeExecuted.contains(timeWindow.duration)
   }
-  
+
   private def mustExecute(windowDuration: Duration): Boolean = (endTimestamp.ms % windowDuration.toMillis) == 0
 
   def startTimestamp = bucketNumber.startTimestamp()
