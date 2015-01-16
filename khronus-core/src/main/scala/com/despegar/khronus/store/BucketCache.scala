@@ -76,6 +76,9 @@ object InMemoryBucketCache extends BucketCache with Logging with Measurable {
 
   def take[T <: Bucket](metric: Metric, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber): Option[Seq[(Timestamp, () ⇒ T)]] = {
     if (!enabled || fromBucketNumber.duration == Settings.Window.WindowDurations(0) || !Settings.BucketCache.IsEnabledFor(metric.mtype)) return None
+    if ((toBucketNumber.number - fromBucketNumber.number) > 5) {
+      return None;
+    }
     val buckets = takeRecursive(metricCacheOf(metric), fromBucketNumber, toBucketNumber)
     val expectedBuckets = toBucketNumber.number - fromBucketNumber.number
     if (buckets.size == expectedBuckets) {
