@@ -47,7 +47,7 @@ class WorkerSpec extends BaseTest with TestKitBase with ImplicitSender
 
   trait TimeWindowChainProviderMock extends TimeWindowChainProvider {
     override val timeWindowChain = mock[TimeWindowChain]
-    when(timeWindowChain.process(any())).thenReturn(Future(Seq(Thread.sleep(1000))))
+    when(timeWindowChain.process(any())).thenReturn(Future{Thread.sleep(1000); ()})
   }
 
   val worker = TestActorRef(Props(new Worker with TimeWindowChainProviderMock))

@@ -53,7 +53,11 @@ object InMemoryBucketCache extends BucketCache with Logging with Measurable {
   }
 
   def cacheBuckets(metric: Metric, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber, buckets: Seq[Bucket]): Unit = if (enabled && Settings.BucketCache.IsEnabledFor(metric.mtype)) {
-    if ((toBucketNumber.number - fromBucketNumber.number) > Settings.BucketCache.MaximumCacheStore) return ;
+    if ((toBucketNumber.number - fromBucketNumber.number) > Settings.BucketCache.MaximumCacheStore) {
+      log.warn("Exceeding maximum cache store")
+      return;
+    } 
+    log.info(s"Caching ${(toBucketNumber.number - fromBucketNumber.number)} buckets of ${fromBucketNumber.duration} for $metric")
     val cache = metricCacheOf(metric)
     buckets.foreach { bucket ⇒
       val value: Any = if (metric.mtype.equals(MetricType.Timer) || metric.mtype.equals(MetricType.Gauge)) {
@@ -76,6 +80,7 @@ object InMemoryBucketCache extends BucketCache with Logging with Measurable {
     val buckets = takeRecursive(metricCacheOf(metric), fromBucketNumber, toBucketNumber)
     val expectedBuckets = toBucketNumber.number - fromBucketNumber.number
     if (buckets.size == expectedBuckets) {
+      log.info(s"CacheHit of ${buckets.size} buckets for $metric")
       incrementCounter("bucketCache.hit")
       val noEmptyBuckets: List[(BucketNumber, Any)] = buckets.filterNot(bucket ⇒ bucket._2.isInstanceOf[EmptyBucket])
       if (noEmptyBuckets.isEmpty) {
@@ -91,6 +96,7 @@ object InMemoryBucketCache extends BucketCache with Logging with Measurable {
         })
       })
     } else {
+      log.info(s"CacheMiss of ${expectedBuckets} buckets for $metric")
       incrementCounter("bucketCache.miss")
       None
     }

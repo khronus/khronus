@@ -16,14 +16,15 @@
 
 package com.despegar.khronus.cluster
 
-import akka.actor.{ ActorRef, Props, Actor, ActorLogging }
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import com.despegar.khronus.cluster.Worker.WorkError
-import com.despegar.khronus.model.{ MonitoringSupport, Monitoring, TimeWindowChain, Metric }
-import scala.concurrent.Future
-import scala.util.control.{ NoStackTrace, NonFatal }
-import scala.util.{ Failure, Success }
+import com.despegar.khronus.model.{Metric, MonitoringSupport, TimeWindowChain}
+
+import scala.util.control.{NoStackTrace, NonFatal}
+import scala.util.{Failure, Success}
 
 class Worker extends Actor with ActorLogging with TimeWindowChainProvider with MonitoringSupport {
+
   import context._
 
   def receive: Receive = idle
@@ -36,15 +37,15 @@ class Worker extends Actor with ActorLogging with TimeWindowChainProvider with M
   }
 
   def ready: Receive = {
-    case Work(metric)      ⇒ process(metric, sender())
+    case Work(metric) ⇒ process(metric, sender())
     case WorkError(reason) ⇒ throw reason
-    case everythingElse    ⇒ //ignore
+    case everythingElse ⇒ //ignore
   }
 
   def process(metrics: Seq[Metric], requestor: ActorRef): Unit = {
     log.debug(s"Starting to process: ${metrics.mkString(",")}")
 
-    Future.sequence(metrics.map(timeWindowChain.process)) onComplete {
+    timeWindowChain.process(metrics).onComplete {
       case Success(_) ⇒
         log.debug(s"Worker ${self.path} has processed ${metrics.mkString(",")} successfully")
         requestor ! WorkDone(self)
@@ -63,7 +64,9 @@ class Worker extends Actor with ActorLogging with TimeWindowChainProvider with M
 }
 
 object Worker {
+
   case class WorkError(t: Throwable)
+
   def props: Props = Props(classOf[Worker])
 }
 

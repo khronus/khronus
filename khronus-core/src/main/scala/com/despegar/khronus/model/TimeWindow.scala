@@ -95,10 +95,11 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
       val start = System.currentTimeMillis()
 
       //we align both bucket numbers (lastProcessedBucketNumber and Tick) to the previousWindowDuration
-      val fromBucketNumber = lastProcessedBucketNumber ~ previousWindowDuration
+      val fromBucketNumber = lastProcessedBucketNumber.endTimestamp().toBucketNumberOf(previousWindowDuration)
       //since the slices over bucketStore and bucketCache are exclusives at the end, we use the Tick's following bucket number as the end of the slices
       val toBucketNumber = tick.bucketNumber.following ~ duration ~ previousWindowDuration
 
+      log.debug(s"${p(metric, duration)} - Slice [$fromBucketNumber, $toBucketNumber)")
       //TODO: refactor me
       bucketCache.take[T](metric, fromBucketNumber, toBucketNumber).map { buckets ⇒ Future.successful(buckets) }.getOrElse {
         bucketStore.slice(metric, fromBucketNumber.startTimestamp(), toBucketNumber.startTimestamp(), previousWindowDuration) andThen {
