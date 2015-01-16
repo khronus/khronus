@@ -95,20 +95,18 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
     okValues
   }
 
-  private def alreadyProcessed(metric: Metric, bucketNumber: BucketNumber) = {
-    Future {
-      val smallWindow = Settings.Histogram.TimeWindows(0)
-      val lastProcessTick = Tick.current(Settings.Histogram.TimeWindows)
-      val bucketNumberAligned = bucketNumber.startTimestamp().alignedTo(smallWindow.duration).toBucketNumber(smallWindow.duration)
+  private def alreadyProcessed(metric: Metric, bucketNumber1millis: BucketNumber) = {
+    val smallWindow = Settings.Histogram.TimeWindows(0)
+    val lastProcessTick = Tick.current(Settings.Histogram.TimeWindows)
+    val bucketNumberSmallWindow = bucketNumber1millis.startTimestamp().alignedTo(smallWindow.duration).toBucketNumber(smallWindow.duration)
 
-      if (bucketNumberAligned < lastProcessTick.bucketNumber) {
-        log.warn(s"$metric Metric timestamp (${date(bucketNumberAligned.startTimestamp().ms)}}) is older than the last processed tick (${date(lastProcessTick.startTimestamp.ms)}}). Metric value will be ignored!")
-      } else {
-        //avoid race condition with possible tick execution
-        val nextPossibleTick = Tick.current(Settings.Histogram.TimeWindows, System.currentTimeMillis() + 5000L)
-        if (bucketNumberAligned < nextPossibleTick.bucketNumber) {
-          log.warn(s"$metric Metric timestamp (${date(bucketNumberAligned.startTimestamp().ms)}}) is in a possible tick execution bucket number (${date(nextPossibleTick.startTimestamp.ms)}}) . If that the case, the metric value will be ignored!")
-        }
+    if (bucketNumberSmallWindow < lastProcessTick.bucketNumber) {
+      log.warn(s"$metric Metric timestamp (${date(bucketNumberSmallWindow.startTimestamp().ms)}}) is older than the last processed tick (${date(lastProcessTick.startTimestamp.ms)}}). Metric value will be ignored!")
+    } else {
+      //avoid race condition with possible tick execution
+      val nextPossibleTick = Tick.current(Settings.Histogram.TimeWindows, System.currentTimeMillis() + 5000L)
+      if (bucketNumberSmallWindow < nextPossibleTick.bucketNumber) {
+        log.warn(s"$metric Metric timestamp (${date(bucketNumberSmallWindow.startTimestamp().ms)}}) is in a possible tick execution bucket number (${date(nextPossibleTick.startTimestamp.ms)}}) . If that the case, the metric value will be ignored!")
       }
     }
 
