@@ -15,7 +15,7 @@ trait MetricMeasurementStore {
   def storeMetricMeasurements(metricMeasurements: List[MetricMeasurement])
 }
 
-object CassandraMetricMeasurementStore extends MetricMeasurementStore with BucketSupport with MetaSupport with Logging with ConcurrencySupport {
+object CassandraMetricMeasurementStore extends MetricMeasurementStore with BucketSupport with MetaSupport with Logging with ConcurrencySupport with MonitoringSupport {
 
   implicit val executionContext: ExecutionContext = executionContext("metric-receiver-worker")
 
@@ -102,11 +102,13 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
 
     if (bucketNumberSmallWindow < lastProcessTick.bucketNumber) {
       log.warn(s"$metric Metric timestamp (${date(bucketNumberSmallWindow.startTimestamp().ms)}}) is older than the last processed tick (${date(lastProcessTick.startTimestamp.ms)}}). Metric value will be ignored!")
+      incrementCounter("mustReprocessMetric")
     } else {
       //avoid race condition with possible tick execution
       val nextPossibleTick = Tick.current(Settings.Histogram.TimeWindows, System.currentTimeMillis() + 5000L)
       if (bucketNumberSmallWindow < nextPossibleTick.bucketNumber) {
         log.warn(s"$metric Metric timestamp (${date(bucketNumberSmallWindow.startTimestamp().ms)}}) is in a possible tick execution bucket number (${date(nextPossibleTick.startTimestamp.ms)}}) . If that the case, the metric value will be ignored!")
+        incrementCounter("maybeReprocessMetric")
       }
     }
 
