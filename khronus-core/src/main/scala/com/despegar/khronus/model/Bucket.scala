@@ -51,6 +51,8 @@ case class BucketNumber(number: Long, duration: Duration) {
 
   def <(otherBucketNumber: BucketNumber) = startTimestamp().ms < otherBucketNumber.startTimestamp().ms
 
+  def <=(otherBucketNumber: BucketNumber) = startTimestamp().ms <= otherBucketNumber.startTimestamp().ms
+
   def >(otherBucketNumber: BucketNumber) = startTimestamp().ms > otherBucketNumber.startTimestamp().ms
 
   def -(aNumber: Int): BucketNumber = BucketNumber(number - aNumber, duration)

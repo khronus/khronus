@@ -15,7 +15,7 @@ trait MetricMeasurementStore {
   def storeMetricMeasurements(metricMeasurements: List[MetricMeasurement])
 }
 
-object CassandraMetricMeasurementStore extends MetricMeasurementStore with BucketSupport with MetaSupport with Logging with ConcurrencySupport with MonitoringSupport {
+object CassandraMetricMeasurementStore extends MetricMeasurementStore with BucketSupport with MetaSupport with Logging with ConcurrencySupport with MonitoringSupport with TimeWindowsSupport {
 
   implicit val executionContext: ExecutionContext = executionContext("metric-receiver-worker")
 
@@ -72,7 +72,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
       acc.flatMap { _ ⇒
         val timestamp = measurementsGroup._1
         val bucketNumber = timestamp.toBucketNumber(1 millis)
-        if (!alreadyProcessed(metric, bucketNumber)) {
+        if (!alreadyProcessed(metric, bucketNumber, measurementsGroup._1)) {
           block(bucketNumber, measurementsGroup._2)
         } else {
           Future.successful(())
@@ -95,19 +95,18 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
     okValues
   }
 
-  private def alreadyProcessed(metric: Metric, bucketNumber1millis: BucketNumber) = {
-    val smallWindow = Settings.Histogram.TimeWindows(0)
-    val lastProcessTick = Tick.current(Settings.Histogram.TimeWindows)
-    val bucketNumberSmallWindow = bucketNumber1millis.startTimestamp().alignedTo(smallWindow.duration).toBucketNumber(smallWindow.duration)
+  private def alreadyProcessed(metric: Metric, bucketNumber1millis: BucketNumber, measureTimestamp: Timestamp) = {
+    val lastProcessedBucket = Tick.current(Settings.Histogram.TimeWindows).bucketNumber
+    val measureBucket = bucketNumber1millis.startTimestamp().alignedTo(smallestWindow.duration).toBucketNumber(smallestWindow.duration)
 
-    if (bucketNumberSmallWindow < lastProcessTick.bucketNumber) {
-      log.warn(s"$metric Metric timestamp (${date(bucketNumberSmallWindow.startTimestamp().ms)}}) is older than the last processed tick (${date(lastProcessTick.startTimestamp.ms)}}). Metric value will be ignored!")
+    if (measureBucket <= lastProcessedBucket) {
+      log.warn(s"$metric Measure bucket number [$measureBucket] is less than or equal to the last processed bucket number [$lastProcessedBucket]. Measure timestamp: ${date(measureTimestamp.ms)}. Metric value will be ignored!")
       incrementCounter("mustReprocessMetric")
     } else {
-      //avoid race condition with possible tick execution
+      //avoid race condition with possible tick execution (now is 15:45:58 and in a few seconds a new tick will start at 15:46:00)
       val nextPossibleTick = Tick.current(Settings.Histogram.TimeWindows, System.currentTimeMillis() + 5000L)
-      if (bucketNumberSmallWindow < nextPossibleTick.bucketNumber) {
-        log.warn(s"$metric Metric timestamp (${date(bucketNumberSmallWindow.startTimestamp().ms)}}) is in a possible tick execution bucket number (${date(nextPossibleTick.startTimestamp.ms)}}) . If that the case, the metric value will be ignored!")
+      if (measureBucket <= nextPossibleTick.bucketNumber) {
+        log.warn(s"$metric Measure bucket number [$measureBucket] is in a possible execution status. The next tick corresponds to [${nextPossibleTick.bucketNumber}}]. Measure timestamp: ${date(measureTimestamp.ms)}. If that the case, the metric value will be ignored!")
         incrementCounter("maybeReprocessMetric")
       }
     }
