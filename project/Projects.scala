@@ -4,6 +4,7 @@ import sbt.Defaults.itSettings
 import sbtassembly.Plugin._
 import sbt.Keys._
 import sbt._
+import pl.project13.scala.sbt.SbtJmh._
 
 object Projects extends Build {
 
@@ -40,7 +41,7 @@ object Projects extends Build {
     .settings(Revolver.settings: _*)
     .settings(assemblySettings: _*)
     .settings(libraryDependencies ++=
-    compile(jacksonAfterBurner, jacksonScala, sprayClient, sprayCan, sprayRouting, sprayJson, akkaActor, akkaRemote, akkaCluster, akkaContrib, akkaQuartz, hdrHistogram, cassandraDriver, kryo, scalaLogging, slf4j, logbackClassic, commonsLang, akkaSlf4j) ++
+    compile(jacksonAfterBurner, jacksonScala, sprayClient, sprayCan, sprayRouting, sprayJson, akkaActor, akkaRemote, akkaCluster, akkaContrib, akkaQuartz, hdrHistogram, cassandraDriver, kryo, scalaLogging, slf4j, logbackClassic, commonsLang, akkaSlf4j, lz4) ++
       test(sprayTestKit, mockito, akkaTestKit, multiNodeTestKit, scalaTest, specs2, mockito) ++
       it(scalaTest))
 
@@ -65,6 +66,14 @@ object Projects extends Build {
       test(sprayTestKit, mockito, akkaTestKit, scalaTest, specs2, mockito) ++
       it(scalaTest)
     )
+
+  lazy val khronusJmh = Project("khronus-jmh", file("khronus-jmh"))
+    .dependsOn(khronusCore)
+    .settings(basicSettings: _*)
+    .settings(formatSettings: _*)
+    .settings(noPublishing: _*)
+    .settings(jmhSettings: _*)
+
 
   val noPublishing = Seq(publish :=(), publishLocal :=(), publishArtifact := false)
 }
