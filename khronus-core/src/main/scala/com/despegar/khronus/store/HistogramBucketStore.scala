@@ -59,12 +59,13 @@ class CassandraHistogramBucketStore(session: Session) extends CassandraBucketSto
 object HistogramSerializer {
 
   def serialize(histogram: Histogram): Array[Byte] = {
-    val buffer = ByteBuffer.allocate(histogram.getEstimatedFootprintInBytes)
+    val buffer = SkinnyHistogram.byteBuffersPool.take()
     val bytesEncoded = histogram.encodeIntoCompressedByteBuffer(buffer)
     val bytes = new Array[Byte](bytesEncoded)
     buffer.limit(bytesEncoded)
     buffer.rewind()
     buffer.get(bytes)
+    SkinnyHistogram.byteBuffersPool.release(buffer)
     bytes
   }
 

@@ -152,7 +152,15 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
 }
 
 object TimeWindow extends ConcurrencySupport {
-  implicit val executionContext: ExecutionContext = executionContext("time-window-worker")
+  //implicit val executionContext: ExecutionContext = executionContext("time-window-worker")
+
+  implicit val executionContext: ExecutionContext = sameThreadExecutionContext
+
+  object sameThreadExecutionContext extends ExecutionContext {
+    override def execute(runnable: Runnable): Unit = runnable.run()
+
+    override def reportFailure(cause: Throwable): Unit = {}
+  }
 }
 
 case class CounterTimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true)
@@ -170,4 +178,5 @@ case class HistogramTimeWindow(duration: Duration, previousWindowDuration: Durat
   override def aggregate(bucketNumber: BucketNumber, buckets: Seq[HistogramBucket]): HistogramBucket = new HistogramBucket(bucketNumber, buckets)
 
   override def getSummary(bucket: HistogramBucket): StatisticSummary = bucket.summary
+
 }

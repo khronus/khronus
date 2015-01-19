@@ -20,6 +20,7 @@ import java.io.{ ByteArrayOutputStream, PrintStream }
 import com.despegar.khronus.util.log.Logging
 import com.despegar.khronus.util.{ Measurable, Pool }
 import org.HdrHistogram.{ Histogram, SkinnyHistogram }
+import scala.collection.JavaConverters._
 
 import scala.util.{ Failure, Try }
 
@@ -35,12 +36,11 @@ class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Hi
     val min = histogram.getMinValue
     val max = histogram.getMaxValue
     val count = histogram.getTotalCount
-    val mean = histogram.getMean
-    //HistogramBucket.histogramPool.release(histogram)
+    val mean = p50
     StatisticSummary(timestamp, p50, p80, p90, p95, p99, p999, min, max, count, mean.toLong)
+
   }.recoverWith[StatisticSummary] {
     case e: Exception ⇒
-
       val baos = new ByteArrayOutputStream()
       val printStream = new PrintStream(baos)
       histogram.outputPercentileDistribution(printStream, 1000.0)
@@ -52,16 +52,13 @@ class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Hi
 
 object HistogramBucket extends Measurable {
 
-  /*val histogramPool = Pool[Histogram]("histogramPool", newHistogram _, 4, {
-    _.reset()
-  })
-*/
   implicit def sumHistograms(buckets: Seq[HistogramBucket]): Histogram = measureTime("sumHistograms", "sumHistograms") {
     val histogram = newHistogram
     buckets.foreach(bucket ⇒ histogram.add(bucket.histogram))
     histogram
   }
 
-  def newHistogram = new SkinnyHistogram(3600000000000L, 3)
+  //def newHistogram = new SkinnyHistogram(3600000000000L, 3) //114 years in milliseconds. wtf
+  def newHistogram = new SkinnyHistogram(3600000L, 3) //1 hour in milliseconds
 }
 
