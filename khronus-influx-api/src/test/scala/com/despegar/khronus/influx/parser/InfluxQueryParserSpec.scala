@@ -100,19 +100,20 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
 
     verify(parser.metaStore).searchInSnapshot(regex)
 
-    influxCriteria.projections.size should be(10)
+    influxCriteria.projections.size should be(11)
     val sortedProjections = influxCriteria.projections.sortBy(_.asInstanceOf[Field].name)
 
     verifyField(sortedProjections(0), Functions.Count, None, Some("aliasTimer"))
-    verifyField(sortedProjections(1), Functions.Max, None, Some("aliasTimer"))
-    verifyField(sortedProjections(2), Functions.Mean, None, Some("aliasTimer"))
-    verifyField(sortedProjections(3), Functions.Min, None, Some("aliasTimer"))
-    verifyField(sortedProjections(4), Functions.Percentile50, None, Some("aliasTimer"))
-    verifyField(sortedProjections(5), Functions.Percentile80, None, Some("aliasTimer"))
-    verifyField(sortedProjections(6), Functions.Percentile90, None, Some("aliasTimer"))
-    verifyField(sortedProjections(7), Functions.Percentile95, None, Some("aliasTimer"))
-    verifyField(sortedProjections(8), Functions.Percentile99, None, Some("aliasTimer"))
-    verifyField(sortedProjections(9), Functions.Percentile999, None, Some("aliasTimer"))
+    verifyField(sortedProjections(1), Functions.Cpm, None, Some("aliasTimer"))
+    verifyField(sortedProjections(2), Functions.Max, None, Some("aliasTimer"))
+    verifyField(sortedProjections(3), Functions.Mean, None, Some("aliasTimer"))
+    verifyField(sortedProjections(4), Functions.Min, None, Some("aliasTimer"))
+    verifyField(sortedProjections(5), Functions.Percentile50, None, Some("aliasTimer"))
+    verifyField(sortedProjections(6), Functions.Percentile80, None, Some("aliasTimer"))
+    verifyField(sortedProjections(7), Functions.Percentile90, None, Some("aliasTimer"))
+    verifyField(sortedProjections(8), Functions.Percentile95, None, Some("aliasTimer"))
+    verifyField(sortedProjections(9), Functions.Percentile99, None, Some("aliasTimer"))
+    verifyField(sortedProjections(10), Functions.Percentile999, None, Some("aliasTimer"))
 
     influxCriteria.sources.size should be(1)
     verifySource(influxCriteria.sources(0), metricName, Some("aliasTimer"))
@@ -134,8 +135,9 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
 
     verify(parser.metaStore).searchInSnapshot(regex)
 
-    influxCriteria.projections.size should be(1)
+    influxCriteria.projections.size should be(2)
     verifyField(influxCriteria.projections(0), Functions.Count, None, Some("aliasCounter"))
+    verifyField(influxCriteria.projections(1), Functions.Cpm, None, Some("aliasCounter"))
 
     influxCriteria.sources.size should be(1)
     verifySource(influxCriteria.sources(0), metricName, Some("aliasCounter"))
@@ -220,6 +222,22 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
     verifyField(projections(0), Functions.Percentile80, None, Some(s"$metricName"))
     verifyField(projections(1), Functions.Percentile99, None, Some(s"$metricName"))
     verifyField(projections(2), Functions.Percentile50, None, Some(s"$metricName"))
+  }
+
+  test("Counts per minute function should be parsed ok") {
+    val parser = buildParser
+    val regex = parser.getCaseInsensitiveRegex(metricName)
+
+    when(parser.metaStore.searchInSnapshot(regex)).thenReturn(Future { Seq(Metric(metricName, MetricType.Timer)) })
+
+    val queryPercentiles = s"""select cpm from "$metricName" group by time(5m)"""
+    val projections = await(parser.parse(queryPercentiles)).projections
+
+    verify(parser.metaStore).searchInSnapshot(regex)
+
+    projections.size should be(1)
+
+    verifyField(projections(0), Functions.Cpm, None, Some(s"$metricName"))
   }
 
   test("Projecting operations from single metric should be parsed ok") {
@@ -326,9 +344,11 @@ class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with Mo
 
     verify(parser.metaStore).searchInSnapshot(regex)
 
-    influxCriteria.projections.size should be(2)
+    influxCriteria.projections.size should be(4)
     verifyField(influxCriteria.projections(0), Functions.Count, None, Some(counter1))
-    verifyField(influxCriteria.projections(1), Functions.Count, None, Some(counter2))
+    verifyField(influxCriteria.projections(1), Functions.Cpm, None, Some(counter1))
+    verifyField(influxCriteria.projections(2), Functions.Count, None, Some(counter2))
+    verifyField(influxCriteria.projections(3), Functions.Cpm, None, Some(counter2))
 
     influxCriteria.sources.size should be(2)
     verifySource(influxCriteria.sources(0), counter1, None)

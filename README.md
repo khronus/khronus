@@ -164,6 +164,15 @@ As with any query language, you can select the fields you want to see in the res
     select percentiles from "metricTimer" where time > now()-1h group by time(5m)
 	select percentiles(50 80 99) from "metricTimer" where time > now()-6h group by time(5m)
 ```
+
+  * **Counts per minute function:**
+	 When the query is not grouping by 1m, you can use the ```sql cpm``` function to get the average count per minute. For example:
+
+```sql
+    select cpm from "metricTimer" where time > now()-1h group by time(5m)
+    select cpm from "metricTimer" where time > now()-1h group by time(1h)
+```
+     The first query returns counts every five minutes / 5 and the second one returns counts every 1 hour / 60, because 5 and 60 are the time windows that are grouping data, expressed in minutes. 
 	
   * **A number:** In this case an alias is required and if you pass a fractional number, it will be rounded.
 
@@ -254,10 +263,10 @@ If you don't want this behavior you can use the 'force' keyword. But take in acc
 ```
 
 #### Other optional clauses
-  * limit number
-  * order [asc|desc] 
   * fill(doubleValue): Complete the time series with this number when there is no value
   * scale(doubleValue): Multiply all values by this factor
+  * limit number
+  * order [asc|desc] 
 
 ```sql
     select a.count as counter , cc.count, 3 as miConstant, cc.count + a.count as sum from "metricTimer" as a, "metricCounter" as cc where time >= now() - 10m group by time(1h) fill(-1) scale(0.1) limit 100 order asc

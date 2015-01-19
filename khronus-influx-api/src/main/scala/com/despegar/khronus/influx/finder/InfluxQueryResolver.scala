@@ -172,7 +172,7 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
 
   private def generateSeq(simpleProjection: SimpleProjection, timeRangeMillis: TimeRangeMillis, summariesMap: Map[String, Future[Map[Long, Summary]]], defaultValue: Option[Double]): Future[Map[Long, Double]] =
     simpleProjection match {
-      case field: Field   ⇒ generateSummarySeq(timeRangeMillis, field.name, summariesMap(field.tableId.get), defaultValue)
+      case field: Field   ⇒ generateSummarySeq(timeRangeMillis, Functions.withName(field.name), summariesMap(field.tableId.get), defaultValue)
       case number: Number ⇒ generateScalarSeq(timeRangeMillis, number.value)
       case _              ⇒ throw new UnsupportedOperationException("Nested operations are not supported yet")
     }
@@ -181,11 +181,14 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
     Future { (timeRangeMillis.from to timeRangeMillis.to by timeRangeMillis.timeWindow).map(ts ⇒ ts -> scalar).toMap }
   }
 
-  private def generateSummarySeq(timeRangeMillis: TimeRangeMillis, function: String, summariesByTs: Future[Map[Long, Summary]], defaultValue: Option[Double]): Future[Map[Long, Double]] = {
+  private def generateSummarySeq(timeRangeMillis: TimeRangeMillis, function: Functions.Function, summariesByTs: Future[Map[Long, Summary]], defaultValue: Option[Double]): Future[Map[Long, Double]] = {
     summariesByTs.map(summariesMap ⇒ {
       (timeRangeMillis.from to timeRangeMillis.to by timeRangeMillis.timeWindow).foldLeft(Map.empty[Long, Double])((acc, currentTimestamp) ⇒
         if (summariesMap.get(currentTimestamp).isDefined) {
-          acc + (currentTimestamp -> summariesMap(currentTimestamp).get(function).toDouble)
+          function match {
+            case metaFunction: Functions.MetaFunction ⇒ acc + (currentTimestamp -> metaFunction(summariesMap(currentTimestamp), timeRangeMillis.timeWindow))
+            case simpleFunction: Functions.Function   ⇒ acc + (currentTimestamp -> simpleFunction(summariesMap(currentTimestamp)))
+          }
         } else if (defaultValue.isDefined) {
           acc + (currentTimestamp -> defaultValue.get)
         } else {

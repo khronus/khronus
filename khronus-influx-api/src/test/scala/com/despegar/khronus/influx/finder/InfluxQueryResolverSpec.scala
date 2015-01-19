@@ -106,8 +106,9 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     verify(metaStore).searchInSnapshot(regex)
     verify(getCounterSummaryStore).readAll(metricName, FiniteDuration(1, TimeUnit.HOURS), Slice(from, to), true, Int.MaxValue)
 
-    results.size should be(1)
+    results.size should be(2)
     assertInfluxSeries(results(0), metricName, Functions.Count.name, summary.timestamp.ms, summary.count)
+    assertInfluxSeries(results(1), metricName, Functions.Cpm.name, summary.timestamp.ms, BigDecimal(summary.count.toDouble / 60).setScale(4, BigDecimal.RoundingMode.HALF_UP).toDouble)
   }
 
   test("Select * for a valid histogram metric returns influx series ok") {
@@ -130,20 +131,21 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     verify(getStatisticSummaryStore).readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), false, 10)
 
     // Select * makes 1 series for each function
-    results.size should be(10)
+    results.size should be(11)
 
     val sortedResults = results.sortBy(_.columns(1))
 
     assertInfluxSeries(sortedResults(0), metricName, Functions.Count.name, summary.timestamp.ms, summary.count)
-    assertInfluxSeries(sortedResults(1), metricName, Functions.Max.name, summary.timestamp.ms, summary.max)
-    assertInfluxSeries(sortedResults(2), metricName, Functions.Mean.name, summary.timestamp.ms, summary.mean)
-    assertInfluxSeries(sortedResults(3), metricName, Functions.Min.name, summary.timestamp.ms, summary.min)
-    assertInfluxSeries(sortedResults(4), metricName, Functions.Percentile50.name, summary.timestamp.ms, summary.p50)
-    assertInfluxSeries(sortedResults(5), metricName, Functions.Percentile80.name, summary.timestamp.ms, summary.p80)
-    assertInfluxSeries(sortedResults(6), metricName, Functions.Percentile90.name, summary.timestamp.ms, summary.p90)
-    assertInfluxSeries(sortedResults(7), metricName, Functions.Percentile95.name, summary.timestamp.ms, summary.p95)
-    assertInfluxSeries(sortedResults(8), metricName, Functions.Percentile99.name, summary.timestamp.ms, summary.p99)
-    assertInfluxSeries(sortedResults(9), metricName, Functions.Percentile999.name, summary.timestamp.ms, summary.p999)
+    assertInfluxSeries(sortedResults(1), metricName, Functions.Cpm.name, summary.timestamp.ms, BigDecimal(summary.count.toDouble / 5).setScale(4, BigDecimal.RoundingMode.HALF_UP).toDouble)
+    assertInfluxSeries(sortedResults(2), metricName, Functions.Max.name, summary.timestamp.ms, summary.max)
+    assertInfluxSeries(sortedResults(3), metricName, Functions.Mean.name, summary.timestamp.ms, summary.mean)
+    assertInfluxSeries(sortedResults(4), metricName, Functions.Min.name, summary.timestamp.ms, summary.min)
+    assertInfluxSeries(sortedResults(5), metricName, Functions.Percentile50.name, summary.timestamp.ms, summary.p50)
+    assertInfluxSeries(sortedResults(6), metricName, Functions.Percentile80.name, summary.timestamp.ms, summary.p80)
+    assertInfluxSeries(sortedResults(7), metricName, Functions.Percentile90.name, summary.timestamp.ms, summary.p90)
+    assertInfluxSeries(sortedResults(8), metricName, Functions.Percentile95.name, summary.timestamp.ms, summary.p95)
+    assertInfluxSeries(sortedResults(9), metricName, Functions.Percentile99.name, summary.timestamp.ms, summary.p99)
+    assertInfluxSeries(sortedResults(10), metricName, Functions.Percentile999.name, summary.timestamp.ms, summary.p999)
   }
 
   test("Select with regex matching some timers returns influx series ok") {

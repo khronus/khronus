@@ -16,6 +16,8 @@
 
 package com.despegar.khronus.model
 
+import scala.concurrent.duration._
+
 case class StatisticSummary(timestamp: Timestamp, p50: Long, p80: Long, p90: Long, p95: Long, p99: Long, p999: Long, min: Long, max: Long, count: Long, mean: Long) extends Summary {
   override def toString = s"StatisticSummary(timestamp=${timestamp.ms},count=$count,...)"
 }
@@ -24,6 +26,15 @@ object Functions {
 
   sealed trait Function {
     def name: String
+
+    def apply(summary: Summary): Double = {
+      summary.get(name).toDouble
+    }
+  }
+
+  sealed trait MetaFunction extends Function {
+    def underlyingFunction: Function
+    def apply(summary: Summary, timeWindowInMillis: Long): Double
   }
 
   sealed trait Percentile extends Function {
@@ -78,17 +89,28 @@ object Functions {
     val value = 999
   }
 
+  case object Cpm extends Functions.MetaFunction {
+    val name = "cpm"
+    val underlyingFunction = Count
+
+    override def apply(summary: Summary, timeWindowInMillis: Long): Double = {
+      val count = summary.get(underlyingFunction.name)
+      val minutesOnWindow = timeWindowInMillis.toDouble / (1 minutes).toMillis
+      count / minutesOnWindow
+    }
+  }
+
   val allPercentiles: Seq[Percentile] = Seq(Percentile50, Percentile80, Percentile90, Percentile95, Percentile99, Percentile999)
   val allPercentileNames: Seq[String] = allPercentiles.map(_.name)
   val allPercentilesValues: Seq[Int] = allPercentiles.map(_.value)
 
   def percentileByValue(i: Int): Function = allPercentiles.find(_.value == i).get
 
-  val all: Seq[Function] = allPercentiles ++ Seq(Count, Min, Max, Mean)
+  val all: Seq[Function] = allPercentiles ++ Seq(Count, Min, Max, Mean, Cpm)
   val allNames: Seq[String] = all.map(_.name)
 
   val allHistogramFunctions: Seq[String] = allNames
-  val allCounterFunctions: Seq[String] = Seq(Count.name)
+  val allCounterFunctions: Seq[String] = Seq(Count.name, Cpm.name)
 
   def withName(s: String): Function = all.find(_.name == s).get
 
