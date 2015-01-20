@@ -44,6 +44,11 @@ class SkinnyHistogram(lowestValue: Long, maxValue: Long, precision: Int) extends
   }
 
   override def add(histogram: AbstractHistogram): Unit = {
+    if (!histogram.isInstanceOf[SkinnyHistogram]) {
+      super.add(histogram)
+      return
+    }
+
     val otherSkinny = histogram.asInstanceOf[SkinnyHistogram]
 
     var observedOtherTotalCount: Long = 0
@@ -65,25 +70,17 @@ class SkinnyHistogram(lowestValue: Long, maxValue: Long, precision: Int) extends
   }
 
   override def encodeIntoCompressedByteBuffer(targetBuffer: ByteBuffer): Int = {
+    val uncompressedByteBuffer = byteBuffersPool.take()
+    val uncompressedLength = this.encodeIntoByteBuffer(uncompressedByteBuffer)
 
-    val intermediateUncompressedByteBuffer = byteBuffersPool.take()
-    val uncompressedLength = this.encodeIntoByteBuffer(intermediateUncompressedByteBuffer)
+    val compressedLength = compressor.compress(uncompressedByteBuffer, 0, uncompressedLength, targetBuffer, headerSize)
+    byteBuffersPool.release(uncompressedByteBuffer)
 
-    val compressedDataLength = lz4Factory.fastCompressor().compress(intermediateUncompressedByteBuffer.array(), 0, uncompressedLength, targetBuffer.array(), 0)
-
-    targetBuffer.putInt(encodingCompressedCookieBase)
-    //targetBuffer.putInt(0)
+    targetBuffer.putInt(compressor.version)
+    targetBuffer.putInt(compressedLength)
     targetBuffer.putInt(uncompressedLength)
-    //val compressor = deflatersPool.take()
-    //compressor.setInput(intermediateUncompressedByteBuffer.array(), 0, uncompressedLength)
-    //compressor.finish()
-    //val targetArray = targetBuffer.array()
-    //val compressedDataLength = compressor.deflate(targetArray, 12, targetArray.length - 12)
-    byteBuffersPool.release(intermediateUncompressedByteBuffer)
-    //deflatersPool.release(compressor)
 
-    targetBuffer.putInt(4, compressedDataLength)
-    compressedDataLength + 12
+    headerSize + compressedLength
   }
 
   override def encodeIntoByteBuffer(buffer: ByteBuffer): Int = {
@@ -132,37 +129,31 @@ class SkinnyHistogram(lowestValue: Long, maxValue: Long, precision: Int) extends
 }
 
 object SkinnyHistogram {
-  private val lz4Factory = LZ4Factory.fastestInstance()
-  private val encodingCompressedCookieBase: Int = 130
-  private val defaultCompressionLevel = -1
   private val neededByteBufferCapacity = HistogramBucket.newHistogram.getNeededByteBufferCapacity
-  private val inflatersPool = Pool[Inflater]("inflatersPool", 4, () ⇒ new Inflater(), {
-    _.reset()
-  })
-  private val deflatersPool = Pool[Deflater]("deflatersPool", 4, () ⇒ new Deflater(defaultCompressionLevel), {
-    _.reset()
-  })
+
+  private val headerSize = 12
+  private val compressor: Compressor = DeflaterCompressor
+  private val compressors = Map(DeflaterCompressor.version -> DeflaterCompressor, LZ4Compressor.version -> LZ4Compressor)
 
   val byteBuffersPool = Pool[ByteBuffer]("byteBuffersPool", 4, () ⇒ ByteBuffer.allocate(neededByteBufferCapacity), {
     _.clear()
   })
 
   def decodeFromCompressedByteBuffer(buffer: ByteBuffer, minBarForHighestTrackableValue: Long): Histogram = {
-    val cookie = buffer.getInt()
-    if (cookie != encodingCompressedCookieBase) {
-      buffer.rewind()
-      return Histogram.decodeFromCompressedByteBuffer(buffer, minBarForHighestTrackableValue)
+    val version = buffer.getInt()
+
+    compressors.get(version) match {
+      case None ⇒ { buffer.rewind(); Histogram.decodeFromCompressedByteBuffer(buffer, minBarForHighestTrackableValue) }
+      case Some(selectedCompressor) ⇒ {
+        val compressedLength = buffer.getInt()
+        val uncompressedLength = buffer.getInt()
+
+        val decompressedBuffer = ByteBuffer.allocate(uncompressedLength);
+        selectedCompressor.decompress(buffer, headerSize, compressedLength, decompressedBuffer)
+
+        decodeFromByteBuffer(decompressedBuffer)
+      }
     }
-    val lengthOfCompressedContents = buffer.getInt()
-    val lengthOfUnCompressedContents = buffer.getInt()
-
-    val decompressor = inflatersPool.take()
-    decompressor.setInput(buffer.array(), 12, lengthOfCompressedContents);
-    val decompressedBuffer = ByteBuffer.allocate(lengthOfUnCompressedContents);
-    decompressor.inflate(decompressedBuffer.array());
-    inflatersPool.release(decompressor)
-
-    return decodeFromByteBuffer(decompressedBuffer)
   }
 
   def decodeFromByteBuffer(buffer: ByteBuffer): Histogram = {
@@ -176,7 +167,7 @@ object SkinnyHistogram {
     val totalCount = input.readVarLong(true)
     val idxArrayLength = input.readVarInt(true)
 
-    val skinnyHistogram = HistogramBucket.newHistogram
+    val skinnyHistogram = new SkinnyHistogram(highest, significantValueDigits)
     skinnyHistogram.setIntegerToDoubleValueConversionRatio(integerToDoubleValueConversionRatio)
     skinnyHistogram.resetNormalizingIndexOffset(normalizingIndexOffset)
     var lastIdx = 0
@@ -208,4 +199,60 @@ object SkinnyHistogram {
     skinnyHistogram
   }
 
+}
+
+trait Compressor {
+
+  def version: Int
+  def compress(inputBuffer: ByteBuffer, inputOffset: Int, inputLength: Int, targetBuffer: ByteBuffer, targetOffset: Int): Int
+  def decompress(inputBuffer: ByteBuffer, inputOffset: Int, inputLength: Int, targetBuffer: ByteBuffer)
+
+}
+
+object DeflaterCompressor extends Compressor {
+
+  private val defaultCompressionLevel = -1
+  private val encodingCompressedCookieBase: Int = 130
+
+  private val inflatersPool = Pool[Inflater]("inflatersPool", 4, () ⇒ new Inflater(), {
+    _.reset()
+  })
+  private val deflatersPool = Pool[Deflater]("deflatersPool", 4, () ⇒ new Deflater(defaultCompressionLevel), {
+    _.reset()
+  })
+
+  override def version = encodingCompressedCookieBase
+
+  override def compress(inputBuffer: ByteBuffer, inputOffset: Int, inputLength: Int, targetBuffer: ByteBuffer, targetOffset: Int): Int = {
+    val deflater = deflatersPool.take()
+    deflater.setInput(inputBuffer.array(), inputOffset, inputLength)
+    deflater.finish()
+    val targetArray = targetBuffer.array()
+    val compressedLength = deflater.deflate(targetArray, targetOffset, targetArray.length - targetOffset)
+    deflatersPool.release(deflater)
+    compressedLength
+  }
+
+  override def decompress(inputBuffer: ByteBuffer, inputOffset: Int, inputLength: Int, targetBuffer: ByteBuffer): Unit = {
+    val inflater = inflatersPool.take()
+
+    inflater.setInput(inputBuffer.array(), inputOffset, inputLength)
+    inflater.inflate(targetBuffer.array())
+
+    inflatersPool.release(inflater)
+  }
+}
+
+object LZ4Compressor extends Compressor {
+  private val lz4Factory = LZ4Factory.fastestInstance()
+
+  val version: Int = 230
+
+  override def compress(inputBuffer: ByteBuffer, inputOffset: Int, inputLength: Int, targetBuffer: ByteBuffer, targetOffset: Int): Int = {
+    lz4Factory.fastCompressor().compress(inputBuffer.array(), inputOffset, inputLength, targetBuffer.array(), targetOffset)
+  }
+
+  override def decompress(inputBuffer: ByteBuffer, inputOffset: Int, inputLength: Int, targetBuffer: ByteBuffer): Unit = {
+    lz4Factory.fastDecompressor().decompress(inputBuffer.array(), inputOffset, targetBuffer.array(), 0, targetBuffer.array().length)
+  }
 }
