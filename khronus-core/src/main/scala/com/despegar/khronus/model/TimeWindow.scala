@@ -55,7 +55,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
     //store the summaries
     val storeFuture = statisticsSummaries flatMap (summaries ⇒ summaryStore.store(metric, duration, summaries))
 
-    storeFuture map { _ ⇒ bucketCache.markProcessedTick(metric, tick) }
+    storeFuture.map { a ⇒ a }(TimeWindowChain.timeWindowExecutionContext) map { _ ⇒ bucketCache.markProcessedTick(metric, tick) }
   }
 
   protected def getSummary(bucket: T): U
@@ -63,7 +63,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
   private def storeTemporalBuckets(resultingBuckets: Future[Seq[T]], lastProcessed: Future[BucketNumber], tick: Tick, metric: Metric) = {
     if (shouldStoreTemporalHistograms) measureFutureTime("storeTemporalBuckets", metric, duration) {
       resultingBuckets flatMap { buckets ⇒
-        bucketStore.store(metric, duration, buckets) andThen {
+        bucketStore.store(metric, duration, buckets).map { a ⇒ a }(TimeWindowChain.timeWindowExecutionContext) andThen {
           case Success(_) ⇒ {
             lastProcessed.map { lastProcessedBucketNumber ⇒
               bucketCache.cacheBuckets(metric, lastProcessedBucketNumber ~ duration, tick.bucketNumber ~ duration, buckets)
@@ -102,7 +102,8 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
       log.debug(s"${p(metric, duration)} - Slice [$fromBucketNumber, $toBucketNumber)")
       //TODO: refactor me
       bucketCache.take[T](metric, fromBucketNumber, toBucketNumber).map { buckets ⇒ Future.successful(buckets) }.getOrElse {
-        bucketStore.slice(metric, fromBucketNumber.startTimestamp(), toBucketNumber.startTimestamp(), previousWindowDuration) andThen {
+        val futureSlice = bucketStore.slice(metric, fromBucketNumber.startTimestamp(), toBucketNumber.startTimestamp(), previousWindowDuration)
+        futureSlice.map { a ⇒ a }(TimeWindowChain.timeWindowExecutionContext).andThen {
           case Success(previousBuckets) ⇒
             if (previousBuckets.isEmpty) {
               recordTime(formatLabel("emptySliceTime", metric, duration), System.currentTimeMillis() - start)
