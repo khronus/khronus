@@ -20,7 +20,7 @@ import com.despegar.khronus.model.CounterBucket._
 import com.despegar.khronus.model.HistogramBucket._
 import com.despegar.khronus.store._
 import com.despegar.khronus.util.log.Logging
-import com.despegar.khronus.util.{ ConcurrencySupport, Measurable }
+import com.despegar.khronus.util.{ SameThreadExecutionContext, ConcurrencySupport, Measurable }
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future }
@@ -154,13 +154,8 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
 object TimeWindow extends ConcurrencySupport {
   //implicit val executionContext: ExecutionContext = executionContext("time-window-worker")
 
-  implicit val executionContext: ExecutionContext = sameThreadExecutionContext
+  implicit val executionContext: ExecutionContext = SameThreadExecutionContext
 
-  object sameThreadExecutionContext extends ExecutionContext {
-    override def execute(runnable: Runnable): Unit = runnable.run()
-
-    override def reportFailure(cause: Throwable): Unit = {}
-  }
 }
 
 case class CounterTimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true)

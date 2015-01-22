@@ -18,12 +18,16 @@ package com.despegar.khronus.model
 
 import com.despegar.khronus.store.MetaSupport
 import com.despegar.khronus.util.log.Logging
+import com.despegar.khronus.util.{ ConcurrencySupport, SameThreadExecutionContext }
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Success
 
 class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport {
+
+  import com.despegar.khronus.model.TimeWindowChain._
+
+  implicit val executionContext = SameThreadExecutionContext
 
   def mustExecute(timeWindow: TimeWindow[_, _], metric: Metric, tick: Tick): Boolean = {
     if (tick.mustExecute(timeWindow)) {
@@ -34,14 +38,14 @@ class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport {
     }
   }
 
-  def process(metrics: Seq[Metric]): Future[Unit] = {
+  def process(metrics: Seq[Metric]): Future[Unit] = Future {
     val tick = currentTick()
     metrics.foldLeft(Future.successful(())) { (previousMetricFuture, metric) ⇒
       previousMetricFuture.flatMap { _ ⇒
         process(metric, tick)
       }
     }
-  }
+  }(timeWindowExecutionContext).flatMap(_ ⇒ Future.successful(()))
 
   def currentTick(): Tick = {
     Tick()
@@ -58,5 +62,10 @@ class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport {
     }
 
   }
+
+}
+
+object TimeWindowChain extends ConcurrencySupport {
+  val timeWindowExecutionContext: ExecutionContext = executionContext("time-window-worker")
 
 }
