@@ -2,7 +2,7 @@ package com.despegar.khronus.jmh
 
 import ch.qos.logback.classic.Level
 import com.despegar.khronus.model._
-import com.despegar.khronus.store.{ BucketStore, MetaStore, Slice, SummaryStore }
+import com.despegar.khronus.store._
 import org.openjdk.jmh.annotations.{ Benchmark, Scope, State }
 import org.slf4j.LoggerFactory
 
@@ -14,6 +14,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class HistogramTimeWindowBenchmark {
 
   val histogram = HistogramBucket.newHistogram
+
   val latencies = Seq(1623, 1752, 3215, 1437, 154, 1358, 625, 217, 698, 6862, 1167, 1948, 1215, 665, 1372,
     889, 767, 2135, 3163, 573, 1839, 922, 475, 1233, 1013, 434, 140, 684, 400, 879,
     621, 1167, 1518, 534, 420, 9, 906, 1060, 646, 1181, 661, 2661, 844, 1132, 1169,
@@ -128,6 +129,10 @@ class HistogramTimeWindowBenchmark {
     histogram.recordValue(latency)
   }
 
+  val serialized = HistogramSerializer.serialize(histogram)
+  val deserializedHisto1 = HistogramSerializer.deserialize(serialized)
+  val deserializedHisto2 = HistogramSerializer.deserialize(serialized)
+
   val timeWindow30s = new HistogramTimeWindow(30 seconds, 1 millis) {
     override val bucketStore: BucketStore[HistogramBucket] = new BucketStore[HistogramBucket] {
 
@@ -136,8 +141,8 @@ class HistogramTimeWindowBenchmark {
       /** Slice over the buckets of the given 'metric' and 'windowDuration' from a Timestamp (inclusive) to a Timestamp (exclusive) */
       override def slice(metric: Metric, from: Timestamp, to: Timestamp, windowDuration: Duration): Future[Seq[(Timestamp, () ⇒ HistogramBucket)]] = {
         Future.successful {
-          Seq((Timestamp(1000), () ⇒ new HistogramBucket(BucketNumber(1000, 1 millis), histogram)),
-            (Timestamp(2000), () ⇒ new HistogramBucket(BucketNumber(2000, 1 millis), histogram)))
+          Seq((Timestamp(1000), () ⇒ new HistogramBucket(BucketNumber(1000, 1 millis), deserializedHisto1)),
+            (Timestamp(2000), () ⇒ new HistogramBucket(BucketNumber(2000, 1 millis), deserializedHisto2)))
         }
       }
 

@@ -96,7 +96,7 @@ object Settings {
     val BucketFetchSize = histogramConfig.getInt("bucket-fetch-size")
     val SummaryLimit = histogramConfig.getInt("summary-limit")
     val SummaryFetchSize = histogramConfig.getInt("summary-fetch-size")
-
+    val Compressor = histogramConfig.getString("compressor")
   }
 
   object Counter {

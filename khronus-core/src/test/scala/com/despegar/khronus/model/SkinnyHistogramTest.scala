@@ -3,9 +3,10 @@ package com.despegar.khronus.model
 import java.nio.ByteBuffer
 import org.HdrHistogram.{ SkinnyHistogram, Histogram }
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{ FunSuite, Matchers }
+import org.scalatest.{ Ignore, FunSuite, Matchers }
 import com.despegar.khronus.util.log.Logging
 
+@Ignore
 class SkinnyHistogramTest extends FunSuite with MockitoSugar with Matchers with Logging {
 
   test("serialization round-trip") {

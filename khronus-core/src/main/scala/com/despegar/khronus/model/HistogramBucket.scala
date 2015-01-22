@@ -17,27 +17,37 @@ package com.despegar.khronus.model
 
 import java.io.{ ByteArrayOutputStream, PrintStream }
 
+import com.despegar.khronus.util.Measurable
 import com.despegar.khronus.util.log.Logging
-import com.despegar.khronus.util.{ Measurable, Pool }
 import org.HdrHistogram.{ Histogram, SkinnyHistogram }
-import scala.collection.JavaConverters._
 
 import scala.util.{ Failure, Try }
 
-class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Histogram) extends Bucket(bucketNumber) with Logging {
+class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Histogram) extends Bucket(bucketNumber) {
+
+  import com.despegar.khronus.model.HistogramBucket._
 
   override def summary: StatisticSummary = Try {
-    val p50 = histogram.getValueAtPercentile(50)
-    val p80 = histogram.getValueAtPercentile(80)
-    val p90 = histogram.getValueAtPercentile(90)
-    val p95 = histogram.getValueAtPercentile(95)
-    val p99 = histogram.getValueAtPercentile(99)
-    val p999 = histogram.getValueAtPercentile(99.9)
-    val min = histogram.getMinValue
-    val max = histogram.getMaxValue
-    val count = histogram.getTotalCount
-    val mean = p50
-    StatisticSummary(timestamp, p50, p80, p90, p95, p99, p999, min, max, count, mean.toLong)
+    if (histogram.isInstanceOf[SkinnyHistogram]) {
+      val (p50, p80, p90, p95, p99, p999) = histogram.asInstanceOf[SkinnyHistogram].getPercentiles(50, 80, 90, 95, 99, 99.9)
+      val min = histogram.getMinValue
+      val max = histogram.getMaxValue
+      val count = histogram.getTotalCount
+      val mean = p50
+      StatisticSummary(timestamp, p50, p80, p90, p95, p99, p999, min, max, count, mean.toLong)
+    } else {
+      val p50 = histogram.getValueAtPercentile(50)
+      val p80 = histogram.getValueAtPercentile(80)
+      val p90 = histogram.getValueAtPercentile(90)
+      val p95 = histogram.getValueAtPercentile(95)
+      val p99 = histogram.getValueAtPercentile(99)
+      val p999 = histogram.getValueAtPercentile(99.9)
+      val min = histogram.getMinValue
+      val max = histogram.getMaxValue
+      val count = histogram.getTotalCount
+      val mean = p50
+      StatisticSummary(timestamp, p50, p80, p90, p95, p99, p999, min, max, count, mean.toLong)
+    }
 
   }.recoverWith[StatisticSummary] {
     case e: Exception ⇒
@@ -50,15 +60,26 @@ class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Hi
   }.get
 }
 
-object HistogramBucket extends Measurable {
+object HistogramBucket extends Measurable with Logging {
+
+  //114 years in milliseconds. wtf.  (3600000L is 1 hour in milliseconds)
+  val histogramMaxValue = 3600000000000L
+
+  //val histogramMaxValue = 36000000L
+
+  val histogramPrecision = 3
 
   implicit def sumHistograms(buckets: Seq[HistogramBucket]): Histogram = measureTime("sumHistograms", "sumHistograms") {
     val histogram = newHistogram
-    buckets.foreach(bucket ⇒ histogram.add(bucket.histogram))
+    if (buckets.length == 2) {
+      histogram.add(buckets(0).histogram)
+      histogram.add(buckets(1).histogram)
+    } else {
+      buckets.foreach(bucket ⇒ histogram.add(bucket.histogram))
+    }
     histogram
   }
 
-  //def newHistogram = new SkinnyHistogram(3600000000000L, 3) //114 years in milliseconds. wtf
-  def newHistogram = new SkinnyHistogram(3600000L, 3) //1 hour in milliseconds
+  def newHistogram = new SkinnyHistogram(histogramMaxValue, histogramPrecision)
 }
 

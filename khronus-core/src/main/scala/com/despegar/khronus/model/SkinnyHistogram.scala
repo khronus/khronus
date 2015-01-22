@@ -4,57 +4,45 @@ import java.nio.ByteBuffer
 import java.util.zip.{ Deflater, Inflater }
 
 import com.despegar.khronus.model.HistogramBucket
-import com.despegar.khronus.util.Pool
+import com.despegar.khronus.util.{ Pool, Settings }
 import com.esotericsoftware.kryo.io.{ Input, Output }
 import net.jpountz.lz4.LZ4Factory
 
-class SkinnyHistogram(lowestValue: Long, maxValue: Long, precision: Int) extends Histogram(lowestValue, maxValue, precision) {
+import scala.collection.mutable
+
+class SkinnyHistogram(lowestValue: Long, maximumValue: Long, precision: Int) extends Histogram(lowestValue, maximumValue, precision) {
+
+  import org.HdrHistogram.SkinnyHistogram._
 
   override def getCountAtIndex(index: Int): Long = {
     counts(index)
   }
-
-  def getPercentiles(percentiles: Seq[Double]): Seq[Long] = {
-    val countAtPercentiles = percentiles.map { percentile ⇒
-      val requestedPercentile = Math.min(percentile, 100.0)
-      val countAtPercentile: Long = Math.max((((requestedPercentile / 100.0) * getTotalCount) + 0.5).toLong, 1)
-      countAtPercentile
-    }
-    val percentilesLength = percentiles.length
-    val output = Array.fill(percentiles.length)(0L)
-    var idx = 0
-    var totalToCurrentIndex: Long = 0
-    var percentileIdx = 0
-    while (idx < countsArrayLength && percentileIdx < percentilesLength) {
-      totalToCurrentIndex += getCountAtIndex(idx)
-      while (percentileIdx < percentilesLength && totalToCurrentIndex >= countAtPercentiles(percentileIdx)) {
-        val valueAtIndex: Long = valueFromIndex(idx)
-        output(percentileIdx) = highestEquivalentValue(valueAtIndex)
-        percentileIdx += 1
-      }
-      idx += 1
-    }
-    output.toSeq
-  }
-
-  import org.HdrHistogram.SkinnyHistogram._
 
   def this(maxValue: Long, precision: Int) {
     this(1L, maxValue, precision)
   }
 
   override def add(histogram: AbstractHistogram): Unit = {
-    if (!histogram.isInstanceOf[SkinnyHistogram]) {
-      super.add(histogram)
+    /**
+     * if (!histogram.isInstanceOf[SkinnyHistogram] || histogram.lowestDiscernibleValue != lowestValue ||
+     * histogram.highestTrackableValue != maximumValue || histogram.numberOfSignificantValueDigits != precision) {
+     * super.add(histogram)
+     * return
+     * }
+     */
+    if (histogram.isInstanceOf[LightSkinnyHistogram]) {
+      histogram.asInstanceOf[LightSkinnyHistogram].addHere(this)
       return
     }
 
-    val otherSkinny = histogram.asInstanceOf[SkinnyHistogram]
+    val otherSkinny = histogram
 
     var observedOtherTotalCount: Long = 0
 
     var idx: Int = 0
-    while (idx < otherSkinny.countsArrayLength && observedOtherTotalCount < otherSkinny.getTotalCount) {
+    val length = otherSkinny.countsArrayLength
+    val totalCount = otherSkinny.getTotalCount
+    while (observedOtherTotalCount < totalCount && idx < length) {
 
       val otherCount: Long = otherSkinny.getCountAtIndex(idx)
       if (otherCount > 0) {
@@ -67,6 +55,50 @@ class SkinnyHistogram(lowestValue: Long, maxValue: Long, precision: Int) extends
     setTotalCount(getTotalCount + observedOtherTotalCount)
     updatedMaxValue(Math.max(getMaxValue, otherSkinny.getMaxValue))
     updateMinNonZeroValue(Math.min(getMinNonZeroValue, otherSkinny.getMinNonZeroValue))
+  }
+
+  //override it because we don't need synchronization
+  override def updatedMaxValue(value: Long) = {
+    if (value > maxValue) {
+      maxValue = value
+    }
+  }
+
+  //override it because we don't need synchronization
+  override def updateMinNonZeroValue(value: Long) = {
+    if (value < minNonZeroValue) {
+      minNonZeroValue = value
+    }
+  }
+
+  def getPercentiles(p1: Double, p2: Double, p3: Double, p4: Double, p5: Double, p6: Double): (Long, Long, Long, Long, Long, Long) = {
+    val (p1value, p1index, p1accumm) = getPercentileValueIncrementalAt(p1)
+    val (p2value, p2index, p2accumm) = getPercentileValueIncrementalAt(p2, p1index, p1accumm)
+    val (p3value, p3index, p3accumm) = getPercentileValueIncrementalAt(p3, p2index, p2accumm)
+    val (p4value, p4index, p4accumm) = getPercentileValueIncrementalAt(p4, p3index, p3accumm)
+    val (p5value, p5index, p5accumm) = getPercentileValueIncrementalAt(p5, p4index, p4accumm)
+    val (p6value, p6index, p6accumm) = getPercentileValueIncrementalAt(p6, p5index, p5accumm)
+
+    (p1value, p2value, p3value, p4value, p5value, p6value)
+  }
+
+  def getPercentileValueIncrementalAt(percentile: Double, startIndex: Int = 0, accumulatedCount: Long = 0): (Long, Int, Long) = {
+    val requestedPercentile: Double = Math.min(percentile, 100.0)
+    var countAtPercentile: Long = (((requestedPercentile / 100.0) * getTotalCount) + 0.5).toLong
+    countAtPercentile = Math.max(countAtPercentile, 1)
+    var totalToCurrentIndex: Long = accumulatedCount
+    var i: Int = startIndex
+    while (i < countsArrayLength) {
+      val countAtIndex = getCountAtIndex(i)
+      val totalCurrent = totalToCurrentIndex
+      totalToCurrentIndex += countAtIndex
+      if (totalToCurrentIndex >= countAtPercentile) {
+        val valueAtIndex: Long = valueFromIndex(i)
+        return (highestEquivalentValue(valueAtIndex), i, totalCurrent)
+      }
+      i += 1
+    }
+    return (0, 0, 0)
   }
 
   override def encodeIntoCompressedByteBuffer(targetBuffer: ByteBuffer): Int = {
@@ -85,8 +117,6 @@ class SkinnyHistogram(lowestValue: Long, maxValue: Long, precision: Int) extends
 
   override def encodeIntoByteBuffer(buffer: ByteBuffer): Int = {
     val output = new Output(buffer.array())
-
-    //val maxValue: Long = getMaxValue
 
     output.writeInt(normalizingIndexOffset)
     output.writeVarInt(numberOfSignificantValueDigits, true)
@@ -132,7 +162,8 @@ object SkinnyHistogram {
   private val neededByteBufferCapacity = HistogramBucket.newHistogram.getNeededByteBufferCapacity
 
   private val headerSize = 12
-  private val compressor: Compressor = DeflaterCompressor
+  private val compressorsByName = Map[String, Compressor]("deflater" -> DeflaterCompressor, "lz4" -> LZ4Compressor)
+  private val compressor: Compressor = compressorsByName.get(Settings.Histogram.Compressor).getOrElse(DeflaterCompressor)
   private val compressors = Map(DeflaterCompressor.version -> DeflaterCompressor, LZ4Compressor.version -> LZ4Compressor)
 
   val byteBuffersPool = Pool[ByteBuffer]("byteBuffersPool", 4, () ⇒ ByteBuffer.allocate(neededByteBufferCapacity), {
@@ -143,7 +174,10 @@ object SkinnyHistogram {
     val version = buffer.getInt()
 
     compressors.get(version) match {
-      case None ⇒ { buffer.rewind(); Histogram.decodeFromCompressedByteBuffer(buffer, minBarForHighestTrackableValue) }
+      case None ⇒ {
+        buffer.rewind();
+        Histogram.decodeFromCompressedByteBuffer(buffer, minBarForHighestTrackableValue)
+      }
       case Some(selectedCompressor) ⇒ {
         val compressedLength = buffer.getInt()
         val uncompressedLength = buffer.getInt()
@@ -167,16 +201,24 @@ object SkinnyHistogram {
     val totalCount = input.readVarLong(true)
     val idxArrayLength = input.readVarInt(true)
 
-    val skinnyHistogram = new SkinnyHistogram(highest, significantValueDigits)
-    skinnyHistogram.setIntegerToDoubleValueConversionRatio(integerToDoubleValueConversionRatio)
-    skinnyHistogram.resetNormalizingIndexOffset(normalizingIndexOffset)
+    //val skinnyHistogram = new SkinnyHistogram(highest, significantValueDigits)
+    //skinnyHistogram.setIntegerToDoubleValueConversionRatio(integerToDoubleValueConversionRatio)
+    //skinnyHistogram.resetNormalizingIndexOffset(normalizingIndexOffset)
     var lastIdx = 0
     var lastFreq = 0L
     var minNonZeroIndex: Int = -1
+
+    var indexes = Seq[Int]()
+    var frequencies = Seq[Long]()
+
     (1 to idxArrayLength) foreach { _ ⇒
       val idx = input.readVarInt(true) + lastIdx
       val freq = input.readVarLong(false) + lastFreq
-      skinnyHistogram.setCountAtNormalizedIndex(idx, freq)
+
+      indexes = indexes :+ idx
+      frequencies = frequencies :+ freq
+
+      //skinnyHistogram.setCountAtNormalizedIndex(idx, freq)
       lastIdx = idx
       lastFreq = freq
 
@@ -185,18 +227,46 @@ object SkinnyHistogram {
       }
 
     }
-    skinnyHistogram.resetMaxValue(0)
-    skinnyHistogram.resetMinNonZeroValue(Long.MaxValue)
-    if (lastIdx >= 0) {
-      skinnyHistogram.updatedMaxValue(skinnyHistogram.highestEquivalentValue(skinnyHistogram.valueFromIndex(lastIdx)))
-    }
-    if (minNonZeroIndex >= 0) {
-      skinnyHistogram.updateMinNonZeroValue(skinnyHistogram.valueFromIndex(minNonZeroIndex))
-    }
+    /**
+     * skinnyHistogram.resetMaxValue(0)
+     * skinnyHistogram.resetMinNonZeroValue(Long.MaxValue)
+     * if (lastIdx >= 0) {
+     * skinnyHistogram.updatedMaxValue(skinnyHistogram.highestEquivalentValue(skinnyHistogram.valueFromIndex(lastIdx)))
+     * }
+     * if (minNonZeroIndex >= 0) {
+     * skinnyHistogram.updateMinNonZeroValue(skinnyHistogram.valueFromIndex(minNonZeroIndex))
+     * }
+     *
+     * skinnyHistogram.setTotalCount(totalCount)
+     *
+     * //skinnyHistogram
+     */
+    new LightSkinnyHistogram(indexes.toArray, frequencies.toArray, totalCount)
+  }
 
-    skinnyHistogram.setTotalCount(totalCount)
+}
 
-    skinnyHistogram
+class LightSkinnyHistogram(indexes: Array[Int], frequencies: Array[Long], totalCount: Long) extends Histogram(1, 2, 1) {
+
+  def addHere(skinnyHistogram: SkinnyHistogram) = {
+    var idx = 0
+    while (idx < indexes.length) {
+      val index = indexes(idx)
+      val counts = frequencies(idx)
+      skinnyHistogram.counts(index) += counts
+      idx += 1
+    }
+  }
+
+}
+
+class AggregatedSkinnyHistogram() extends Histogram(1, 2, 1) {
+  val indexes = mutable.SortedSet[Int]()
+  val frequenciesMap = mutable.Map[Int, Long]()
+
+  def add(index: Int, count: Long) = {
+    indexes + index
+
   }
 
 }
@@ -204,7 +274,9 @@ object SkinnyHistogram {
 trait Compressor {
 
   def version: Int
+
   def compress(inputBuffer: ByteBuffer, inputOffset: Int, inputLength: Int, targetBuffer: ByteBuffer, targetOffset: Int): Int
+
   def decompress(inputBuffer: ByteBuffer, inputOffset: Int, inputLength: Int, targetBuffer: ByteBuffer)
 
 }

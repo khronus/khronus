@@ -185,7 +185,7 @@ trait CassandraUtils extends Logging {
       val futures = items.grouped(chunkSize).map(chunk ⇒ block(chunk))
       Future.sequence(futures).andThen {
         case Failure(reason) ⇒ log.error(s"Failed to execute chunk operation: $msg", reason)
-        case Success(_)      ⇒ log.info(s"Chunk operation finished ok: $msg")
+        case Success(_)      ⇒ log.debug(s"Chunk operation finished ok: $msg")
       }.map(_ ⇒ ())
     } else {
       Future.successful(())

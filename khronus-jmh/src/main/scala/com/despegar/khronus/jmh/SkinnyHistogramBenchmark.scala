@@ -2,12 +2,14 @@ package com.despegar.khronus.jmh
 
 import com.despegar.khronus.model.HistogramBucket
 import com.despegar.khronus.store.HistogramSerializer
+import org.HdrHistogram.Histogram
 import org.openjdk.jmh.annotations.{ Scope, Benchmark, State }
 
 @State(Scope.Thread)
 class SkinnyHistogramBenchmark {
 
-  val histogram = HistogramBucket.newHistogram
+  val histogram: Histogram = HistogramBucket.newHistogram
+
   val latencies = Seq(1623, 1752, 3215, 1437, 154, 1358, 625, 217, 698, 6862, 1167, 1948, 1215, 665, 1372,
     889, 767, 2135, 3163, 573, 1839, 922, 475, 1233, 1013, 434, 140, 684, 400, 879,
     621, 1167, 1518, 534, 420, 9, 906, 1060, 646, 1181, 661, 2661, 844, 1132, 1169,
