@@ -208,15 +208,15 @@ object SkinnyHistogram {
     var lastFreq = 0L
     var minNonZeroIndex: Int = -1
 
-    var indexes = Seq[Int]()
-    var frequencies = Seq[Long]()
+    val indexes = Array.fill[Int](idxArrayLength)(0)
+    val frequencies = Array.fill[Long](idxArrayLength)(0)
 
-    (1 to idxArrayLength) foreach { _ ⇒
+    (1 to idxArrayLength) foreach { i ⇒
       val idx = input.readVarInt(true) + lastIdx
       val freq = input.readVarLong(false) + lastFreq
 
-      indexes = indexes :+ idx
-      frequencies = frequencies :+ freq
+      indexes(i) = idx
+      frequencies(i) = freq
 
       //skinnyHistogram.setCountAtNormalizedIndex(idx, freq)
       lastIdx = idx
@@ -241,7 +241,7 @@ object SkinnyHistogram {
      *
      * //skinnyHistogram
      */
-    new LightSkinnyHistogram(indexes.toArray, frequencies.toArray, totalCount)
+    new LightSkinnyHistogram(indexes, frequencies, totalCount)
   }
 
 }
