@@ -27,7 +27,6 @@ import com.despegar.khronus.util.{ ConcurrencySupport, Measurable, Settings }
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future }
-import scala.util.Failure
 
 trait BucketStoreSupport[T <: Bucket] {
 
@@ -97,16 +96,18 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
   }
 
   def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[Seq[(Timestamp, () ⇒ T)]] = measureFutureTime("slice", metric, sourceWindow) {
-    val boundStmt = stmtPerWindow(sourceWindow).selects(SliceQuery).bind(metric.name, Long.box(from.ms), Long.box(to.ms), Int.box(limit))
+    Future {
+      val boundStmt = stmtPerWindow(sourceWindow).selects(SliceQuery).bind(metric.name, Long.box(from.ms), Long.box(to.ms), Int.box(limit))
 
-    val future: Future[ResultSet] = session.executeAsync(boundStmt)
-    future.map(resultSet ⇒ {
-      resultSet.asScala.flatMap(row ⇒ {
-        val ts = row.getLong("timestamp")
-        val buckets = row.getList("buckets", classOf[java.nio.ByteBuffer])
-        buckets.asScala.map(serializedBucket ⇒ (Timestamp(ts), () ⇒ toBucket(sourceWindow, ts, Bytes.getArray(serializedBucket))))
-      }).toSeq
-    })
+      val future: Future[ResultSet] = session.executeAsync(boundStmt)
+      future.map(resultSet ⇒ {
+        resultSet.asScala.flatMap(row ⇒ {
+          val ts = row.getLong("timestamp")
+          val buckets = row.getList("buckets", classOf[java.nio.ByteBuffer])
+          buckets.asScala.map(serializedBucket ⇒ (Timestamp(ts), () ⇒ toBucket(sourceWindow, ts, Bytes.getArray(serializedBucket))))
+        }).toSeq
+      })
+    }.flatMap(identity)
   }
 
   def ifNotEmpty(col: Seq[Any])(f: Future[Unit]): Future[Unit] = {
