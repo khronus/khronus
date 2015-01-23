@@ -279,3 +279,13 @@ If you don't want this behavior you can use the 'force' keyword. But take in acc
 
 [HdrHistogram]: http://hdrhistogram.org/  "HdrHistogram"
 [Despegar.com]: http://www.despegar.com/ "Despegar.com"
+
+
+## Acknowledgements
+YourKit supports `Khronus` with its full-featured Java Profiler.
+
+YourKit, LLC is the creator of <a href="http://www.yourkit.com/java/profiler/index.jsp">YourKit Java Profiler</a>
+and <a href="http://www.yourkit.com/.net/profiler/index.jsp">YourKit .NET Profiler</a>,
+innovative and intelligent tools for profiling Java and .NET applications.
+
+![yourkit](http://www.yourkit.com/images/yklogo.png)
