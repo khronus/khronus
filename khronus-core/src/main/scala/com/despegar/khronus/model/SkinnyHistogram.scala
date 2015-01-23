@@ -211,7 +211,7 @@ object SkinnyHistogram {
     val indexes = Array.fill[Int](idxArrayLength)(0)
     val frequencies = Array.fill[Long](idxArrayLength)(0)
 
-    (1 to idxArrayLength) foreach { i ⇒
+    (0 to (idxArrayLength - 1)) foreach { i ⇒
       val idx = input.readVarInt(true) + lastIdx
       val freq = input.readVarLong(false) + lastFreq
 

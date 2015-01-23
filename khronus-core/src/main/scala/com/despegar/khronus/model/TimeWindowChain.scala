@@ -45,7 +45,7 @@ class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport {
         process(metric, tick)
       }
     }
-  }(timeWindowExecutionContext).flatMap(_ ⇒ Future.successful(()))
+  }(timeWindowExecutionContext) flatMap identity
 
   def currentTick(): Tick = {
     Tick()

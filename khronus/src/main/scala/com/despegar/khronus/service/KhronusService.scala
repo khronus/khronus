@@ -19,13 +19,15 @@ package com.despegar.khronus.service
 import akka.io.IO
 import com.despegar.khronus.service.HandShakeProtocol.{ KhronusStarted, Register }
 import com.despegar.khronus.util.Settings
+import com.despegar.khronus.util.log.Logging
 import spray.can.Http
 
-trait KhronusService {
+trait KhronusService extends Logging {
   this: ActorSystemSupport ⇒
 
   val handlerActor = system.actorOf(KhronusHandler.props, KhronusHandler.Name)
 
+  log.info(s"Binding Spray on ${Settings.Http.Interface}:${Settings.Http.Port}...")
   IO(Http) ! Http.Bind(handlerActor, Settings.Http.Interface, Settings.Http.Port)
 
   val khronusActor = system.actorOf(KhronusActor.props, KhronusActor.Name)

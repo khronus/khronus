@@ -26,13 +26,9 @@ import scala.concurrent.{ ExecutionContext, Future, Promise }
 import scala.util.{ Failure, Success, Try };
 
 object CassandraCluster extends Logging with CassandraClusterConfiguration {
+  log.info("Initializing Cassandra...")
   private val cluster: Cluster = clusterBuilder.build()
 
-  /*
-  val cassandraMeta = Meta
-  val cassandraBuckets = Buckets
-  val cassandraSummaries = Summaries
-*/
   def connect() = cluster.connect()
 
   def close() = {
@@ -103,7 +99,6 @@ object Meta extends CassandraKeyspace {
 
 object Buckets extends CassandraKeyspace {
 
-  log.info("Will initialize Buckets....")
   initialize
   val histogramBucketStore = new CassandraHistogramBucketStore(session)
   val counterBucketStore = new CassandraCounterBucketStore(session)

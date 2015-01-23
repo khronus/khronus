@@ -50,7 +50,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
   def uninitialized: Receive = {
     case Initialize ⇒
-      log.info(s"Initializing master ${self.path}")
+      log.info(s"Initializing Master ${self.path}")
       val router = createRouter()
 
       heartbeatScheduler = scheduleHeartbeat(router)

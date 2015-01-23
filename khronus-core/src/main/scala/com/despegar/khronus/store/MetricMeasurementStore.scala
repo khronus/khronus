@@ -24,7 +24,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
   }
 
   private def store(metrics: List[MetricMeasurement]) = {
-    log.info(s"Received ${metrics.length} metrics to be stored")
+    log.info(s"Receiving samples from ${metrics.length} metrics")
     metrics foreach storeMetric
   }
 
@@ -49,7 +49,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
 
   private def track(metric: Metric) = {
     if (isNew(metric)) {
-      log.debug(s"Got a new metric: $metric. Will store metadata for it")
+      log.info(s"Got a new metric: $metric. Will store metadata for it")
       storeMetadata(metric)
     } else {
       log.debug(s"$metric is already known. No need to store meta for it")

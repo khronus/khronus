@@ -63,7 +63,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
   private def storeTemporalBuckets(resultingBuckets: Future[Seq[T]], lastProcessed: Future[BucketNumber], tick: Tick, metric: Metric) = {
     if (shouldStoreTemporalHistograms) measureFutureTime("storeTemporalBuckets", metric, duration) {
       resultingBuckets flatMap { buckets ⇒
-        bucketStore.store(metric, duration, buckets).map { a ⇒ a }(TimeWindowChain.timeWindowExecutionContext) andThen {
+        bucketStore.store(metric, duration, buckets).map(identity)(TimeWindowChain.timeWindowExecutionContext) andThen {
           case Success(_) ⇒ {
             lastProcessed.map { lastProcessedBucketNumber ⇒
               bucketCache.cacheBuckets(metric, lastProcessedBucketNumber ~ duration, tick.bucketNumber ~ duration, buckets)
@@ -78,7 +78,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
     }
   }
 
-  protected def aggregateBuckets(buckets: Future[Map[BucketNumber, Seq[T]]], metric: Metric): Future[Seq[T]] = measureTime("aggregate", metric, duration) {
+  protected def aggregateBuckets(buckets: Future[Map[BucketNumber, Seq[T]]], metric: Metric): Future[Seq[T]] = {
     buckets map (buckets ⇒ buckets.collect { case (bucketNumber, buckets) ⇒ aggregate(bucketNumber, buckets) }.toSeq)
   }
 
@@ -103,7 +103,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
       //TODO: refactor me
       bucketCache.take[T](metric, fromBucketNumber, toBucketNumber).map { buckets ⇒ Future.successful(buckets) }.getOrElse {
         val futureSlice = bucketStore.slice(metric, fromBucketNumber.startTimestamp(), toBucketNumber.startTimestamp(), previousWindowDuration)
-        futureSlice.map { a ⇒ a }(TimeWindowChain.timeWindowExecutionContext).andThen {
+        futureSlice.map(identity)(TimeWindowChain.timeWindowExecutionContext).andThen {
           case Success(previousBuckets) ⇒
             if (previousBuckets.isEmpty) {
               recordTime(formatLabel("emptySliceTime", metric, duration), System.currentTimeMillis() - start)

@@ -69,7 +69,6 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
   })
 
   val stmtPerWindow: Map[Duration, Statements] = windowDurations.map(windowDuration ⇒ {
-    log.info("creating prepared statements...")
     val insert = session.prepare(s"update ${tableName(windowDuration)} using ttl ${ttl(windowDuration)} set buckets = buckets + ? where metric = ? and timestamp = ? ; ")
 
     val simpleStmt = new SimpleStatement(s"select timestamp, buckets from ${tableName(windowDuration)} where metric = ? and timestamp >= ? and timestamp < ? limit ?;")

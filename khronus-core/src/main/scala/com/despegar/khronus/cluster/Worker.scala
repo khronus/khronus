@@ -74,4 +74,4 @@ trait TimeWindowChainProvider {
   def timeWindowChain: TimeWindowChain = new TimeWindowChain
 }
 
-class WorkFailureException(message: String) extends RuntimeException with NoStackTrace
+class WorkFailureException(message: String) extends RuntimeException(message) with NoStackTrace

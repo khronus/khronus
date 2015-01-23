@@ -27,12 +27,11 @@ object Monitoring extends MetricMeasurementStoreSupport with Logging with Concur
 
   val enabled = Settings.InternalMetrics.Enabled
 
-  val schedule = enabled {
+  def startMonitoringFlusher = enabled {
     val scheduler = scheduledThreadPool("monitoring-flusher-worker")
     scheduler.scheduleAtFixedRate(new Runnable() {
       override def run() = flush
     }, 0, 2, TimeUnit.SECONDS)
-
   }
 
   def enabled(block: ⇒ Unit): Unit = {
@@ -47,7 +46,7 @@ object Monitoring extends MetricMeasurementStoreSupport with Logging with Concur
     }
   }
 
-  private def write(metrics: Seq[MonitoringMetric]) = {
+  private def write(metrics: Seq[MonitoringMetric]) = if (!metrics.isEmpty) {
     val rawMetricMeasurements = Map[String, Map[String, Map[Long, Buffer[Long]]]]()
     metrics.foreach { metric ⇒
       val mtypeMap = rawMetricMeasurements.getOrElseUpdate(metric.mtype, Map[String, Map[Long, Buffer[Long]]]())

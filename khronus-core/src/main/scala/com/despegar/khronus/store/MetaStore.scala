@@ -117,7 +117,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
     future.
       map(resultSet ⇒ {
         val metrics = resultSet.all().asScala.map(row ⇒ (fromString(row.getString("metric")), Timestamp(row.getLong("timestamp")))).toMap
-        log.info(s"Found ${metrics.size} metrics in meta")
+        log.debug(s"Found ${metrics.size} metrics in meta")
         metrics
       }).
       andThen {

@@ -87,7 +87,7 @@ abstract class CassandraSummaryStore[T <: Summary](session: Session) extends Sum
 
   def store(metric: Metric, windowDuration: Duration, summaries: Seq[T]): Future[Unit] = executeChunked(s"summary of $metric-$windowDuration", summaries, Settings.CassandraSummaries.insertChunkSize) {
     summariesChunk ⇒
-      log.info(s"$metric - Storing ${summariesChunk.size} summaries ($summariesChunk) of $windowDuration")
+      log.debug(s"$metric - Storing ${summariesChunk.size} summaries ($summariesChunk) of $windowDuration")
 
       val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
       summariesChunk.foreach(summary ⇒ batchStmt.add(stmtPerWindow(windowDuration).insert.bind(metric.name, Long.box(summary.timestamp.ms), serializeSummary(summary))))

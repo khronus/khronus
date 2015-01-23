@@ -3,7 +3,7 @@
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <layout>
-            <Pattern>%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n</Pattern>
+            <Pattern>%d %-5level [${HOSTNAME}] [%thread] %logger{36} - %message%replace(%xException){"\n", "\\n"}%nopex%n</Pattern>
         </layout>
     </appender>
 
@@ -15,16 +15,25 @@
         </rollingPolicy>
         <maxHistory>2</maxHistory>
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n</pattern>
+            <pattern>%d %-5level [${HOSTNAME}] [%thread] %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
+
+    <!--
+    <appender name="UDP" class="com.despegar.khronus.util.log.UpdAppender">
+        <encoder>
+            <pattern>%d %-5level [${HOSTNAME}] [%thread] %logger{36} -  %msg%n</pattern>
+        </encoder>
+        <ip>{SOME_UDPSERVER_IP}</ip>
+        <port>{SOME_UDPSERVER_PORT}</port>
+    </appender>
+    -->
 
     <appender name="ASYNC" class="ch.qos.logback.classic.AsyncAppender">
         <appender-ref ref="FILE"/>
     </appender>
 
-    <logger name="com.despegar.khronus" level="debug"/>
-    <logger name="com.despegar.khronus.cluster" level="debug"/>
+    <logger name="com.despegar.khronus" level="info"/>
 
     <root level="info">
         <appender-ref ref="ASYNC"/>

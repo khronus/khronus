@@ -20,5 +20,10 @@ import com.despegar.khronus.cluster.ClusterSupport
 import com.despegar.khronus.service.ActorSystemSupport
 import com.despegar.khronus.service.KhronusService
 import com.despegar.khronus.store.CassandraSupport
+import com.despegar.khronus.util.log.Logging
 
-object Khronus extends App with ActorSystemSupport with CassandraSupport with KhronusService with ClusterSupport
+object Khronus extends KhronusApp with ActorSystemSupport with CassandraSupport with KhronusService with ClusterSupport
+
+trait KhronusApp extends App with Logging {
+  log.info("Starting Khronus...")
+}

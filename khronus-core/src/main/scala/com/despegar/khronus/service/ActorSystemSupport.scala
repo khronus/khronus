@@ -21,14 +21,14 @@ import com.despegar.khronus.util.log.Logging
 
 trait ActorSystemSupport {
   implicit def system = ActorSystemSupport.system
-
 }
 
 object ActorSystemSupport extends Logging {
+  log.info("Starting Khronus actor system...")
   val system = ActorSystem("khronus-system")
 
   sys.addShutdownHook({
-    log.info("Shutting down khronus actor system")
+    log.info("Shutting down Khronus actor system")
     system.shutdown()
   })
 

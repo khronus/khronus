@@ -69,7 +69,7 @@ object HistogramBucket extends Measurable with Logging {
 
   val histogramPrecision = 3
 
-  implicit def sumHistograms(buckets: Seq[HistogramBucket]): Histogram = measureTime("sumHistograms", "sumHistograms") {
+  implicit def sumHistograms(buckets: Seq[HistogramBucket]): Histogram = {
     val histogram = newHistogram
     if (buckets.length == 2) {
       histogram.add(buckets(0).histogram)
