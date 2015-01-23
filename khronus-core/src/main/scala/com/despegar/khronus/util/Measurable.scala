@@ -15,7 +15,7 @@ trait Measurable extends Logging with MonitoringSupport {
     val start = now
     val blockReturn = block
     val elapsed = now - start
-    log.info(s"$text - time spent: ${elapsed}ms")
+    log.debug(s"$text - time spent: ${elapsed}ms")
     recordTime(label, elapsed)
     blockReturn
   }
@@ -41,7 +41,7 @@ trait Measurable extends Logging with MonitoringSupport {
     block andThen {
       case Success(_) ⇒ {
         val elapsed = now - start
-        log.info(s"$text - time spent: ${elapsed}ms")
+        log.debug(s"$text - time spent: ${elapsed}ms")
         recordTime(label, elapsed)
       }
     }
