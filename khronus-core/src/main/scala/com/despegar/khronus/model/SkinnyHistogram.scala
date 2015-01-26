@@ -241,12 +241,12 @@ object SkinnyHistogram {
      *
      * //skinnyHistogram
      */
-    new LightSkinnyHistogram(indexes, frequencies, totalCount)
+    new LightSkinnyHistogram(indexes, frequencies, totalCount, minNonZeroIndex, lastIdx)
   }
 
 }
 
-class LightSkinnyHistogram(indexes: Array[Int], frequencies: Array[Long], totalCount: Long) extends Histogram(1, 2, 1) {
+class LightSkinnyHistogram(indexes: Array[Int], frequencies: Array[Long], totalCount: Long, minValueIndex: Int, maxValueIndex: Int) extends Histogram(1, 2, 1) {
 
   def addHere(skinnyHistogram: SkinnyHistogram) = {
     var idx = 0
@@ -256,6 +256,10 @@ class LightSkinnyHistogram(indexes: Array[Int], frequencies: Array[Long], totalC
       skinnyHistogram.counts(index) += counts
       idx += 1
     }
+
+    skinnyHistogram.totalCount += totalCount
+    if (maxValueIndex >= 0) skinnyHistogram.updatedMaxValue(Math.max(skinnyHistogram.getMaxValue, skinnyHistogram.highestEquivalentValue(skinnyHistogram.valueFromIndex(maxValueIndex))))
+    if (minValueIndex >= 0) skinnyHistogram.updateMinNonZeroValue(Math.min(skinnyHistogram.getMinNonZeroValue, skinnyHistogram.valueFromIndex(minValueIndex)))
   }
 
 }
