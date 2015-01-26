@@ -50,7 +50,7 @@ trait InfluxEndpoint extends HttpService with JacksonJsonSupport with Logging wi
           get {
             parameters('q.?, 'p, 'u) { (query, password, username) ⇒
               query.map { q ⇒
-                log.info(s"GET /khronus/influx - Query: [$q]")
+                log.debug(s"GET /khronus/influx - Query: [$q]")
                 respondWithMediaType(`application/json`) {
                   complete {
                     search(q)

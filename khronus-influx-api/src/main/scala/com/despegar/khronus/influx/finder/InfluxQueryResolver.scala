@@ -41,12 +41,12 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
   }
 
   private def listSeries(expression: String): Future[Seq[InfluxSeries]] = {
-    log.info(s"Listing series $expression")
+    log.debug(s"Listing series $expression")
     metaStore.searchInSnapshot(expression).map(results ⇒ results.map(x ⇒ new InfluxSeries(x.name)))
   }
 
   private def executeQuery(expression: String): Future[Seq[InfluxSeries]] = measureFutureTime("executeInfluxQuery", "executeInfluxQuery") {
-    log.info(s"Executing query [$expression]")
+    log.debug(s"Executing query [$expression]")
 
     parser.parse(expression).map {
       influxCriteria ⇒
@@ -206,7 +206,7 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
   }
 
   private def toInfluxSeries(timeSeriesValues: Map[Long, Double], projectionName: String, ascendingOrder: Boolean, metricName: String = ""): InfluxSeries = {
-    log.info(s"Building Influx serie for projection [$projectionName] - Metric [$metricName]")
+    log.debug(s"Building Influx serie for projection [$projectionName] - Metric [$metricName]")
 
     val sortedTimeSeriesValues = if (ascendingOrder) timeSeriesValues.toSeq.sortBy(_._1) else timeSeriesValues.toSeq.sortBy(-_._1)
 
