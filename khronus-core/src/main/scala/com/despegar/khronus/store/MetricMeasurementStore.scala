@@ -72,7 +72,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
       acc.flatMap { _ ⇒
         val timestamp = measurementsGroup._1
         val bucketNumber = timestamp.toBucketNumber(1 millis)
-        if (!alreadyProcessed(metric, bucketNumber, measurementsGroup._1)) {
+        if (!alreadyProcessed(metric, bucketNumber)) {
           block(bucketNumber, measurementsGroup._2)
         } else {
           Future.successful(())
@@ -95,20 +95,15 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
     okValues
   }
 
-  private def alreadyProcessed(metric: Metric, bucketNumber1millis: BucketNumber, measureTimestamp: Timestamp) = {
-    val lastProcessedBucket = Tick.current(Settings.Histogram.TimeWindows).bucketNumber
+  private def alreadyProcessed(metric: Metric, bucketNumber1millis: BucketNumber) = {
+    //get the bucket number in the smallest window duration
     val measureBucket = bucketNumber1millis.startTimestamp().alignedTo(smallestWindow.duration).toBucketNumber(smallestWindow.duration)
+    //get the current tick. The delay is to softly avoid unsync clocks between nodes (another node start to process the tick)
+    val currentTick = Tick.current(Seq(smallestWindow), System.currentTimeMillis() + Settings.Master.MaxDelayBetweenClocks.toMillis)
 
-    if (measureBucket <= lastProcessedBucket) {
-      log.warn(s"$metric Measure bucket number [$measureBucket] is less than or equal to the last processed bucket number [$lastProcessedBucket]. Measure timestamp: ${date(measureTimestamp.ms)}. Metric value will be ignored!")
-      incrementCounter("mustReprocessMetric")
-    } else {
-      //avoid race condition with possible tick execution (now is 15:45:58 and in a few seconds a new tick will start at 15:46:00)
-      val nextPossibleTick = Tick.current(Settings.Histogram.TimeWindows, System.currentTimeMillis() + 5000L)
-      if (measureBucket <= nextPossibleTick.bucketNumber) {
-        log.warn(s"$metric Measure bucket number [$measureBucket] is in a possible execution status. The next tick corresponds to [${nextPossibleTick.bucketNumber}}]. Measure timestamp: ${date(measureTimestamp.ms)}. If that the case, the metric value will be ignored!")
-        incrementCounter("maybeReprocessMetric")
-      }
+    if (measureBucket <= currentTick.bucketNumber) {
+      log.warn(s"Measurements for $metric marked to reprocess because their bucket number ($measureBucket) is less or equals than the current bucket tick (${currentTick.bucketNumber})")
+      true
     }
 
     false

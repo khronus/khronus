@@ -31,6 +31,7 @@ object Settings {
     val DiscoveryStartDelay = FiniteDuration(config.getDuration("khronus.master.discovery-start-delay", MILLISECONDS), MILLISECONDS)
     val DiscoveryInterval = FiniteDuration(config.getDuration("khronus.master.discovery-interval", MILLISECONDS), MILLISECONDS)
     val WorkerBatchSize = config.getInt("khronus.master.worker-batch-size")
+    val MaxDelayBetweenClocks = FiniteDuration(config.getDuration("khronus.master.max-delay-between-clocks", MILLISECONDS), MILLISECONDS)
   }
 
   object Http {
@@ -39,7 +40,7 @@ object Settings {
   }
 
   object Window {
-    val ExecutionDelay: Long = config.getDuration("khronus.windows.execution-delay", MILLISECONDS)
+    val ExecutionDelayInBuckets: Int = config.getInt("khronus.windows.execution-delay-in-buckets")
     val ConfiguredWindows = config.getDurationList("khronus.windows.durations", MILLISECONDS).asScala.map(adjustDuration(_))
     val WindowDurations = (1 millis) +: ConfiguredWindows
   }

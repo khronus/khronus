@@ -16,10 +16,14 @@ object Tick extends Logging {
   }
 
   def current(windows: Seq[TimeWindow[_, _]], now: Long): Tick = {
-    val executionTimestamp = Timestamp(now - Settings.Window.ExecutionDelay)
+    val executionTimestamp = Timestamp(now)
     log.debug(s"Building Tick for executionTimestamp ${date(executionTimestamp.ms)}")
-    val bucketNumber = executionTimestamp.alignedTo(firstDurationOf(windows)).toBucketNumber(firstDurationOf(windows))
-    val tick = Tick(bucketNumber - 1)
+    val currentBucketNumber = executionTimestamp.alignedTo(firstDurationOf(windows)).toBucketNumber(firstDurationOf(windows))
+    //the current bucket is not finished yet, go back
+    val bucketFinished = currentBucketNumber - 1
+    //apply the delay to allow more metrics to fit in the bucket
+    val bucketToProcess = bucketFinished - Settings.Window.ExecutionDelayInBuckets
+    val tick = Tick(bucketToProcess)
     log.debug(s"$tick")
     tick
   }
