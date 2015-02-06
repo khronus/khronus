@@ -60,36 +60,6 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar with TimeWindowTe
     //verify(window.bucketStore).remove(metric, previousWindowDuration, uniqueTimestampsPreviousBuckets)
   }
 
-  test("with already processed buckets should remove them without storing any bucket or summary") {
-
-    val window = mockedWindow(windowDuration, previousWindowDuration)
-
-    //mock temporal data that for any reason was not deleted! (already processed)
-    val somePreviousBucket = new CounterBucket((15000, previousWindowDuration), 1)
-    val previousUndeletedBuckets = lazyBuckets(Seq(somePreviousBucket))
-    val previousUndeletedBucketsUniqueTimestamps = uniqueTimestamps(Seq(somePreviousBucket))
-    val previousUndeletedBucketsMap = previousUndeletedBucketsUniqueTimestamps.zip(previousUndeletedBuckets)
-
-    val tick = Tick(somePreviousBucket.bucketNumber ~ windowDuration)
-
-    when(window.bucketStore.slice(Matchers.eq(metric), any[Timestamp], Matchers.any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousUndeletedBucketsMap))
-    when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](60000L))
-    when(window.bucketStore.store(metric, windowDuration, Seq())).thenReturn(Future {})
-    when(window.summaryStore.store(metric, windowDuration, Seq())).thenReturn(Future {})
-
-    //call method to test
-    Await.result(window.process(metric, tick), 5 seconds)
-
-    //verify that not store any temporal histogram
-    verify(window.bucketStore).store(metric, windowDuration, Seq())
-
-    //verify that not store any summary
-    verify(window.summaryStore).store(metric, windowDuration, Seq())
-
-    //verify removal of previous undeleted buckets
-    //verify(window.bucketStore).remove(metric, previousWindowDuration, previousUndeletedBucketsUniqueTimestamps)
-  }
-
   test("without previous buckets should do nothing") {
 
     val window = mockedWindow(windowDuration, previousWindowDuration)

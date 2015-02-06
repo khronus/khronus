@@ -29,22 +29,23 @@ trait Measurable extends Logging with MonitoringSupport {
   }
 
   def measureFutureTime[T](label: String, metric: Metric, duration: Duration)(block: ⇒ Future[T])(implicit ec: ExecutionContext): Future[T] = {
-    if (!metric.isSystem) {
-      measureFutureTime(formatLabel(label, metric, duration), s"${p(metric, duration)} $label")(block)
-    } else {
-      block
-    }
+    //    if (!metric.isSystem) {
+    //      measureFutureTime(formatLabel(label, metric, duration), s"${p(metric, duration)} $label")(block)
+    //    } else {
+    //      block
+    //    }
+    block
   }
 
   def measureFutureTime[T](label: String, text: String)(block: ⇒ Future[T])(implicit ec: ExecutionContext): Future[T] = {
-    val start = now
-    block andThen {
-      case Success(_) ⇒ {
-        val elapsed = now - start
-        log.debug(s"$text - time spent: ${elapsed}ms")
-        recordTime(label, elapsed)
-      }
-    }
+    //val start = now
+    //block.map { result ⇒
+    //val elapsed = now - start
+    //log.debug(s"$text - time spent: ${elapsed}ms")
+    //recordTime(label, elapsed)
+    // result
+    //}
+    block
   }
 
   def formatLabel(label: String, metric: Metric, duration: Duration): String = s"$label.${metric.mtype}.${duration.length}${duration.unit}"

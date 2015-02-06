@@ -3,7 +3,7 @@ package com.despegar.khronus.model
 import java.io.{ PrintStream, ByteArrayOutputStream }
 import java.nio.ByteBuffer
 
-import org.HdrHistogram.{ SkinnyHistogram, Histogram }
+import org.HdrHistogram.{ SkinnyHdrHistogram, SkinnyHdrHistogram$, Histogram }
 
 import scala.util.Random
 
@@ -17,8 +17,8 @@ object HistogramTest extends App {
 
     val histogram0 = new Histogram(oneHourInMicroseconds, 2)
     val histogram1 = new Histogram(oneHourInMicroseconds, 3)
-    val histogram2 = new SkinnyHistogram(oneHourInMicroseconds, 3)
-    val histogram3 = new SkinnyHistogram(3600000L, onePercentError)
+    val histogram2 = new SkinnyHdrHistogram(oneHourInMicroseconds, 3)
+    val histogram3 = new SkinnyHdrHistogram(3600000L, onePercentError)
 
     for (i ← (1 to 1000000)) {
       val r = Random.nextInt(250)

@@ -20,66 +20,77 @@ import com.despegar.khronus.model.CounterBucket._
 import com.despegar.khronus.model.HistogramBucket._
 import com.despegar.khronus.store._
 import com.despegar.khronus.util.log.Logging
-import com.despegar.khronus.util.{ SameThreadExecutionContext, ConcurrencySupport, Measurable }
+import com.despegar.khronus.util.{ ConcurrencySupport, Measurable, SameThreadExecutionContext }
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future }
-import scala.util.{ Failure, Success }
 
 abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[T] with SummaryStoreSupport[U] with MetaSupport with Logging with Measurable with BucketCacheSupport {
 
   import com.despegar.khronus.model.TimeWindow._
 
-  def process(metric: Metric, tick: Tick): Future[Unit] = measureFutureTime("processWindow", metric, duration) {
-    log.debug(s"${p(metric, duration)} - Processing time window for ${Tick(tick.bucketNumber ~ duration)}")
-    //get the last bucket processed for this window
-    val lastProcessed = lastProcessedBucket(metric)
+  private val durationStr = duration.toString
 
-    //retrieve the temporal histogram buckets from previous window
-    val previousWindowBuckets = retrievePreviousBuckets(metric, tick, lastProcessed)
+  def process(implicit metric: Metric, tick: Tick): Future[Unit] = {
+    implicit val context = Context(metric, durationStr)
 
-    //group histograms in buckets of my window duration
-    val groupedHistogramBuckets = groupInBucketsOfMyWindow(previousWindowBuckets, metric)
+    measureFutureTime("processWindow", metric, duration) {
 
-    //filter out buckets already processed. we don't want to override our precious buckets with late data
-    val filteredGroupedHistogramBuckets = filterOutAlreadyProcessedBuckets(groupedHistogramBuckets, metric, lastProcessed)
+      log.debug(s"$context - Processing time window for ${Tick(tick.bucketNumber ~ duration)}")
 
-    val resultingBuckets = aggregateBuckets(filteredGroupedHistogramBuckets, metric)
+      //get the last bucket processed for this window
+      withLastProcessedBucket { lastProcessedBucket ⇒
+        //retrieve the buckets from previous window
+        withPreviousWindowBuckets(lastProcessedBucket) { previousWindowBuckets ⇒
+          //group in buckets of my window duration
+          //filter out buckets already processed. we don't want to override our precious buckets with late data
+          val myBuckets = aggregateBuckets(grouped(previousWindowBuckets))
+          //val myBuckets = aggregateBuckets(notProcessed(grouped(previousWindowBuckets), lastProcessedBucket))
 
-    //store temporal histogram buckets for next window if needed
-    val storeTemporalFuture = storeTemporalBuckets(resultingBuckets, lastProcessed, tick, metric)
+          //calculate the summaries
+          val mySummaries = myBuckets map (getSummary(_))
 
-    //calculate the summaries
-    val statisticsSummaries = storeTemporalFuture flatMap { _ ⇒ resultingBuckets.map(buckets ⇒ buckets map (getSummary(_))) }
+          //store temporal histogram buckets for next window if needed
+          //store the summaries
+          val stores = storeBucketsAndSummaries(myBuckets, mySummaries, lastProcessedBucket)
 
-    //store the summaries
-    val storeFuture = statisticsSummaries flatMap (summaries ⇒ summaryStore.store(metric, duration, summaries))
+          stores.map { _ ⇒ bucketCache.markProcessedTick(metric, tick) }(TimeWindowChain.timeWindowExecutionContext)
+        }
+      }
+    }
+  }
 
-    storeFuture.map { a ⇒ a }(TimeWindowChain.timeWindowExecutionContext) map { _ ⇒ bucketCache.markProcessedTick(metric, tick) }
+  private def storeBucketsAndSummaries(buckets: Seq[T], summaries: Seq[U], lastProcessedBucket: BucketNumber)(implicit metric: Metric, tick: Tick, context: Context) = {
+    storeTemporalBuckets(buckets, lastProcessedBucket) flatMap { _ ⇒
+      summaryStore.store(metric, duration, summaries)
+    }
+  }
+
+  private def withLastProcessedBucket[T](block: BucketNumber ⇒ Future[T])(implicit metric: Metric, tick: Tick, context: Context) = {
+    lastProcessedBucket(metric) flatMap block
+  }
+
+  private def withPreviousWindowBuckets[B](lastProcessedBucket: BucketNumber)(block: Seq[(Timestamp, () ⇒ T)] ⇒ Future[B])(implicit metric: Metric, tick: Tick, context: Context) = {
+    retrievePreviousBuckets(metric, tick, lastProcessedBucket) flatMap block
   }
 
   protected def getSummary(bucket: T): U
 
-  private def storeTemporalBuckets(resultingBuckets: Future[Seq[T]], lastProcessed: Future[BucketNumber], tick: Tick, metric: Metric) = {
+  private def storeTemporalBuckets(buckets: Seq[T], lastProcessedBucketNumber: BucketNumber)(implicit tick: Tick, metric: Metric, context: Context) = {
     if (shouldStoreTemporalHistograms) measureFutureTime("storeTemporalBuckets", metric, duration) {
-      resultingBuckets flatMap { buckets ⇒
-        bucketStore.store(metric, duration, buckets).map(identity)(TimeWindowChain.timeWindowExecutionContext) andThen {
-          case Success(_) ⇒ {
-            lastProcessed.map { lastProcessedBucketNumber ⇒
-              bucketCache.cacheBuckets(metric, lastProcessedBucketNumber ~ duration, tick.bucketNumber ~ duration, buckets)
-            }
-          }
-          case Failure(reason) ⇒ log.error(s"${p(metric, duration)} - Fail to store temporal buckets", reason)
-        }
-      }
+      val storeFuture = bucketStore.store(metric, duration, buckets)
+      storeFuture.onFailure { case reason: Throwable ⇒ log.error(s"$context - Fail to store temporal buckets", reason) }
+      storeFuture.map { _ ⇒
+        bucketCache.cacheBuckets(metric, lastProcessedBucketNumber ~ duration, tick.bucketNumber ~ duration, buckets)
+      }(TimeWindowChain.timeWindowExecutionContext)
     }
     else {
-      Future.successful[Unit](log.debug(s"${p(metric, duration)} - Last window. No need to store buckets"))
+      Future.successful[Unit](log.debug(s"$context - Last window. No need to store buckets"))
     }
   }
 
-  protected def aggregateBuckets(buckets: Future[Map[BucketNumber, Seq[T]]], metric: Metric): Future[Seq[T]] = {
-    buckets map (buckets ⇒ buckets.collect { case (bucketNumber, buckets) ⇒ aggregate(bucketNumber, buckets) }.toSeq)
+  protected def aggregateBuckets(buckets: Map[BucketNumber, Seq[T]]): Seq[T] = {
+    buckets.collect { case (bucketNumber, buckets) ⇒ aggregate(bucketNumber, buckets) }.toSeq
   }
 
   protected def aggregate(bucketNumber: BucketNumber, buckets: Seq[T]): T
@@ -90,63 +101,52 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
 
   protected def shouldStoreTemporalHistograms: Boolean
 
-  private def retrievePreviousBuckets(metric: Metric, tick: Tick, lastProcessed: Future[BucketNumber]) = {
-    lastProcessed flatMap (lastProcessedBucketNumber ⇒ {
-      val start = System.currentTimeMillis()
+  private def retrievePreviousBuckets(metric: Metric, tick: Tick, lastProcessedBucketNumber: BucketNumber)(implicit context: Context) = {
+    val start = System.currentTimeMillis()
 
-      //we align both bucket numbers (lastProcessedBucketNumber and Tick) to the previousWindowDuration
-      val fromBucketNumber = lastProcessedBucketNumber.endTimestamp().toBucketNumberOf(previousWindowDuration)
-      //since the slices over bucketStore and bucketCache are exclusives at the end, we use the Tick's following bucket number as the end of the slices
-      val toBucketNumber = tick.bucketNumber.following ~ duration ~ previousWindowDuration
+    //we align both bucket numbers (lastProcessedBucketNumber and Tick) to the previousWindowDuration
+    val fromBucketNumber = lastProcessedBucketNumber.endTimestamp().toBucketNumberOf(previousWindowDuration)
+    //since the slices over bucketStore and bucketCache are exclusives at the end, we use the Tick's following bucket number as the end of the slices
+    val toBucketNumber = tick.bucketNumber.following ~ duration ~ previousWindowDuration
 
-      log.debug(s"${p(metric, duration)} - Slice [$fromBucketNumber, $toBucketNumber)")
-      //TODO: refactor me
-      bucketCache.take[T](metric, fromBucketNumber, toBucketNumber).map { buckets ⇒ Future.successful(buckets) }.getOrElse {
-        val futureSlice = bucketStore.slice(metric, fromBucketNumber.startTimestamp(), toBucketNumber.startTimestamp(), previousWindowDuration)
-        futureSlice.map(identity)(TimeWindowChain.timeWindowExecutionContext).andThen {
-          case Success(previousBuckets) ⇒
-            if (previousBuckets.isEmpty) {
-              recordTime(formatLabel("emptySliceTime", metric, duration), System.currentTimeMillis() - start)
-            }
-            log.debug(s"${p(metric, duration)} - Found ${previousBuckets.size} buckets of $previousWindowDuration")
+    log.debug(s"$context - Slice [$fromBucketNumber, $toBucketNumber)")
+    //TODO: refactor me
+    bucketCache.take[T](metric, fromBucketNumber, toBucketNumber).map { buckets ⇒ Future.successful(buckets) }.getOrElse {
+      val futureSlice = bucketStore.slice(metric, fromBucketNumber.startTimestamp(), toBucketNumber.startTimestamp(), previousWindowDuration)
+      futureSlice.map { previousBuckets ⇒
+        if (previousBuckets.isEmpty) {
+          recordTime(formatLabel("emptySliceTime", metric, duration), System.currentTimeMillis() - start)
         }
-      }
+        log.debug(s"$context - Found ${previousBuckets.size} buckets of $previousWindowDuration")
+        previousBuckets
 
-    })
-
-  }
-
-  private def groupInBucketsOfMyWindow(previousWindowBuckets: Future[Seq[(Timestamp, () ⇒ T)]], metric: Metric): Future[Map[BucketNumber, Seq[T]]] = {
-    previousWindowBuckets map (buckets ⇒ buckets.groupBy(tuple ⇒ tuple._1.toBucketNumberOf(duration)).mapValues(
-      seq ⇒ seq.view.map(t ⇒ t._2()))) andThen {
-      case Success(buckets) ⇒
-        if (!buckets.isEmpty) {
-          log.debug(s"${p(metric, duration)} - Grouped ${buckets.size} buckets ${buckets.keys}")
-        }
+      }(TimeWindowChain.timeWindowExecutionContext)
     }
   }
 
-  private def filterOutAlreadyProcessedBuckets(groupedHistogramBuckets: Future[Map[BucketNumber, Seq[T]]], metric: Metric, lastProcessed: Future[BucketNumber]) = {
-    lastProcessed flatMap { lastBucket ⇒
-      groupedHistogramBuckets map { groups ⇒
-        (groups, groups.filter(_._1.number > lastBucket.number))
-      }
-    } andThen {
-      case Success((groups, filteredBuckets)) ⇒ {
-        val filteredCount = groups.size - filteredBuckets.size
-        if (filteredCount > 0) {
-          log.debug(s"${p(metric, duration)} - Filtered out ${filteredCount} already processed buckets")
-        }
-      }
-    } map {
-      _._2
+  private def grouped(buckets: Seq[(Timestamp, () ⇒ T)])(implicit metric: Metric, context: Context): Map[BucketNumber, Seq[T]] = {
+    val groupedBuckets = buckets.groupBy(tuple ⇒ tuple._1.toBucketNumberOf(duration)).mapValues(
+      seq ⇒ seq.view.map(t ⇒ t._2()))
+    if (!groupedBuckets.isEmpty) {
+      log.debug(s"$context - Grouped ${groupedBuckets.size} buckets ${groupedBuckets.keys}")
     }
+    groupedBuckets
   }
 
-  private def lastProcessedBucket(metric: Metric): Future[BucketNumber] = {
-    metaStore.getLastProcessedTimestamp(metric) map { lastTS ⇒ Timestamp(lastTS.ms - duration.toMillis).alignedTo(duration).toBucketNumberOf(duration) } andThen {
-      case Success(bucket) ⇒
-        log.debug(s"${p(metric, duration)} - Last processed bucket: $bucket")
+  private def notProcessed(groups: Map[BucketNumber, Seq[T]], lastBucket: BucketNumber)(implicit metric: Metric, context: Context): Map[BucketNumber, Seq[T]] = {
+    val filteredBuckets = groups.filter(_._1.number > lastBucket.number)
+    val filteredCount = groups.size - filteredBuckets.size
+    if (filteredCount > 0) {
+      log.warn(s"$context - Filtered out $filteredCount already processed buckets")
+    }
+    filteredBuckets
+  }
+
+  private def lastProcessedBucket(metric: Metric)(implicit context: Context): Future[BucketNumber] = {
+    metaStore.getLastProcessedTimestamp(metric) map { lastTS ⇒
+      val bucket = Timestamp(lastTS.ms - duration.toMillis).alignedTo(duration).toBucketNumberOf(duration)
+      log.debug(s"$context - Last processed bucket: $bucket")
+      bucket
     }
   }
 
@@ -169,10 +169,14 @@ case class CounterTimeWindow(duration: Duration, previousWindowDuration: Duratio
 }
 
 case class HistogramTimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true)
-    extends TimeWindow[HistogramBucket, StatisticSummary] with HistogramBucketSupport with StatisticSummarySupport {
+    extends TimeWindow[HistogramBucket, HistogramSummary] with HistogramBucketSupport with StatisticSummarySupport {
 
   override def aggregate(bucketNumber: BucketNumber, buckets: Seq[HistogramBucket]): HistogramBucket = new HistogramBucket(bucketNumber, buckets)
 
-  override def getSummary(bucket: HistogramBucket): StatisticSummary = bucket.summary
+  override def getSummary(bucket: HistogramBucket): HistogramSummary = bucket.summary
 
+}
+
+case class Context(metric: Metric, durationStr: String) {
+  override val toString = Logging.p(metric, durationStr)
 }

@@ -1,6 +1,6 @@
 package com.despegar.khronus.store
 
-import com.despegar.khronus.model.{Timestamp, StatisticSummary, Metric}
+import com.despegar.khronus.model.{Timestamp, HistogramSummary, Metric}
 import com.despegar.khronus.util.{Settings, BaseIntegrationTest}
 import org.scalatest.{Matchers,  FunSuite}
 import scala.concurrent.duration._
@@ -9,7 +9,7 @@ class CassandraHistogramSummaryStoreTest extends FunSuite with BaseIntegrationTe
   override val tableNames: Seq[String] = Settings.Window.WindowDurations.map(duration => Summaries.histogramSummaryStore.tableName(duration))
 
   test("An StatisticSummary should be capable of serialize and deserialize from Cassandra") {
-    val summary = StatisticSummary(Timestamp(1417639860000l),47903,47903,47903,47903,47903,47903,47872,47903,1,47888)
+    val summary = HistogramSummary(Timestamp(1417639860000l),47903,47903,47903,47903,47903,47903,47872,47903,1,47888)
     val summaries = Seq(summary)
     await { Summaries.histogramSummaryStore.store(Metric("testMetric","histogram"), 30 seconds, summaries) }
     val bucketsFromCassandra = await { Summaries.histogramSummaryStore.sliceUntilNow(Metric("testMetric","histogram"), 30 seconds) }
@@ -19,9 +19,9 @@ class CassandraHistogramSummaryStoreTest extends FunSuite with BaseIntegrationTe
   }
 
   test("Read should return only the right summary") {
-    val earlierSummary = StatisticSummary(1000,50,50,50,90,99,100,50,100,20,50)
-    val onIntervalSummary = StatisticSummary(2000,30,40,45,80,90,98,30,90,45,77)
-    val laterSummary = StatisticSummary(3000,11,22,33,44,55,66,77,88,99,80)
+    val earlierSummary = HistogramSummary(1000,50,50,50,90,99,100,50,100,20,50)
+    val onIntervalSummary = HistogramSummary(2000,30,40,45,80,90,98,30,90,45,77)
+    val laterSummary = HistogramSummary(3000,11,22,33,44,55,66,77,88,99,80)
 
     val summaries = Seq(earlierSummary, onIntervalSummary, laterSummary)
     await { Summaries.histogramSummaryStore.store(Metric("testMetric","histogram"), 30 seconds, summaries) }
@@ -32,8 +32,8 @@ class CassandraHistogramSummaryStoreTest extends FunSuite with BaseIntegrationTe
   }
 
   test("Reading with descending order should returns timestamp desc") {
-    val earlierSummary = StatisticSummary(1,50,50,50,90,99,100,50,100,20,50)
-    val laterSummary = StatisticSummary(3,80,81,82,83,84,85,86,87,88,89)
+    val earlierSummary = HistogramSummary(1,50,50,50,90,99,100,50,100,20,50)
+    val laterSummary = HistogramSummary(3,80,81,82,83,84,85,86,87,88,89)
     val summaries = Seq(earlierSummary, laterSummary)
     await { Summaries.histogramSummaryStore.store(Metric("testMetric","histogram"), 30 seconds, summaries) }
 

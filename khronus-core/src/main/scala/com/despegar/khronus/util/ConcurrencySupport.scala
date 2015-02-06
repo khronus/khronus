@@ -47,7 +47,7 @@ trait ConcurrencySupport extends Logging {
 }
 
 object ThreadFactory {
-  def apply(name: String) = new ThreadFactoryBuilder().setNameFormat(s"$name-%d").build()
+  def apply(name: String) = new ThreadFactoryBuilder().setNameFormat(s"$name-%d").setDaemon(true).build()
 }
 
 object ConcurrencySupport extends Measurable {

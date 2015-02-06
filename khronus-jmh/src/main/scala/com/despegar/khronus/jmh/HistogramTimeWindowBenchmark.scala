@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext.Implicits.global
+//import scala.concurrent.ExecutionContext.Implicits.global
 
 @State(Scope.Thread)
 class HistogramTimeWindowBenchmark {
@@ -133,6 +133,8 @@ class HistogramTimeWindowBenchmark {
   val deserializedHisto1 = HistogramSerializer.deserialize(serialized)
   val deserializedHisto2 = HistogramSerializer.deserialize(serialized)
 
+  val millisecondWindow = 1 millis
+
   val timeWindow30s = new HistogramTimeWindow(30 seconds, 1 millis) {
     override val bucketStore: BucketStore[HistogramBucket] = new BucketStore[HistogramBucket] {
 
@@ -141,20 +143,20 @@ class HistogramTimeWindowBenchmark {
       /** Slice over the buckets of the given 'metric' and 'windowDuration' from a Timestamp (inclusive) to a Timestamp (exclusive) */
       override def slice(metric: Metric, from: Timestamp, to: Timestamp, windowDuration: Duration): Future[Seq[(Timestamp, () ⇒ HistogramBucket)]] = {
         Future.successful {
-          Seq((Timestamp(1000), () ⇒ new HistogramBucket(BucketNumber(1000, 1 millis), deserializedHisto1)),
-            (Timestamp(2000), () ⇒ new HistogramBucket(BucketNumber(2000, 1 millis), deserializedHisto2)))
+          Seq((Timestamp(1000), () ⇒ new HistogramBucket(BucketNumber(1000, millisecondWindow), deserializedHisto1)),
+            (Timestamp(2000), () ⇒ new HistogramBucket(BucketNumber(2000, millisecondWindow), deserializedHisto2)))
         }
       }
 
     }
-    override val summaryStore: SummaryStore[StatisticSummary] = new SummaryStore[StatisticSummary] {
-      override def store(metric: Metric, windowDuration: Duration, summaries: Seq[StatisticSummary]): Future[Unit] = Future.successful {}
+    override val summaryStore: SummaryStore[HistogramSummary] = new SummaryStore[HistogramSummary] {
+      override def store(metric: Metric, windowDuration: Duration, summaries: Seq[HistogramSummary]): Future[Unit] = Future.successful {}
 
-      override def sliceUntilNow(metric: Metric, windowDuration: Duration): Future[Seq[StatisticSummary]] = Future.successful {
+      override def sliceUntilNow(metric: Metric, windowDuration: Duration): Future[Seq[HistogramSummary]] = Future.successful {
         Seq()
       }
 
-      override def readAll(metric: String, windowDuration: Duration, slice: Slice, ascendingOrder: Boolean = true, count: Int): Future[Seq[StatisticSummary]] = Future {
+      override def readAll(metric: String, windowDuration: Duration, slice: Slice, ascendingOrder: Boolean = true, count: Int): Future[Seq[HistogramSummary]] = Future.successful {
         Seq()
       }
     }
@@ -163,17 +165,17 @@ class HistogramTimeWindowBenchmark {
 
       override def getLastProcessedTimestamp(metric: Metric): Future[Timestamp] = Future.successful(Timestamp(1))
 
-      override def update(metric: Metric, lastProcessedTimestamp: Timestamp): Future[Unit] = Future {}
+      override def update(metric: Metric, lastProcessedTimestamp: Timestamp): Future[Unit] = Future.successful {}
 
-      override def insert(metric: Metric): Future[Unit] = Future {}
+      override def insert(metric: Metric): Future[Unit] = Future.successful {}
 
-      override def allMetrics: Future[Seq[Metric]] = Future {
+      override def allMetrics: Future[Seq[Metric]] = Future.successful {
         Seq()
       }
 
       override def contains(metric: Metric): Boolean = true
 
-      override def searchInSnapshot(expression: String): Future[Seq[Metric]] = Future {
+      override def searchInSnapshot(expression: String): Future[Seq[Metric]] = Future.successful {
         Seq()
       }
     }
@@ -193,7 +195,7 @@ class HistogramTimeWindowBenchmark {
   val metric = Metric("A", "timer")
   val tick = Tick()
 
-  LoggerFactory.getLogger("com.despegar").asInstanceOf[ch.qos.logback.classic.Logger].setLevel(Level.OFF)
+  LoggerFactory.getLogger("com.despegar").asInstanceOf[ch.qos.logback.classic.Logger].setLevel(Level.WARN)
 
   @Benchmark
   def timeWindow30Seconds() = {

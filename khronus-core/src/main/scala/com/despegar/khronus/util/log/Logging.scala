@@ -15,32 +15,38 @@
  */
 package com.despegar.khronus.util.log
 
+import com.despegar.khronus.model.Metric
 import com.typesafe.scalalogging.Logger
 import org.apache.commons.lang.time.FastDateFormat
 import org.slf4j.LoggerFactory
+
 import scala.concurrent.duration.Duration
-import com.despegar.khronus.model.Metric
 
 trait Logging {
 
-  import Logging._
+  import com.despegar.khronus.util.log.Logging._
 
   def loggerName = this.getClass().getName()
+
   val log = Logger(LoggerFactory.getLogger(loggerName))
 
-  def p(metric: Metric, duration: Duration) = /** s"[$metric-$duration]" */ ""
+  def p(metric: Metric, duration: Duration) = Logging.p(metric, duration)
 
-  def p(metric: Metric, ts: Long) =
-    /**
-     * s"[$metric-${
-     * df.format(ts)
-     * }]"
-     */
-    ""
+  def p(metric: Metric, ts: Long) = Logging.p(metric, ts)
 
   def date(ts: Long) = df.format(ts)
 }
 
 object Logging {
   val df = FastDateFormat.getInstance("dd/MM/yyyy hh:mm:ss")
+
+  def p(metric: Metric, duration: Duration) = s"[$metric-$duration]"
+
+  def p(metric: Metric, durationStr: String) = s"[$metric-$durationStr]"
+
+  def p(metric: Metric, ts: Long) =
+    s"[$metric-${
+      df.format(ts)
+    }]"
+
 }

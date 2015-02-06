@@ -2,7 +2,7 @@ package com.despegar.khronus.store
 
 import com.despegar.khronus.model.{CounterSummary, Metric, MetricType}
 import com.despegar.khronus.util.BaseIntegrationTest
-import com.despegar.khronus.model.{MetricType, CounterSummary, Metric, StatisticSummary}
+import com.despegar.khronus.model.{MetricType, CounterSummary, Metric, HistogramSummary}
 import com.despegar.khronus.util.{Settings, BaseIntegrationTest}
 import org.scalatest.{FunSuite, Matchers}
 

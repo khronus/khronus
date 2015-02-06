@@ -20,9 +20,10 @@ import java.nio.ByteBuffer
 
 import com.datastax.driver.core.Session
 import com.despegar.khronus.model._
+import com.despegar.khronus.model.histogram.Histogram
 import com.despegar.khronus.util.log.Logging
 import com.despegar.khronus.util.{ Measurable, Settings }
-import org.HdrHistogram.{ Histogram, SkinnyHistogram }
+import org.HdrHistogram.{ SkinnyHdrHistogram }
 
 import scala.concurrent.duration._
 
@@ -45,7 +46,7 @@ class CassandraHistogramBucketStore(session: Session) extends CassandraBucketSto
   def serializeBucket(metric: Metric, windowDuration: Duration, bucket: HistogramBucket): ByteBuffer = {
     val bytes = HistogramSerializer.serialize(bucket.histogram)
     val bytesEncoded = bytes.length
-    log.debug(s"$metric- Histogram of $windowDuration with ${bucket.histogram.getTotalCount()} measures encoded and compressed into $bytesEncoded bytes")
+    log.debug(s"$metric- Histogram of $windowDuration with ${bucket.histogram.getTotalCount} measures encoded and compressed into $bytesEncoded bytes")
     recordGauge(formatLabel("serializedBucketBytes", metric, windowDuration), bytesEncoded)
     ByteBuffer.wrap(bytes)
   }
@@ -59,18 +60,18 @@ class CassandraHistogramBucketStore(session: Session) extends CassandraBucketSto
 object HistogramSerializer {
 
   def serialize(histogram: Histogram): Array[Byte] = {
-    val buffer = SkinnyHistogram.byteBuffersPool.take()
+    val buffer = SkinnyHdrHistogram.byteBuffersPool.take()
     val bytesEncoded = histogram.encodeIntoCompressedByteBuffer(buffer)
     val bytes = new Array[Byte](bytesEncoded)
     buffer.limit(bytesEncoded)
     buffer.rewind()
     buffer.get(bytes)
-    SkinnyHistogram.byteBuffersPool.release(buffer)
+    SkinnyHdrHistogram.byteBuffersPool.release(buffer)
     bytes
   }
 
   def deserialize(bytes: Array[Byte]): Histogram = {
-    SkinnyHistogram.decodeFromCompressedByteBuffer(ByteBuffer.wrap(bytes), 0)
+    SkinnyHdrHistogram.decodeFromCompressedByteBuffer(ByteBuffer.wrap(bytes), 0)
   }
 
 }

@@ -1,8 +1,8 @@
 package com.despegar.khronus.jmh
 
 import com.despegar.khronus.model.HistogramBucket
+import com.despegar.khronus.model.histogram.Histogram
 import com.despegar.khronus.store.HistogramSerializer
-import org.HdrHistogram.Histogram
 import org.openjdk.jmh.annotations.{ Scope, Benchmark, State }
 
 @State(Scope.Thread)

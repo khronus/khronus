@@ -66,6 +66,7 @@ class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport {
 }
 
 object TimeWindowChain extends ConcurrencySupport {
-  val timeWindowExecutionContext: ExecutionContext = executionContext("time-window-worker")
+  //val timeWindowExecutionContext: ExecutionContext = executionContext("time-window-worker", 1)
+  val timeWindowExecutionContext: ExecutionContext = SameThreadExecutionContext
 
 }

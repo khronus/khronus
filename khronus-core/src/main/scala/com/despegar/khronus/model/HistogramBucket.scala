@@ -15,11 +15,10 @@
  */
 package com.despegar.khronus.model
 
-import java.io.{ ByteArrayOutputStream, PrintStream }
-
 import com.despegar.khronus.util.Measurable
 import com.despegar.khronus.util.log.Logging
-import org.HdrHistogram.{ Histogram, SkinnyHistogram }
+import com.despegar.khronus.model.histogram.Histogram
+import org.HdrHistogram.{ LightHistogram, SkinnyHdrHistogram }
 
 import scala.util.{ Failure, Try }
 
@@ -27,37 +26,33 @@ class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Hi
 
   import com.despegar.khronus.model.HistogramBucket._
 
-  override def summary: StatisticSummary = Try {
-    if (histogram.isInstanceOf[SkinnyHistogram]) {
-      val (p50, p80, p90, p95, p99, p999) = histogram.asInstanceOf[SkinnyHistogram].getPercentiles(50, 80, 90, 95, 99, 99.9)
-      val min = histogram.getMinValue
-      val max = histogram.getMaxValue
-      val count = histogram.getTotalCount
-      val mean = p50
-      StatisticSummary(timestamp, p50, p80, p90, p95, p99, p999, min, max, count, mean.toLong)
-    } else {
-      val p50 = histogram.getValueAtPercentile(50)
-      val p80 = histogram.getValueAtPercentile(80)
-      val p90 = histogram.getValueAtPercentile(90)
-      val p95 = histogram.getValueAtPercentile(95)
-      val p99 = histogram.getValueAtPercentile(99)
-      val p999 = histogram.getValueAtPercentile(99.9)
-      val min = histogram.getMinValue
-      val max = histogram.getMaxValue
-      val count = histogram.getTotalCount
-      val mean = p50
-      StatisticSummary(timestamp, p50, p80, p90, p95, p99, p999, min, max, count, mean.toLong)
-    }
-
-  }.recoverWith[StatisticSummary] {
-    case e: Exception ⇒
-      val baos = new ByteArrayOutputStream()
-      val printStream = new PrintStream(baos)
-      histogram.outputPercentileDistribution(printStream, 1000.0)
-      printStream.flush()
-      log.error(s"Failure creating summary of histogram: totalCount: ${histogram.getTotalCount}, percentileDistribution: ${baos.toString}", e)
-      Failure(e)
+  override def summary: HistogramSummary = Try {
+    val p50 = histogram.getValueAtPercentile(50)
+    val p80 = histogram.getValueAtPercentile(80)
+    val p90 = histogram.getValueAtPercentile(90)
+    val p95 = histogram.getValueAtPercentile(95)
+    val p99 = histogram.getValueAtPercentile(99)
+    val p999 = histogram.getValueAtPercentile(99.9)
+    val min = histogram.getMinValue
+    val max = histogram.getMaxValue
+    val count = histogram.getTotalCount
+    val mean = p50
+    HistogramSummary(timestamp, p50, p80, p90, p95, p99, p999, min, max, count, mean.toLong)
+  }.recoverWith[HistogramSummary] {
+    case reason: Exception ⇒
+      log.error(s"Failure creating summary of histogram: totalCount: ${histogram.getTotalCount}, " +
+        s"$percentileDistribution", reason)
+      Failure(reason)
   }.get
+
+  private def percentileDistribution: String = {
+    //    val baos = new ByteArrayOutputStream()
+    //    val printStream = new PrintStream(baos)
+    //    histogram.outputPercentileDistribution(printStream, 1000.0)
+    //    printStream.flush()
+    //    baos.toString
+    histogram.toString
+  }
 }
 
 object HistogramBucket extends Measurable with Logging {
@@ -70,16 +65,16 @@ object HistogramBucket extends Measurable with Logging {
   val histogramPrecision = 3
 
   implicit def sumHistograms(buckets: Seq[HistogramBucket]): Histogram = {
-    val histogram = newHistogram
-    if (buckets.length == 2) {
-      histogram.add(buckets(0).histogram)
-      histogram.add(buckets(1).histogram)
-    } else {
-      buckets.foreach(bucket ⇒ histogram.add(bucket.histogram))
+    val histogram = new LightHistogram(1L, histogramMaxValue, histogramPrecision)
+    val it = buckets.iterator
+    while (it.hasNext) {
+      val otherHisto = it.next()
+      histogram += otherHisto.histogram
     }
+    //buckets.foreach(bucket ⇒ histogram.add(bucket.histogram))
     histogram
   }
 
-  def newHistogram = new SkinnyHistogram(histogramMaxValue, histogramPrecision)
+  def newHistogram = new SkinnyHdrHistogram(histogramMaxValue, histogramPrecision)
 }
 
