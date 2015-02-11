@@ -272,7 +272,11 @@ If you don't want this behavior you can use the 'force' keyword. But take in acc
     select a.count as counter , cc.count, 3 as miConstant, cc.count + a.count as sum from "metricTimer" as a, "metricCounter" as cc where time >= now() - 10m group by time(1h) fill(-1) scale(0.1) limit 100 order asc
 ```
 
-  
+## Client Libraries
+
+[Java]: https://github.com/despegar/khronus-java-client  "Java"
+[Go]: https://github.com/despegar/khronus-go-client  "Go"
+
 ## Contributions
 
 `Khronus` is open to the community to collaborations and contributions
