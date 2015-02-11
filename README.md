@@ -274,8 +274,8 @@ If you don't want this behavior you can use the 'force' keyword. But take in acc
 
 ## Client Libraries
 
-[Java]: https://github.com/despegar/khronus-java-client  "Java"
-[Go]: https://github.com/despegar/khronus-go-client  "Go"
+* [Java client](https://github.com/despegar/khronus-java-client)
+* [Go client](https://github.com/despegar/khronus-go-client)
 
 ## Contributions
 
