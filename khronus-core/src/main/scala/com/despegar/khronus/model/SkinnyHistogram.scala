@@ -126,7 +126,7 @@ object SkinnyHistogram {
       lastIdx = idx
       lastFreq = freq
 
-      if (minNonZeroIndex != -1 && lastIdx != 0) {
+      if (minNonZeroIndex == -1 && lastIdx != 0) {
         minNonZeroIndex = lastIdx
       }
 
