@@ -38,6 +38,7 @@ class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport {
     val windows: Seq[TimeWindow[_, _]] = metric.mtype match {
       case MetricType.Timer | MetricType.Gauge ⇒ histrogramsWindows
       case MetricType.Counter                  ⇒ countersWindows
+      case any => throw new RuntimeException(s"Metric Type [${metric.mtype}}] not supported: $any")
     }
 
     val tick = currentTick(windows)
