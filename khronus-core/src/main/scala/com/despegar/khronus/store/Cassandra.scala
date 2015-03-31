@@ -20,10 +20,10 @@ import com.datastax.driver.core._
 import com.datastax.driver.core.policies._
 import com.despegar.khronus.util.Settings
 import com.despegar.khronus.util.log.Logging
-import com.google.common.util.concurrent.{FutureCallback, Futures}
+import com.google.common.util.concurrent.{ FutureCallback, Futures }
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.util.{Failure, Success, Try};
+import scala.concurrent.{ ExecutionContext, Future, Promise }
+import scala.util.{ Failure, Success, Try };
 
 object CassandraCluster extends Logging with CassandraClusterConfiguration {
   private val cluster: Cluster = clusterBuilder.build()

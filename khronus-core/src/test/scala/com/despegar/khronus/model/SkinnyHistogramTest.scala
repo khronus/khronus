@@ -10,7 +10,7 @@ class SkinnyHistogramTest extends FunSuite with MockitoSugar with Matchers with 
 
   test("seconds of a minute exercise") {
     val skinnyHistogram = new SkinnyHistogram(3600000000000L, 3)
-    (0 to 100) foreach { i =>
+    (0 to 100) foreach { i ⇒
       (1 to 59) foreach {
         skinnyHistogram.recordValue(_)
       }

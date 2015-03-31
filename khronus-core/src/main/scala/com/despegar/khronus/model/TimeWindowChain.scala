@@ -17,12 +17,16 @@
 package com.despegar.khronus.model
 
 import com.despegar.khronus.store.MetaSupport
-import com.despegar.khronus.util.Settings
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
 import com.despegar.khronus.util.log.Logging
+import com.despegar.khronus.util.{ ConcurrencySupport, SameThreadExecutionContext }
+
+import scala.concurrent.{ ExecutionContext, Future }
+import scala.util.Success
 
 class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport {
+
+  import com.despegar.khronus.model.TimeWindowChain._
+  implicit val executionContext = SameThreadExecutionContext
 
   def mustExecute(timeWindow: TimeWindow[_, _], metric: Metric, tick: Tick): Boolean = {
     if ((tick.endTimestamp.ms % timeWindow.duration.toMillis) == 0) {
@@ -33,36 +37,35 @@ class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport {
     }
   }
 
-  def process(metric: Metric): Future[Seq[Any]] = {
+  def process(metrics: Seq[Metric]): Future[Unit] = Future {
+    val tick = currentTick()
 
-    val windows: Seq[TimeWindow[_, _]] = metric.mtype match {
-      case MetricType.Timer | MetricType.Gauge ⇒ histrogramsWindows
-      case MetricType.Counter                  ⇒ countersWindows
-      case any                                 ⇒ throw new RuntimeException(s"Metric Type [${metric.mtype}}] not supported: $any")
-    }
-
-    val tick = currentTick(windows)
-
-    val sequence = Future.sequence(Seq(processInChain(windows filter (mustExecute(_, metric, tick)), metric, tick, 0)))
-    sequence onSuccess {
-      case _ ⇒ metaStore.update(metric, tick.endTimestamp)
-    }
-    sequence
-  }
-
-  protected def currentTick(windows: Seq[TimeWindow[_, _]]) = Tick.current(windows)
-
-  def processInChain(windows: Seq[TimeWindow[_, _]], metric: Metric, tick: Tick, index: Int): Future[Unit] = {
-    if (windows.size > 0) {
-      if (index >= (windows.size - 1)) {
-        windows(index).process(metric, tick)
-      } else {
-        windows(index).process(metric, tick).flatMap { _ ⇒
-          processInChain(windows, metric, tick, index + 1)
-        }
+    metrics.foldLeft(Future.successful(())) { (previousMetricFuture, metric) ⇒
+      previousMetricFuture.flatMap { _ ⇒
+        process(metric, tick)
       }
-    } else {
-      Future {}
     }
+  }(timeWindowExecutionContext) flatMap identity
+
+  def currentTick(): Tick = {
+    Tick.current
   }
+
+  def process(metric: Metric, currentTick: Tick): Future[Unit] = {
+    //TODO: please refactor me
+    val windows: Seq[TimeWindow[_, _]] = if (metric.mtype == "counter") countersWindows else histrogramsWindows
+
+    windows.filter(mustExecute(_, metric, currentTick)).foldLeft(Future.successful[Unit](())) { (previousWindow, timeWindow) ⇒
+      previousWindow.flatMap(_ ⇒ timeWindow.process(metric, currentTick))
+    }.andThen {
+      case Success(_) ⇒ metaStore.update(metric, currentTick.endTimestamp)
+    }
+
+  }
+
+}
+
+object TimeWindowChain extends ConcurrencySupport {
+  //val timeWindowExecutionContext: ExecutionContext = executionContext("time-window-worker", 1)
+  val timeWindowExecutionContext: ExecutionContext = SameThreadExecutionContext
 }

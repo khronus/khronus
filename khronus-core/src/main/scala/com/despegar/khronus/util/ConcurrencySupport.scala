@@ -79,3 +79,10 @@ object ConcurrencySupport extends Measurable {
   }
 
 }
+
+object SameThreadExecutionContext extends ExecutionContext with Logging {
+  override def execute(runnable: Runnable): Unit = {
+    runnable.run()
+  }
+  override def reportFailure(cause: Throwable): Unit = {}
+}

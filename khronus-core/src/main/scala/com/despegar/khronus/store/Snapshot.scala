@@ -5,8 +5,9 @@ import java.util.concurrent.TimeUnit
 import com.despegar.khronus.util.ConcurrencySupport
 import com.despegar.khronus.util.log.Logging
 
-import scala.concurrent.{ ExecutionContext, Future }
-import scala.util.{ Failure, Success }
+import scala.concurrent.duration._
+import scala.concurrent.{ Await, ExecutionContext, Future }
+import scala.util.{ Failure, Success, Try }
 
 trait Snapshot[T] extends Logging with ConcurrencySupport {
 
@@ -20,7 +21,13 @@ trait Snapshot[T] extends Logging with ConcurrencySupport {
   var snapshot: T = initialValue
 
   private val pool = scheduledThreadPool(s"snapshot-reload-worker")
-  pool.scheduleAtFixedRate(reload(), 0, 5, TimeUnit.SECONDS)
+
+  def startSnapshotReloads() = {
+    Try {
+      snapshot = Await.result(getFreshData(), 5 seconds)
+    }
+    pool.scheduleAtFixedRate(reload(), 5, 5, TimeUnit.SECONDS)
+  }
 
   private def reload() = new Runnable {
     override def run(): Unit = {

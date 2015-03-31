@@ -8,5 +8,6 @@ trait CassandraSupport {
   val cassandraSummaries = Summaries
   val cassandraMeta = Meta
 
+  cassandraMeta.metaStore.startSnapshotReloads()
   ConcurrencySupport.startConcurrencyMonitoring
 }

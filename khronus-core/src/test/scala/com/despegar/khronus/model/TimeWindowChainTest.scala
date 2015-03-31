@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Copyright © 2015 the khronus project <https://github.com/hotels-tech/khronus>
+ * Copyright © 2014 the khronus project <https://github.com/hotels-tech/khronus>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -39,7 +39,7 @@ class TimeWindowChainTest extends FunSuite with MockitoSugar {
       override val metaStore = mock[MetaStore]
       override val countersWindows = Seq.empty[CounterTimeWindow]
 
-      override def currentTick(windows: Seq[TimeWindow[_, _]]) = {
+      override def currentTick() = {
         Tick(BucketNumber(47178956, 30 seconds)) //this tick corresponds to the interval from 07/11/2014 08:58:00 to 07/11/2014 08:58:30
       }
     }
@@ -52,7 +52,7 @@ class TimeWindowChainTest extends FunSuite with MockitoSugar {
     when(chain.metaStore.update(any[Metric], any[Long])).thenReturn(Future {})
 
     val metric = Metric("tito", MetricType.Timer)
-    val result = chain.process(metric)
+    val result = chain.process(Seq(metric))
 
     Await.result(result, 5 seconds)
 
