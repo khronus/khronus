@@ -17,13 +17,13 @@
 package com.despegar.khronus.store
 
 import com.datastax.driver.core._
-import com.datastax.driver.core.policies.{ DefaultRetryPolicy, LoggingRetryPolicy, RoundRobinPolicy, TokenAwarePolicy }
+import com.datastax.driver.core.policies._
 import com.despegar.khronus.util.Settings
 import com.despegar.khronus.util.log.Logging
-import com.google.common.util.concurrent.{ FutureCallback, Futures }
+import com.google.common.util.concurrent.{FutureCallback, Futures}
 
-import scala.concurrent.{ ExecutionContext, Future, Promise }
-import scala.util.{ Failure, Success, Try };
+import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.{Failure, Success, Try};
 
 object CassandraCluster extends Logging with CassandraClusterConfiguration {
   private val cluster: Cluster = clusterBuilder.build()
@@ -46,7 +46,7 @@ object CassandraCluster extends Logging with CassandraClusterConfiguration {
 trait CassandraClusterConfiguration {
   val settingsCassandra = Settings.CassandraCluster
 
-  private val poolingOptions = new PoolingOptions().setMaxConnectionsPerHost(HostDistance.REMOTE, settingsCassandra.MaxConnectionsPerHost)
+  private val poolingOptions = new PoolingOptions().setMaxConnectionsPerHost(HostDistance.LOCAL, settingsCassandra.MaxConnectionsPerHost)
   private val socketOptions = new SocketOptions().setConnectTimeoutMillis(settingsCassandra.ConnectionTimeout).setReadTimeoutMillis(settingsCassandra.SocketTimeout)
   private val loadBalancingPolicy = new TokenAwarePolicy(new RoundRobinPolicy)
   private val retryPolicy = new LoggingRetryPolicy(DefaultRetryPolicy.INSTANCE)
@@ -58,6 +58,7 @@ trait CassandraClusterConfiguration {
     withPoolingOptions(poolingOptions).
     withSocketOptions(socketOptions).
     withLoadBalancingPolicy(loadBalancingPolicy).
+    withReconnectionPolicy(new ExponentialReconnectionPolicy(1000l, 10 * 1000l)).
     withRetryPolicy(retryPolicy)
 
 }

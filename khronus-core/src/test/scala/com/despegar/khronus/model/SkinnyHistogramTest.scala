@@ -8,6 +8,28 @@ import com.despegar.khronus.util.log.Logging
 
 class SkinnyHistogramTest extends FunSuite with MockitoSugar with Matchers with Logging {
 
+  test("seconds of a minute exercise") {
+    val skinnyHistogram = new SkinnyHistogram(3600000000000L, 3)
+    (0 to 100) foreach { i =>
+      (1 to 59) foreach {
+        skinnyHistogram.recordValue(_)
+      }
+
+      skinnyHistogram.getMinValue shouldEqual 1
+      skinnyHistogram.getMaxValue shouldEqual 59
+
+      val buffer = ByteBuffer.allocate(skinnyHistogram.getEstimatedFootprintInBytes)
+      val bytesEncoded = skinnyHistogram.encodeIntoCompressedByteBuffer(buffer)
+      buffer.limit(bytesEncoded)
+      buffer.rewind()
+      buffer
+
+      val decodedHistogram = SkinnyHistogram.decodeFromCompressedByteBuffer(buffer, 0)
+      decodedHistogram.getMinValue shouldEqual 1
+      decodedHistogram.getMaxValue shouldEqual 59
+    }
+  }
+
   test("serialization round-trip") {
     val skinnyHistogram = new SkinnyHistogram(3600000000000L, 3)
 
