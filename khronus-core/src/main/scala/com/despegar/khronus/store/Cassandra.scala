@@ -59,7 +59,9 @@ trait CassandraClusterConfiguration {
     withSocketOptions(socketOptions).
     withLoadBalancingPolicy(loadBalancingPolicy).
     withReconnectionPolicy(new ExponentialReconnectionPolicy(1000l, 10 * 1000l)).
-    withRetryPolicy(retryPolicy)
+    withRetryPolicy(retryPolicy).
+    withCompression(ProtocolOptions.Compression.SNAPPY).
+    withQueryOptions(new QueryOptions().setConsistencyLevel(ConsistencyLevel.ONE))
 
 }
 
