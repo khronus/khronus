@@ -18,15 +18,16 @@ trait Snapshot[T] extends Logging with ConcurrencySupport {
   @volatile
   var snapshot: T = initialValue
 
-  private val pool = scheduledThreadPool(s"snapshot-reload-worker")
+  private val scheduledPool = scheduledThreadPool(s"snapshot-reload-scheduled-worker")
 
-  implicit val context: ExecutionContext = SameThreadExecutionContext
+  //use the scheduledPool only to start the main thread. the remain operations like getFreshData() will run on this one
+  implicit val context: ExecutionContext = executionContext("snapshot-reload-worker")
 
   def startSnapshotReloads() = {
     Try {
       snapshot = Await.result(getFreshData()(context), 5 seconds)
     }
-    pool.scheduleAtFixedRate(reload(), 5, 5, TimeUnit.SECONDS)
+    scheduledPool.scheduleAtFixedRate(reload(), 5, 5, TimeUnit.SECONDS)
   }
 
   private def reload() = new Runnable {

@@ -42,10 +42,12 @@ class Worker extends Actor with ActorLogging with TimeWindowChainProvider with M
   }
 
   def process(metrics: Seq[Metric], requestor: ActorRef): Unit = {
+    log.info(s"Starting to process ${metrics.size} metrics")
     log.debug(s"Starting to process: ${metrics.mkString(",")}")
 
     timeWindowChain.process(metrics).onComplete {
       case Success(_) ⇒
+        log.info(s"Worker ${self.path} has processed ${metrics.size} metrics successfully")
         log.debug(s"Worker ${self.path} has processed ${metrics.mkString(",")} successfully")
         requestor ! WorkDone(self)
 

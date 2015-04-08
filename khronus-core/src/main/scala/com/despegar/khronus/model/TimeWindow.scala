@@ -104,7 +104,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
       seq ⇒ seq.view.map(t ⇒ t._2()))) andThen {
       case Success(buckets) ⇒
         if (!buckets.isEmpty) {
-          log.debug(s"${p(metric, duration)} - Grouped ${buckets.size} buckets ${buckets.keys}")
+          log.trace(s"${p(metric, duration)} - Grouped ${buckets.size} buckets ${buckets.keys}")
         }
     }
   }
@@ -129,7 +129,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
   private def lastProcessedBucket(metric: Metric): Future[BucketNumber] = {
     metaStore.getLastProcessedTimestamp(metric) map { lastTS ⇒ Timestamp(lastTS.ms - duration.toMillis).alignedTo(duration).toBucketNumber(duration) } andThen {
       case Success(bucket) ⇒
-        log.debug(s"${p(metric, duration)} - Last processed bucket: $bucket")
+        log.trace(s"${p(metric, duration)} - Last processed bucket: $bucket")
     }
   }
 

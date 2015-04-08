@@ -14,10 +14,9 @@ object Tick extends Logging {
 
   def current(): Tick = {
     val executionTimestamp = Timestamp(now - Settings.Window.ExecutionDelay)
-    log.debug(s"Building Tick for executionTimestamp ${date(executionTimestamp.ms)}")
     val bucketNumber = executionTimestamp.alignedTo(smallestWindow()).toBucketNumber(smallestWindow())
     val tick = Tick(bucketNumber - 1)
-    log.debug(s"$tick")
+    log.debug(s"current $tick from executionTimestamp ${date(executionTimestamp.ms)}")
     tick
   }
 

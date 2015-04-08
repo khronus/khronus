@@ -84,7 +84,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
       }
 
       val future: Future[ResultSet] = session.executeAsync(batchStmt)
-      future.map(_ ⇒ log.debug(s"Stored meta chunk successfully"))
+      future.map(_ ⇒ log.trace(s"Stored meta chunk successfully"))
   }
 
   def searchInSnapshot(expression: String): Future[Seq[Metric]] = Future {

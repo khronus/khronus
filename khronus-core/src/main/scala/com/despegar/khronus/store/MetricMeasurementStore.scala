@@ -34,7 +34,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
       return
     }
     val metric = metricMeasurement.asMetric
-    log.debug(s"Storing metric $metric")
+    log.trace(s"Storing metric $metric")
     metric.mtype match {
       case MetricType.Timer | MetricType.Gauge ⇒ storeHistogramMetric(metric, metricMeasurement)
       case MetricType.Counter                  ⇒ storeCounterMetric(metric, metricMeasurement)
@@ -52,7 +52,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
       log.debug(s"Got a new metric: $metric. Will store metadata for it")
       storeMetadata(metric)
     } else {
-      log.debug(s"$metric is already known. No need to store meta for it")
+      log.trace(s"$metric is already known. No need to store meta for it")
     }
   }
 

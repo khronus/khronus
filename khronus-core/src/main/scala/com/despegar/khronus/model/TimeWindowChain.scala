@@ -47,7 +47,7 @@ class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport w
     if ((tick.endTimestamp.ms % timeWindow.duration.toMillis) == 0) {
       true
     } else {
-      log.debug(s"${p(metric, timeWindow.duration)} Excluded to run")
+      log.trace(s"${p(metric, timeWindow.duration)} Excluded to run")
       false
     }
   }

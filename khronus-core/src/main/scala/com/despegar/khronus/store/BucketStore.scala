@@ -82,12 +82,12 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
   def store(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit] = executeChunked(s"bucket of $metric-$windowDuration", buckets, Settings.CassandraBuckets.insertChunkSize) {
     bucketsChunk ⇒
       {
-        log.debug(s"${p(metric, windowDuration)} - Storing chunk of ${bucketsChunk.length} buckets")
+        log.trace(s"${p(metric, windowDuration)} - Storing chunk of ${bucketsChunk.length} buckets")
 
         val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
         bucketsChunk.foreach(bucket ⇒ {
           val serializedBucket = serializeBucket(metric, windowDuration, bucket)
-          log.debug(s"${p(metric, windowDuration)} Storing a bucket of ${serializedBucket.limit()} bytes")
+          log.trace(s"${p(metric, windowDuration)} Storing a bucket of ${serializedBucket.limit()} bytes")
           batchStmt.add(stmtPerWindow(windowDuration).insert.bind(Seq(serializedBucket).asJava, metric.name, Long.box(bucket.timestamp.ms)))
         })
 

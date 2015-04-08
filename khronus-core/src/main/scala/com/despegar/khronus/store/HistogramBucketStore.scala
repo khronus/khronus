@@ -45,7 +45,7 @@ class CassandraHistogramBucketStore(session: Session) extends CassandraBucketSto
   def serializeBucket(metric: Metric, windowDuration: Duration, bucket: HistogramBucket): ByteBuffer = {
     val buffer = ByteBuffer.allocate(bucket.histogram.getEstimatedFootprintInBytes)
     val bytesEncoded = bucket.histogram.encodeIntoCompressedByteBuffer(buffer)
-    log.debug(s"$metric- Histogram of $windowDuration with ${bucket.histogram.getTotalCount()} measures encoded and compressed into $bytesEncoded bytes")
+    log.trace(s"$metric- Histogram of $windowDuration with ${bucket.histogram.getTotalCount()} measures encoded and compressed into $bytesEncoded bytes")
     recordGauge(formatLabel("serializedBucketBytes", metric, windowDuration), bytesEncoded)
     buffer.limit(bytesEncoded)
     buffer.rewind()

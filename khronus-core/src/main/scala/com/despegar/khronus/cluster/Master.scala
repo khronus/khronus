@@ -130,7 +130,6 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
     log.info(s"Metrics received: $metricsSize, Pending metrics: ${pendingMetrics.size}, ${idleWorkers.size} idle workers, ${busyWorkers.size} busy workers")
     log.debug(s"Pending metrics: $pendingMetrics workers idle: $idleWorkers")
-    log.debug(s"Idle workers: $idleWorkers")
 
     recordGauge("idleWorkers", idleWorkers.size)
     recordGauge("pendingMetrics", pendingMetrics.size)

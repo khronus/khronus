@@ -56,7 +56,7 @@ object HistogramBucket extends Measurable {
     _.reset()
   })
 */
-  implicit def sumHistograms(buckets: Seq[HistogramBucket]): Histogram = measureTime("sumHistograms", "sumHistograms") {
+  implicit def sumHistograms(buckets: Seq[HistogramBucket]): Histogram = measureTime("sumHistograms", "sumHistograms", false) {
     val histogram = newHistogram
     buckets.foreach(bucket ⇒ histogram.add(bucket.histogram))
     histogram
