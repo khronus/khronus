@@ -54,4 +54,6 @@ object Settings {
   lazy val itExtraSettings = Seq(
     parallelExecution in IntegrationTest := false
   )
+
+  lazy val extraTestSettings = Seq(javaOptions in Test += "-Dconfig.file=application-test.conf")
 }

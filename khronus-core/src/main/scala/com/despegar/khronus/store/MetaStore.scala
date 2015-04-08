@@ -25,14 +25,14 @@ import com.despegar.khronus.util.log.Logging
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.collection.mutable.Buffer
-import scala.concurrent.{ Future, Promise }
+import scala.concurrent.{ ExecutionContext, Future, Promise }
 import scala.util.{ Failure, Success }
 import com.despegar.khronus.util.Settings
 
 case class MetricMetadata(metric: Metric, timestamp: Timestamp)
 
 trait MetaStore {
-  def update(metric: Metric, lastProcessedTimestamp: Timestamp): Future[Unit]
+  def update(metric: Seq[Metric], lastProcessedTimestamp: Timestamp): Future[Unit]
 
   def getLastProcessedTimestamp(metric: Metric): Future[Timestamp]
 
@@ -50,7 +50,7 @@ trait MetaSupport {
 }
 
 class CassandraMetaStore(session: Session) extends MetaStore with Logging with CassandraUtils with Snapshot[Map[Metric, Timestamp]] {
-
+  //------- cassandra initialization
   val MetricsKey = "metrics"
 
   private val CreateTableStmt = s"create table if not exists meta (key text, metric text, timestamp bigint, primary key (key, metric));"
@@ -61,47 +61,30 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
   private val GetByKeyStmt = session.prepare(s"select metric, timestamp from meta where key = ?;")
   private val GetLastProcessedTimeStmt = session.prepare(s"select timestamp from meta where key = ? and metric = ?;")
 
-  implicit val asyncExecutionContext = executionContext("meta-worker", 5)
+  implicit val asyncExecutionContext = executionContext("meta-worker")
 
-  private val queue = new ConcurrentLinkedQueue[(Promise[Unit], MetricMetadata)]()
+  //------- snapshot conf
+  override val snapshotName = "meta"
 
-  val asyncUpdateExecutor = scheduledThreadPool("meta-writer-worker")
+  override def initialValue = Map[Metric, Timestamp]()
 
-  asyncUpdateExecutor.scheduleAtFixedRate(new Runnable() {
-    override def run = updateAsync
-  }, 1, 1, TimeUnit.SECONDS)
+  override def getFreshData()(implicit executor: ExecutionContext): Future[Map[Metric, Timestamp]] = {
+    retrieveMetrics(executor)
+  }
 
   def insert(metric: Metric): Future[Unit] = {
-    put(Seq(MetricMetadata(metric, Timestamp(1))))
+    update(Seq(metric), Timestamp(1))
   }
 
-  def update(metric: Metric, lastProcessedTimestamp: Timestamp): Future[Unit] = {
-    val promise = Promise[Unit]()
-    buffer(promise, MetricMetadata(metric, lastProcessedTimestamp))
-    promise.future
-  }
+  def update(metrics: Seq[Metric], lastProcessedTimestamp: Timestamp): Future[Unit] = executeChunked("meta", metrics, Settings.CassandraMeta.insertChunkSize) {
+    metricsChunk ⇒
+      val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
+      metricsChunk.foreach {
+        metric ⇒ batchStmt.add(InsertStmt.bind(MetricsKey, asString(metric), Long.box(lastProcessedTimestamp.ms)))
+      }
 
-  private def buffer(promise: Promise[Unit], metricMetadata: MetricMetadata) = {
-    queue.offer((promise, metricMetadata))
-  }
-
-  private def updateAsync = {
-    val elements = drain()
-    if (!elements.isEmpty) {
-      put(elements.map(element ⇒ element._2))
-      elements.foreach(element ⇒ element._1.complete(Success(Unit)))
-    }
-  }
-
-  @tailrec //TODO: refactorme
-  private def drain(elements: Buffer[(Promise[Unit], MetricMetadata)] = Buffer[(Promise[Unit], MetricMetadata)]()): Buffer[(Promise[Unit], MetricMetadata)] = {
-    val element = queue.poll()
-    if (element != null) {
-      elements += element
-      drain(elements)
-    } else {
-      elements
-    }
+      val future: Future[ResultSet] = session.executeAsync(batchStmt)
+      future.map(_ ⇒ log.debug(s"Stored meta chunk successfully"))
   }
 
   def searchInSnapshot(expression: String): Future[Seq[Metric]] = Future {
@@ -112,17 +95,17 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
 
   def allMetrics(): Future[Seq[Metric]] = retrieveMetrics.map(_.keys.toSeq)
 
-  def retrieveMetrics: Future[Map[Metric, Timestamp]] = {
+  private def retrieveMetrics(implicit executor: ExecutionContext): Future[Map[Metric, Timestamp]] = {
     val future: Future[ResultSet] = session.executeAsync(GetByKeyStmt.bind(MetricsKey))
     future.
       map(resultSet ⇒ {
         val metrics = resultSet.all().asScala.map(row ⇒ (fromString(row.getString("metric")), Timestamp(row.getLong("timestamp")))).toMap
         log.info(s"Found ${metrics.size} metrics in meta")
         metrics
-      }).
+      })(executor).
       andThen {
         case Failure(reason) ⇒ log.error(s"Failed to retrieve metrics from meta", reason)
-      }
+      }(executor)
   }
 
   def getLastProcessedTimestamp(metric: Metric): Future[Timestamp] = {
@@ -141,17 +124,6 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
       }
   }
 
-  def put(metrics: Seq[MetricMetadata]): Future[Unit] = executeChunked("meta", metrics, Settings.CassandraMeta.insertChunkSize) {
-    metricsChunk ⇒
-      val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
-      metricsChunk.foreach {
-        metricMetadata ⇒ batchStmt.add(InsertStmt.bind(MetricsKey, asString(metricMetadata.metric), Long.box(metricMetadata.timestamp.ms)))
-      }
-
-      val future: Future[ResultSet] = session.executeAsync(batchStmt)
-      future.map(_ ⇒ log.debug(s"Stored meta chunk successfully"))
-  }
-
   private def asString(metric: Metric) = s"${metric.name}|${metric.mtype}"
 
   private def fromString(str: String): Metric = {
@@ -159,13 +131,6 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
     Metric(tokens(0), tokens(1))
   }
 
-  override def getFreshData(): Future[Map[Metric, Timestamp]] = {
-    retrieveMetrics
-  }
+  //  override def context = asyncExecutionContext
 
-  override def context = asyncExecutionContext
-
-  override val snapshotName = "meta"
-
-  override def initialValue = Map[Metric, Timestamp]()
 }

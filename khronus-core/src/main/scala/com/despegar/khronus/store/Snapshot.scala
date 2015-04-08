@@ -2,7 +2,7 @@ package com.despegar.khronus.store
 
 import java.util.concurrent.TimeUnit
 
-import com.despegar.khronus.util.ConcurrencySupport
+import com.despegar.khronus.util.{ SameThreadExecutionContext, ConcurrencySupport }
 import com.despegar.khronus.util.log.Logging
 
 import scala.concurrent.duration._
@@ -10,8 +10,6 @@ import scala.concurrent.{ Await, ExecutionContext, Future }
 import scala.util.{ Failure, Success, Try }
 
 trait Snapshot[T] extends Logging with ConcurrencySupport {
-
-  implicit def context: ExecutionContext
 
   def snapshotName: String
 
@@ -22,9 +20,11 @@ trait Snapshot[T] extends Logging with ConcurrencySupport {
 
   private val pool = scheduledThreadPool(s"snapshot-reload-worker")
 
+  implicit val context: ExecutionContext = SameThreadExecutionContext
+
   def startSnapshotReloads() = {
     Try {
-      snapshot = Await.result(getFreshData(), 5 seconds)
+      snapshot = Await.result(getFreshData()(context), 5 seconds)
     }
     pool.scheduleAtFixedRate(reload(), 5, 5, TimeUnit.SECONDS)
   }
@@ -32,7 +32,7 @@ trait Snapshot[T] extends Logging with ConcurrencySupport {
   private def reload() = new Runnable {
     override def run(): Unit = {
       try {
-        getFreshData() onComplete {
+        getFreshData().onComplete {
           case Success(data) ⇒ snapshot = data
           case Failure(t)    ⇒ log.error("Error reloading data", t)
         }
@@ -44,7 +44,7 @@ trait Snapshot[T] extends Logging with ConcurrencySupport {
 
   def getFromSnapshot: T = snapshot
 
-  def getFreshData(): Future[T]
+  def getFreshData()(implicit executor: ExecutionContext): Future[T]
 
 }
 

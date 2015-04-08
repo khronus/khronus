@@ -23,7 +23,7 @@ class CassandraMetaStoreTest extends FunSuite with BaseIntegrationTest with Matc
     initialTimestamp.ms should be(1)
 
     val expectedTimestamp = 1000L
-    await { Meta.metaStore.update(metric, Timestamp(expectedTimestamp))}
+    await { Meta.metaStore.update(Seq(metric), Timestamp(expectedTimestamp))}
     val timestamp = await { Meta.metaStore.getLastProcessedTimestampFromCassandra(metric)}
     timestamp.ms should be(expectedTimestamp)
   }

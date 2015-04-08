@@ -38,6 +38,7 @@ class TimeWindowChainTest extends FunSuite with MockitoSugar {
       override val histrogramsWindows = mockedWindows
       override val metaStore = mock[MetaStore]
       override val countersWindows = Seq.empty[CounterTimeWindow]
+      override val windows = Map(MetricType.Counter -> countersWindows, MetricType.Timer -> histrogramsWindows)
 
       override def currentTick() = {
         Tick(BucketNumber(47178956, 30 seconds)) //this tick corresponds to the interval from 07/11/2014 08:58:00 to 07/11/2014 08:58:30
@@ -49,7 +50,7 @@ class TimeWindowChainTest extends FunSuite with MockitoSugar {
     when(window30s.process(any[Metric], any[Tick])).thenReturn(Future {})
     when(window1m.process(any[Metric], any[Tick])).thenReturn(Future {})
 
-    when(chain.metaStore.update(any[Metric], any[Long])).thenReturn(Future {})
+    when(chain.metaStore.update(any[Seq[Metric]], any[Long])).thenReturn(Future {})
 
     val metric = Metric("tito", MetricType.Timer)
     val result = chain.process(Seq(metric))

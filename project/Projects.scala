@@ -25,6 +25,7 @@ object Projects extends Build {
     .settings(formatSettings: _*)
     .settings(packagerSettings: _*)
     .settings(extraPackagerSettings: _*)
+    .settings(extraTestSettings: _*)
     .settings(libraryDependencies ++=
               compile(sprayCan, sprayJson, akkaActor))
 
