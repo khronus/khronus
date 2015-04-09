@@ -3,13 +3,14 @@ package com.despegar.khronus.model
 import java.io.{ PrintStream, ByteArrayOutputStream }
 import java.nio.ByteBuffer
 
+import com.despegar.khronus.util.LatencyTestUtil
 import org.HdrHistogram.{ SkinnyHistogram, Histogram }
 
 import scala.util.Random
 
 object HistogramTest extends App {
 
-  doIt
+  sum()
 
   def doIt = {
     val oneHourInMicroseconds = 3600000000L
@@ -51,4 +52,26 @@ object HistogramTest extends App {
     compressedBytes
   }
 
+  def sum() = {
+    val testHistogram = new SkinnyHistogram(36000000L, 3)
+
+    for (i <- 1 to 100) {
+      val skinnyHistogram = new SkinnyHistogram(36000000L, 3)
+
+      val histograms = for (i <- 1 to 100) yield {
+        val h = new SkinnyHistogram(36000000L, 3)
+        LatencyTestUtil.latencies foreach { latency ⇒
+          h.recordValue(latency)
+        }
+        h
+      }
+
+      val start = System.currentTimeMillis()
+      histograms.foreach(h ⇒ skinnyHistogram.add(h))
+      testHistogram.recordValue(System.currentTimeMillis() - start)
+    }
+
+    println(s"Sum p95: ${testHistogram.getValueAtPercentile(95)}")
+    println(s"Sum p999: ${testHistogram.getValueAtPercentile(999)}")
+  }
 }

@@ -86,7 +86,7 @@ object StressTest extends App with JacksonJsonSupport {
       val metricBatch: MetricBatch = MetricBatch(metricMeasurements)
       println(s"calling Khronus #$call, run #$run")
 
-      val request = Post("http://ht-core-01:8080/khronus/metrics", metricBatch)
+      val request = Post("http://khronus-beta-00:9290/khronus/metrics", metricBatch)
       val pipeline: HttpRequest ⇒ Future[HttpResponse] = sendReceive
 
       val response = pipeline(request)
