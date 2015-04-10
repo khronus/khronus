@@ -96,10 +96,12 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
       }
   }
 
-  def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[Seq[(Timestamp, () ⇒ T)]] = measureFutureTime("slice", metric, sourceWindow) {
+  def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[Seq[(Timestamp, () ⇒ T)]] = measureFutureTime("slice", metric, sourceWindow) { measureName =>
     val boundStmt = stmtPerWindow(sourceWindow).selects(SliceQuery).bind(metric.name, Long.box(from.ms), Long.box(to.ms), Int.box(limit))
 
-    val future: Future[ResultSet] = session.executeAsync(boundStmt)
+    val future: Future[ResultSet] = checkForSlowQuery(measureName, getQueryAsString(SliceQuery,metric.name,from.ms,to.ms,limit)){
+      session.executeAsync(boundStmt)
+    }
     future.map(resultSet ⇒ {
       resultSet.asScala.flatMap(row ⇒ {
         val ts = row.getLong("timestamp")
@@ -117,4 +119,9 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
     }
   }
 
+  private def getQueryAsString(stmt: String, binds: Any*): String = {
+    s"$stmt -> Binds $binds"
+  }
+
 }
+
