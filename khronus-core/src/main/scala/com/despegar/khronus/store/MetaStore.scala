@@ -44,7 +44,7 @@ trait MetaStore {
 
   def contains(metric: Metric): Boolean
 
-  def searchInSnapshotSync(metricName: String): Seq[Metric]
+  def getFromSnapshotSync(metricName: String): Option[(Metric, Timestamp)]
 }
 
 trait MetaSupport {
@@ -95,8 +95,8 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
 
   def contains(metric: Metric): Boolean = getFromSnapshot.contains(metric)
 
-  def searchInSnapshotSync(metricName: String): Seq[Metric] = {
-    getFromSnapshot.keys.filter(_.name.equals(metricName)).toSeq
+  def getFromSnapshotSync(metricName: String): Option[(Metric, Timestamp)] = {
+    getFromSnapshot.find{ case (metric, timestamp) => metric.name.matches(metricName)}
   }
 
   def allMetrics(): Future[Seq[Metric]] = retrieveMetrics.map(_.keys.toSeq)

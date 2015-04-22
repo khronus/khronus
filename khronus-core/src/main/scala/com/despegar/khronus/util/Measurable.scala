@@ -1,13 +1,13 @@
 package com.despegar.khronus.util
 
-import com.despegar.khronus.model.{Metric, MonitoringSupport}
+import com.despegar.khronus.model.{ Metric, MonitoringSupport }
 import com.despegar.khronus.util.log.Logging
 
 import scala.concurrent.duration.Duration
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Success
 
-trait Measurable extends Logging with MonitoringSupport with ConcurrencySupport with SlowMetricsRecorder {
+trait Measurable extends Logging with SlowMetricsRecorder {
 
   private def now = System.currentTimeMillis()
 
@@ -28,12 +28,11 @@ trait Measurable extends Logging with MonitoringSupport with ConcurrencySupport 
     }
   }
 
-  def measureFutureTime[T](label: String, metric: Metric, duration: Duration)(block: String ⇒ Future[T])(implicit ec: ExecutionContext): Future[T] = {
-    val metricName = formatLabel(label, metric, duration)
+  def measureFutureTime[T](label: String, metric: Metric, duration: Duration)(block: ⇒ Future[T])(implicit ec: ExecutionContext): Future[T] = {
     if (!metric.isSystem) {
-      measureFutureTime(metricName, s"${p(metric, duration)} $label")(block(metricName))
+      measureFutureTime(formatLabel(label, metric, duration), s"${p(metric, duration)} $label")(block)
     } else {
-      block(metricName)
+      block
     }
   }
 
@@ -42,11 +41,9 @@ trait Measurable extends Logging with MonitoringSupport with ConcurrencySupport 
     block andThen {
       case Success(_) ⇒ {
         val elapsed = now - start
-        log.info(s"$text - time spent: ${elapsed}ms")
+        log.debug(s"$text - time spent: ${elapsed}ms")
         recordTime(label, elapsed)
       }
-    } (x)
+    }
   }
-
-  def formatLabel(label: String, metric: Metric, duration: Duration): String = s"$label.${metric.mtype}.${duration.length}${duration.unit}"
 }

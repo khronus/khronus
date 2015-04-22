@@ -30,7 +30,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
 
   import TimeWindow._
 
-  def process(metric: Metric, tick: Tick): scala.concurrent.Future[Unit] = measureFutureTime("processWindow", metric, duration) {
+  def process(metric: Metric, tick: Tick): scala.concurrent.Future[Unit] = measureAndCheckForTimeOutliers("processWindow", metric, duration) {
     log.debug(s"${p(metric, duration)} - Processing time window for ${Tick(tick.bucketNumber ~ duration)}")
     //get the last bucket processed for this window
     val lastProcessed = lastProcessedBucket(metric)

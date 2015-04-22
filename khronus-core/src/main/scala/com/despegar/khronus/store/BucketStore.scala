@@ -84,22 +84,27 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
       {
         log.trace(s"${p(metric, windowDuration)} - Storing chunk of ${bucketsChunk.length} buckets")
 
-        val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
+        val boundBatchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
+        val stmt = stmtPerWindow(windowDuration).insert
         bucketsChunk.foreach(bucket ⇒ {
           val serializedBucket = serializeBucket(metric, windowDuration, bucket)
           log.trace(s"${p(metric, windowDuration)} Storing a bucket of ${serializedBucket.limit()} bytes")
-          batchStmt.add(stmtPerWindow(windowDuration).insert.bind(Seq(serializedBucket).asJava, metric.name, Long.box(bucket.timestamp.ms)))
+          boundBatchStmt.add(stmt.bind(Seq(serializedBucket).asJava, metric.name, Long.box(bucket.timestamp.ms)))
         })
 
-        val future: Future[Unit] = session.executeAsync(batchStmt)
+        val future: Future[Unit] = measureAndCheckForTimeOutliers("bucketBatchStoreCassandra", metric, windowDuration, getQueryAsString(stmt.getQueryString, bucketsChunk.length, metric.name)) {
+          session.executeAsync(boundBatchStmt)
+        }
+
         future
       }
   }
 
-  def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[Seq[(Timestamp, () ⇒ T)]] = measureFutureTime("slice", metric, sourceWindow) { measureName =>
-    val boundStmt = stmtPerWindow(sourceWindow).selects(SliceQuery).bind(metric.name, Long.box(from.ms), Long.box(to.ms), Int.box(limit))
+  def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[Seq[(Timestamp, () ⇒ T)]] = measureFutureTime("slice", metric, sourceWindow) {
+    val stmt = stmtPerWindow(sourceWindow).selects(SliceQuery)
+    val boundStmt = stmt.bind(metric.name, Long.box(from.ms), Long.box(to.ms), Int.box(limit))
 
-    val future: Future[ResultSet] = checkForSlowQuery(measureName, getQueryAsString(SliceQuery,metric.name,from.ms,to.ms,limit)){
+    val future: Future[ResultSet] = measureAndCheckForTimeOutliers("bucketSliceCassandra", metric, sourceWindow, getQueryAsString(stmt.getQueryString, metric.name, from.ms, to.ms, limit)) {
       session.executeAsync(boundStmt)
     }
     future.map(resultSet ⇒ {
@@ -120,7 +125,7 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
   }
 
   private def getQueryAsString(stmt: String, binds: Any*): String = {
-    s"$stmt -> Binds $binds"
+    s"Query statement: $stmt -> Binds $binds"
   }
 
 }
