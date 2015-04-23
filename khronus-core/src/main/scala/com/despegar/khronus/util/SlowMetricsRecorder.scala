@@ -3,7 +3,7 @@ package com.despegar.khronus.util
 import java.util.concurrent.TimeUnit
 
 import com.despegar.khronus.model.Functions.Percentile95
-import com.despegar.khronus.model.{Tick, MonitoringSupport, Metric, MetricType}
+import com.despegar.khronus.model.{Metric, MetricType, MonitoringSupport, Tick}
 import com.despegar.khronus.store.{MetaSupport, Slice, Summaries}
 import com.despegar.khronus.util.log.Logging
 
@@ -29,9 +29,11 @@ trait SlowMetricsRecorder extends Logging with MonitoringSupport {
           log.debug(s"${p(metric, duration)} $label - time spent: ${elapsed}ms")
           recordTime(metricKey, elapsed)
 
-          val limit = outliersLimitsCache.putIfAbsent((metricKey, duration), MAX_DEFAULT_OUTLIERS_LIMIT).getOrElse(MAX_DEFAULT_OUTLIERS_LIMIT)
-          if (elapsed > limit) {
-            log.warn(s"SLOW metric [${metric.name}}][$metricKey] detected: ${elapsed}ms (elapsed) > ${limit}ms (limit). Additional info: $debugInfo")
+          if (enabled) {
+            val limit = outliersLimitsCache.putIfAbsent((metricKey, duration), MAX_DEFAULT_OUTLIERS_LIMIT).getOrElse(MAX_DEFAULT_OUTLIERS_LIMIT)
+            if (elapsed > limit) {
+              log.warn(s"SLOW metric [${metric.name}}][$metricKey] detected: ${elapsed}ms (elapsed) > ${limit}ms (limit). Additional info: $debugInfo")
+            }
           }
         }
       }(executionContextOutliers)
@@ -51,14 +53,22 @@ object SlowMetricsRecorder  extends ConcurrencySupport with MetaSupport {
 
   val outliersLimitsCache: TrieMap[(String, Duration), Long] = TrieMap.empty
 
+  val enabled = Settings.InternalMetrics.CheckOutliers
+
   //any value that exceed this limit, will be marked as outlier
   val MAX_DEFAULT_OUTLIERS_LIMIT = Tick.smallestWindow().toMillis
 
   val renewLimitsPool = scheduledThreadPool("outliers-scheduled-worker")
-  renewLimitsPool.scheduleAtFixedRate(new Runnable() {
+  schedulePool()
 
-    override def run = renewOutliersLimits
-  }, 120, 20, TimeUnit.SECONDS)
+  private def schedulePool(): Unit = {
+    if (enabled) {
+      renewLimitsPool.scheduleAtFixedRate(new Runnable() {
+
+        override def run = renewOutliersLimits
+      }, 120, 20, TimeUnit.SECONDS)
+    }
+  }
 
   private def renewOutliersLimits: Unit = {
     try {

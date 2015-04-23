@@ -51,6 +51,7 @@ object Settings {
 
   object InternalMetrics {
     val Enabled: Boolean = config.getBoolean("khronus.internal-metrics.enabled")
+    val CheckOutliers: Boolean = config.getBoolean("khronus.internal-metrics.check-outliers")
   }
 
   object CassandraCluster {
