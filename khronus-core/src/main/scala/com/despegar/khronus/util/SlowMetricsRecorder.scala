@@ -3,13 +3,13 @@ package com.despegar.khronus.util
 import java.util.concurrent.TimeUnit
 
 import com.despegar.khronus.model.Functions.Percentile95
-import com.despegar.khronus.model.{Metric, MetricType, MonitoringSupport, Tick}
-import com.despegar.khronus.store.{MetaSupport, Slice, Summaries}
+import com.despegar.khronus.model.{ Metric, MetricType, MonitoringSupport, Tick }
+import com.despegar.khronus.store.{ MetaSupport, Slice, Summaries }
 import com.despegar.khronus.util.log.Logging
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ ExecutionContext, Future }
 
 trait SlowMetricsRecorder extends Logging with MonitoringSupport {
 
@@ -21,7 +21,9 @@ trait SlowMetricsRecorder extends Logging with MonitoringSupport {
     } else {
       val start = now
 
-      block.onSuccess {
+      val f = block
+
+      f.onSuccess {
         case _ ⇒ {
           val metricKey: String = formatLabel(label, metric, duration)
 
@@ -38,14 +40,14 @@ trait SlowMetricsRecorder extends Logging with MonitoringSupport {
         }
       }(executionContextOutliers)
 
-      block
+      f
     }
   }
 
   def formatLabel(label: String, metric: Metric, duration: Duration): String = s"$label.${metric.mtype}.${duration.length}${duration.unit}"
 }
 
-object SlowMetricsRecorder  extends ConcurrencySupport with MetaSupport {
+object SlowMetricsRecorder extends ConcurrencySupport with MetaSupport {
 
   private def now = System.currentTimeMillis()
 
@@ -72,10 +74,11 @@ object SlowMetricsRecorder  extends ConcurrencySupport with MetaSupport {
 
   private def renewOutliersLimits: Unit = {
     try {
-      outliersLimitsCache.keys foreach { case (metricName, duration) ⇒
-        getPercentile(s"~system.$metricName", duration, 95).onSuccess {
-          case Some(percentile) ⇒ outliersLimitsCache.update((metricName, duration), percentile);
-        }(executionContextOutliers)
+      outliersLimitsCache.keys foreach {
+        case (metricName, duration) ⇒
+          getPercentile(s"~system.$metricName", duration, 95).onSuccess {
+            case Some(percentile) ⇒ outliersLimitsCache.update((metricName, duration), percentile);
+          }(executionContextOutliers)
       }
     } catch {
       case e: Throwable ⇒ log.error("Error on renewOutliersLimits", e)
@@ -84,19 +87,19 @@ object SlowMetricsRecorder  extends ConcurrencySupport with MetaSupport {
     log.trace(s"outliersLimitsCache: $outliersLimitsCache")
   }
 
-
   private def goBack(duration: Duration): Long = System.currentTimeMillis() - (duration match {
-    case Duration(1, MILLISECONDS) => Tick.smallestWindow().toMillis * 4
-    case _ => duration.toMillis * 4
+    case Duration(1, MILLISECONDS) ⇒ Tick.smallestWindow().toMillis * 4
+    case _                         ⇒ duration.toMillis * 4
   })
 
   private def getPercentile(metricName: String, duration: Duration, percentile: Int): Future[Option[Long]] = {
-    metaStore.getFromSnapshotSync(metricName) map { case (metric, lastProcess) ⇒
-      val slice = Slice(goBack(duration), System.currentTimeMillis())
-      val percentile = getStore(metric.mtype).readAll(metric.name, Tick.smallestWindow(), slice, false, 1).map(summaries ⇒
-        summaries.headOption map (summary ⇒ summary.get(Percentile95)))(executionContextOutliers)
+    metaStore.getFromSnapshotSync(metricName) map {
+      case (metric, lastProcess) ⇒
+        val slice = Slice(goBack(duration), System.currentTimeMillis())
+        val percentile = getStore(metric.mtype).readAll(metric.name, Tick.smallestWindow(), slice, false, 1).map(summaries ⇒
+          summaries.headOption map (summary ⇒ summary.get(Percentile95)))(executionContextOutliers)
 
-      percentile
+        percentile
     } getOrElse (Future.successful(Some(MAX_DEFAULT_OUTLIERS_LIMIT)))
   }
 

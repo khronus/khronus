@@ -24,5 +24,5 @@ object Tick extends Logging {
 
   def smallestWindow() = Settings.Histogram.TimeWindows.head.duration
 
-  def highestWindow() =  Settings.Histogram.TimeWindows.last.duration
+  def highestWindow() = Settings.Histogram.TimeWindows.last.duration
 }

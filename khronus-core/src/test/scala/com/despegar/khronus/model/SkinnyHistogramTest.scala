@@ -9,7 +9,7 @@ import com.despegar.khronus.util.log.Logging
 class SkinnyHistogramTest extends FunSuite with MockitoSugar with Matchers with Logging {
 
   test("seconds of a minute exercise") {
-    val skinnyHistogram = new SkinnyHistogram(3600000000000L, 3)
+    val skinnyHistogram = new SkinnyHistogram(36000000L, 3)
     (0 to 100) foreach { i ⇒
       (1 to 59) foreach {
         skinnyHistogram.recordValue(_)
@@ -31,7 +31,7 @@ class SkinnyHistogramTest extends FunSuite with MockitoSugar with Matchers with 
   }
 
   test("serialization round-trip") {
-    val skinnyHistogram = new SkinnyHistogram(3600000000000L, 3)
+    val skinnyHistogram = new SkinnyHistogram(36000000L, 3)
 
     (1 to 1000) foreach { skinnyHistogram.recordValue(_) }
 
@@ -46,7 +46,7 @@ class SkinnyHistogramTest extends FunSuite with MockitoSugar with Matchers with 
   }
 
   test("compression round-trip") {
-    val skinnyHistogram = new SkinnyHistogram(3600000000000L, 3)
+    val skinnyHistogram = new SkinnyHistogram(36000000L, 3)
 
     (1 to 1000) foreach { skinnyHistogram.recordValue(_) }
 
@@ -61,8 +61,8 @@ class SkinnyHistogramTest extends FunSuite with MockitoSugar with Matchers with 
   }
 
   test("should compress better than hdrhistogram") {
-    val skinnyHistogram = new SkinnyHistogram(3600000000000L, 3)
-    val hdrHistogram = new Histogram(3600000000000L, 3)
+    val skinnyHistogram = new SkinnyHistogram(36000000L, 3)
+    val hdrHistogram = new Histogram(36000000L, 3)
 
     (1 to 1000) foreach { value ⇒
       skinnyHistogram.recordValue(value)
@@ -78,8 +78,8 @@ class SkinnyHistogramTest extends FunSuite with MockitoSugar with Matchers with 
   }
 
   test("should serialize better than hdrhistogram") {
-    val skinnyHistogram = new SkinnyHistogram(3600000000000L, 3)
-    val hdrHistogram = new Histogram(3600000000000L, 3)
+    val skinnyHistogram = new SkinnyHistogram(36000000L, 3)
+    val hdrHistogram = new Histogram(36000000L, 3)
 
     (1 to 1000) foreach { value ⇒
       skinnyHistogram.recordValue(value)
@@ -94,7 +94,7 @@ class SkinnyHistogramTest extends FunSuite with MockitoSugar with Matchers with 
   }
 
   test("should deserialize hdrHistograms to maintain backward compatibility") {
-    val hdrHistogram = new Histogram(3600000000000L, 3)
+    val hdrHistogram = new Histogram(36000000L, 3)
 
     (1 to 1000) foreach { value ⇒
       hdrHistogram.recordValue(value)
@@ -221,8 +221,8 @@ class SkinnyHistogramTest extends FunSuite with MockitoSugar with Matchers with 
       589, 503, 1853, 2247, 2131, 2687, 621, 2180, 760, 977, 698, 2333, 1849, 12, 6816,
       1042, 3926, 2414, 158, 361, 278, 2074, 1204, 1812, 918, 441, 974, 1803)
 
-    val skinnyHistogram = new SkinnyHistogram(3600000000000L, 3)
-    val hdrHistogram = new Histogram(3600000000000L, 3)
+    val skinnyHistogram = new SkinnyHistogram(36000000L, 3)
+    val hdrHistogram = new Histogram(36000000L, 3)
 
     latencies foreach { latency ⇒
       skinnyHistogram.recordValue(latency)

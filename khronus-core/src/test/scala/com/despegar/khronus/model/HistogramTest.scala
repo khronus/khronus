@@ -55,10 +55,10 @@ object HistogramTest extends App {
   def sum() = {
     val testHistogram = new SkinnyHistogram(36000000L, 3)
 
-    for (i <- 1 to 100) {
+    for (i ← 1 to 100) {
       val skinnyHistogram = new SkinnyHistogram(36000000L, 3)
 
-      val histograms = for (i <- 1 to 100) yield {
+      val histograms = for (i ← 1 to 100) yield {
         val h = new SkinnyHistogram(36000000L, 3)
         LatencyTestUtil.latencies foreach { latency ⇒
           h.recordValue(latency)

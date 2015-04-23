@@ -96,7 +96,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
   def contains(metric: Metric): Boolean = getFromSnapshot.contains(metric)
 
   def getFromSnapshotSync(metricName: String): Option[(Metric, Timestamp)] = {
-    getFromSnapshot.find{ case (metric, timestamp) => metric.name.matches(metricName)}
+    getFromSnapshot.find { case (metric, timestamp) ⇒ metric.name.matches(metricName) }
   }
 
   def allMetrics(): Future[Seq[Metric]] = retrieveMetrics.map(_.keys.toSeq)
