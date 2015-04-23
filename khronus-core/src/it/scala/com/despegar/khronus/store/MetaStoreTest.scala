@@ -1,10 +1,8 @@
 package com.despegar.khronus.store
 
-import org.scalatest.Matchers
+import com.despegar.khronus.model.{Metric, MetricType, Timestamp}
 import com.despegar.khronus.util.BaseIntegrationTest
-import org.scalatest.FunSuite
-import scala.util.Try
-import com.despegar.khronus.model.{Timestamp, MetricType, Metric}
+import org.scalatest.{FunSuite, Matchers}
 
 class CassandraMetaStoreTest extends FunSuite with BaseIntegrationTest with Matchers {
   override val tableNames: Seq[String] = Seq("meta")

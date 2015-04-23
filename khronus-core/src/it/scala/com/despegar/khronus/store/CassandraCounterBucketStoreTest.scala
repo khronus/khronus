@@ -33,6 +33,46 @@ class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest 
 
   }
 
+  test("should store duplicates buckets as one in others windows than 1 millis") {
+    val counter = new CounterBucket((250L, 30 seconds), 200L)
+    await {
+      Buckets.counterBucketStore.store(testMetric, 30 seconds, Seq(counter))
+      Buckets.counterBucketStore.store(testMetric, 30 seconds, Seq(counter))
+    }
+
+    val executionTimestamp = counter.bucketNumber.startTimestamp()
+    val bucketsFromCassandra = await {
+      Buckets.counterBucketStore.slice(testMetric, 1, executionTimestamp, 30 seconds)
+    }
+
+    bucketsFromCassandra.size shouldEqual 1
+
+    val bucketFromCassandra = bucketsFromCassandra(0)
+
+    counter shouldEqual bucketFromCassandra._2()
+
+  }
+
+  test("should store duplicates buckets as two different in window 1 millis") {
+    val counter = new CounterBucket((250L, 1 millis), 200L)
+    await {
+      Buckets.counterBucketStore.store(testMetric, 1 millis, Seq(counter))
+      Buckets.counterBucketStore.store(testMetric, 1 millis, Seq(counter))
+    }
+
+    val executionTimestamp = counter.bucketNumber.startTimestamp()
+    val bucketsFromCassandra = await {
+      Buckets.counterBucketStore.slice(testMetric, 1, executionTimestamp, 1 millis)
+    }
+
+    bucketsFromCassandra.size shouldEqual 2
+
+    val bucketFromCassandra = bucketsFromCassandra(0)
+
+    counter shouldEqual bucketFromCassandra._2()
+
+  }
+
   test("should not retrieve buckets from the future") {
     val futureBucket = (System.currentTimeMillis() + 60000) / (30 seconds).toMillis
     val bucketFromTheFuture = new CounterBucket((futureBucket, 30 seconds), 200L)
