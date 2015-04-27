@@ -1,11 +1,11 @@
 package com.despegar.khronus.cluster
 
-import akka.actor.{Actor, Props}
+import akka.actor.{ Actor, Props }
 import com.despegar.khronus.store.LeaderElection
 import com.despegar.khronus.util.ConcurrencySupport
 
 import scala.concurrent.duration._
-import scala.util.{Failure, Success}
+import scala.util.{ Failure, Success }
 
 class LeaderElectionActor extends Actor with ConcurrencySupport {
   import context.dispatcher
@@ -18,9 +18,9 @@ class LeaderElectionActor extends Actor with ConcurrencySupport {
   val ex = executionContext("leaderElectionActor-worker", 50)
 
   def receive = {
-    case "tick" => {
-      LeaderElection.leaderElectionStore.acquireLock().onComplete{
-        case Success(acquire) => {
+    case "tick" ⇒ {
+      LeaderElection.leaderElectionStore.acquireLock().onComplete {
+        case Success(acquire) ⇒ {
           if (acquire) {
             try {
               log.info("<-------- LEADER ELECTION RESULT: iam the leader!")
@@ -33,7 +33,7 @@ class LeaderElectionActor extends Actor with ConcurrencySupport {
             log.info("<-------- LEADER ELECTION RESULT: NOT the leader!")
           }
         }
-        case Failure(ex) => log.error("Error in leader election",ex)
+        case Failure(ex) ⇒ log.error("Error in leader election", ex)
       }(ex)
     }
   }

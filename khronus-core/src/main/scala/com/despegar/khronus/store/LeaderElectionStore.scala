@@ -1,13 +1,13 @@
 package com.despegar.khronus.store
 
-import com.datastax.driver.core.{ResultSet, Session}
+import com.datastax.driver.core.{ ResultSet, Session }
 import com.despegar.khronus.util.ConcurrencySupport
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.util.Failure
 
-class LeaderElectionStore(session: Session) extends CassandraUtils with ConcurrencySupport{
+class LeaderElectionStore(session: Session) extends CassandraUtils with ConcurrencySupport {
 
   implicit val asyncExecutionContext = executionContext("leaderElection-store-worker")
 
@@ -41,7 +41,7 @@ class LeaderElectionStore(session: Session) extends CassandraUtils with Concurre
     }
   }
 
-  def releaseLock() : Future[Boolean] = {
+  def releaseLock(): Future[Boolean] = {
     val f: Future[ResultSet] = session.executeAsync(delete.bind())
     f.map { resultSet ⇒
       resultSet.asScala.headOption.map(row ⇒ row.getBool("[applied]")).getOrElse(false)
