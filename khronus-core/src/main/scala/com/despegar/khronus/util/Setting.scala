@@ -83,6 +83,11 @@ object Settings {
     val insertChunkSize = cassandraCfg.getInt("insert-chunk-size")
   }
 
+  object CassandraLeaderElection {
+    private val cassandraCfg = config.getConfig("khronus.cassandra.leader-election")
+    val ReplicationFactor = cassandraCfg.getInt("rf")
+  }
+
   object Histogram {
     private val histogramConfig = config.getConfig("khronus.histogram")
     val BucketRetentionPolicy = histogramConfig.getDuration("bucket-retention-policy", SECONDS).toInt

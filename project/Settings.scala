@@ -52,7 +52,8 @@ object Settings {
 
   lazy val eclipseSettings = Seq(EclipseKeys.configurations := Set(Compile, Test, IntegrationTest), EclipseKeys.createSrc := EclipseCreateSrc.Default + EclipseCreateSrc.Resource)
   lazy val itExtraSettings = Seq(
-    parallelExecution in IntegrationTest := false
+    parallelExecution in IntegrationTest := false,
+    javaOptions in IntegrationTest += "-Dconfig.file=application-it-test.conf"
   )
 
   lazy val extraTestSettings = Seq(javaOptions in Test += "-Dconfig.file=application-test.conf")

@@ -127,6 +127,16 @@ object Summaries extends CassandraKeyspace {
   override def getRF: Int = Settings.CassandraSummaries.ReplicationFactor
 }
 
+object LeaderElection extends CassandraKeyspace {
+  initialize()
+
+  val leaderElectionStore = new LeaderElectionStore(session)
+
+  override def keyspace = "leaderElection"
+
+  override def getRF: Int = Settings.CassandraLeaderElection.ReplicationFactor
+}
+
 case class Statements(insert: PreparedStatement, selects: Map[String, PreparedStatement], delete: Option[PreparedStatement])
 
 trait CassandraUtils extends Logging {

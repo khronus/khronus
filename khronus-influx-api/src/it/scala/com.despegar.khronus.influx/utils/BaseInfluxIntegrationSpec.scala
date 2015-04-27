@@ -16,12 +16,12 @@
 
 package com.despegar.khronus.influx.finder
 
+import com.despegar.khronus.influx.store.CassandraDashboards
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FunSuite}
+
+import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.Try
-import scala.concurrent.duration._
-import com.despegar.khronus.influx.store.CassandraDashboards
-import com.despegar.khronus.store.CassandraCluster
 
 trait BaseInfluxIntegrationSpec extends FunSuite with BeforeAndAfterAll with BeforeAndAfter {
   System.setProperty("config.resource", "application-it-test.conf")
