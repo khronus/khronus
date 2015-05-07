@@ -134,7 +134,11 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
 
   private def fromString(str: String): Metric = {
     val tokens = str.split("\\|")
-    Metric(tokens(0), tokens(1))
+    if (tokens.length > 2) {
+      Metric((str splitAt (str lastIndexOf '|'))._1, tokens.last)
+    } else {
+      Metric(tokens(0), tokens(1))
+    }
   }
 
   //  override def context = asyncExecutionContext

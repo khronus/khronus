@@ -16,6 +16,13 @@ class CassandraMetaStoreTest extends FunSuite with BaseIntegrationTest with Matc
 
   }
 
+  test("should support pipes en metric names") {
+    await { Meta.metaStore.insert(Metric("metric1|lk|lk2345","timer")) }
+    val metrics = await { Meta.metaStore.allMetrics() }
+    metrics shouldEqual Seq(Metric("metric1|lk|lk2345","timer"))
+
+  }
+
   test("should getLastProcessedTimestamp ok") {
     val metric = Metric("test",MetricType.Counter)
     await { Meta.metaStore.insert(metric) }
