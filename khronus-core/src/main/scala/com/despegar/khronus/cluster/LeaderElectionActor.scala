@@ -10,10 +10,10 @@ import scala.util.{ Failure, Success }
 class LeaderElectionActor extends Actor with ConcurrencySupport {
   import context.dispatcher
 
-  val tick =
-    context.system.scheduler.schedule(500 millis, 1000 millis, self, "tick")
+  //val tick =
+    //context.system.scheduler.schedule(500 millis, 1000 millis, self, "tick")
 
-  override def postStop() = tick.cancel()
+  //override def postStop() = tick.cancel()
 
   val ex = executionContext("leaderElectionActor-worker", 50)
 

@@ -24,6 +24,6 @@ trait ClusterSupport {
   this: ActorSystemSupport ⇒
 
   system.actorOf(ClusterDomainEventListener.props, "cluster-listener")
-  system.actorOf(ClusterSingletonManager.props(Master.props, "master", PoisonPill, Some("master")), "singleton-manager")
+  system.actorOf(Master.props, "master")
   system.actorOf(LeaderElectionActor.props, "leader-election")
 }
