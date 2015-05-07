@@ -94,6 +94,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
             recordTime(formatLabel("emptySliceTime", metric, duration), System.currentTimeMillis() - start)
           }
           log.debug(s"${p(metric, duration)} - Found ${previousBuckets.size} buckets of $previousWindowDuration")
+        case Failure(reason) ⇒ log.error(s"Fail to retrieve previous buckets for $metric", reason)
       }
     })
 
@@ -106,6 +107,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
         if (!buckets.isEmpty) {
           log.trace(s"${p(metric, duration)} - Grouped ${buckets.size} buckets ${buckets.keys}")
         }
+      case Failure(reason) ⇒ log.error(s"Error in groupInBucketsOfMyWindow for $metric", reason)
     }
   }
 
@@ -121,6 +123,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
           log.debug(s"${p(metric, duration)} - Filtered out ${filteredCount} already processed buckets")
         }
       }
+      case Failure(reason) ⇒ log.error(s"Error in filterOutAlreadyProcessedBuckets for $metric", reason)
     } map {
       _._2
     }
@@ -130,6 +133,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
     metaStore.getLastProcessedTimestamp(metric) map { lastTS ⇒ Timestamp(lastTS.ms - duration.toMillis).alignedTo(duration).toBucketNumber(duration) } andThen {
       case Success(bucket) ⇒
         log.trace(s"${p(metric, duration)} - Last processed bucket: $bucket")
+      case Failure(reason) ⇒ log.error(s"Fail to recover lastProcessedBucket for $metric", reason)
     }
   }
 

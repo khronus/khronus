@@ -21,7 +21,7 @@ import com.despegar.khronus.util.log.Logging
 import com.despegar.khronus.util.{ FutureSupport, ConcurrencySupport, SameThreadExecutionContext }
 
 import scala.concurrent.{ ExecutionContext, Future }
-import scala.util.Success
+import scala.util.{ Failure, Success }
 
 class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport with FutureSupport {
 
@@ -38,7 +38,9 @@ class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport w
     val windowsToProcessInThisTick = windows(metric.mtype).filter(mustExecuteInThisTick(_, metric, currentTick))
 
     serialiseFutures(windowsToProcessInThisTick) { window ⇒
-      window.process(metric, currentTick)
+      window.process(metric, currentTick) andThen {
+        case Failure(reason) ⇒ log.error(s"Fail to process window ${window.duration} for $metric", reason)
+      }
     } flatMap (_ ⇒ Future.successful(metric))
 
   }
