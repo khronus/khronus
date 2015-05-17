@@ -37,7 +37,7 @@ class CassandraHistogramBucketStore(session: Session) extends CassandraBucketSto
   override def fetchSize: Int = Settings.Histogram.BucketFetchSize
 
   override def toBucket(windowDuration: Duration, timestamp: Long, histogram: Array[Byte]) = {
-    new HistogramBucket(Timestamp(timestamp).toBucketNumber(windowDuration), deserializeHistogram(histogram))
+    new HistogramBucket(Timestamp(timestamp).toBucketNumberOf(windowDuration), deserializeHistogram(histogram))
   }
 
   override def tableName(duration: Duration) = s"histogramBucket${duration.length}${duration.unit}"

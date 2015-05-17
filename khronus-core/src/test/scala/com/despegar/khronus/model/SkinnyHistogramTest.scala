@@ -22,7 +22,6 @@ class SkinnyHistogramTest extends FunSuite with MockitoSugar with Matchers with 
       val bytesEncoded = skinnyHistogram.encodeIntoCompressedByteBuffer(buffer)
       buffer.limit(bytesEncoded)
       buffer.rewind()
-      buffer
 
       val decodedHistogram = SkinnyHistogram.decodeFromCompressedByteBuffer(buffer, 0)
       decodedHistogram.getMinValue shouldEqual 1

@@ -30,7 +30,7 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar with TimeWindowTe
     val previousBucket3 = new CounterBucket((30001, previousWindowDuration), 1)
     val previousBuckets = lazyBuckets(Seq(previousBucket1, previousBucket2, previousBucket3))
     val uniqueTimestampsPreviousBuckets = uniqueTimestamps(Seq(previousBucket1, previousBucket2, previousBucket3))
-    val previousBucketsMap = uniqueTimestampsPreviousBuckets.zip(previousBuckets)
+    val previousBucketsMap = BucketSlice(uniqueTimestampsPreviousBuckets.zip(previousBuckets).map( tuple => BucketResult(tuple._1, tuple._2)))
 
     val tick = Tick(previousBucket3.bucketNumber ~ windowDuration) //The last one
 
@@ -68,7 +68,7 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar with TimeWindowTe
     val somePreviousBucket = new CounterBucket((15000, previousWindowDuration), 1)
     val previousUndeletedBuckets = lazyBuckets(Seq(somePreviousBucket))
     val previousUndeletedBucketsUniqueTimestamps = uniqueTimestamps(Seq(somePreviousBucket))
-    val previousUndeletedBucketsMap = previousUndeletedBucketsUniqueTimestamps.zip(previousUndeletedBuckets)
+    val previousUndeletedBucketsMap = BucketSlice(previousUndeletedBucketsUniqueTimestamps.zip(previousUndeletedBuckets).map(tuple => BucketResult(tuple._1, tuple._2) ))
 
     val tick = Tick(somePreviousBucket.bucketNumber ~ windowDuration)
 
@@ -95,7 +95,7 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar with TimeWindowTe
     val window = mockedWindow(windowDuration, previousWindowDuration)
 
     //mock temporal data to be empty
-    when(window.bucketStore.slice(Matchers.eq(metric), any[Timestamp], any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future(Seq()))
+    when(window.bucketStore.slice(Matchers.eq(metric), any[Timestamp], any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future(BucketSlice[CounterBucket](Seq())))
     when(window.bucketStore.store(metric, windowDuration, Seq())).thenReturn(Future {})
     when(window.summaryStore.store(metric, windowDuration, Seq())).thenReturn(Future {})
     when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](neverProcessedTimestamp))
@@ -147,7 +147,7 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar with TimeWindowTe
     val previousBucket3 = new CounterBucket((30001, previousWindowDuration), 1)
     val previousBuckets = lazyBuckets(Seq(previousBucket1, previousBucket2, previousBucket3))
     val uniqueTimestampsPreviousBuckets = uniqueTimestamps(Seq(previousBucket1, previousBucket2, previousBucket3))
-    val previousBucketsMap = uniqueTimestampsPreviousBuckets.zip(previousBuckets)
+    val previousBucketsMap = BucketSlice(uniqueTimestampsPreviousBuckets.zip(previousBuckets).map(tuple => BucketResult(tuple._1, tuple._2)))
 
     val tick = Tick(previousBucket3.bucketNumber ~ windowDuration) //The last one
 
@@ -180,7 +180,7 @@ class CounterTimeWindowTest extends FunSuite with MockitoSugar with TimeWindowTe
     val previousBucket3 = new CounterBucket((30001, previousWindowDuration), 1)
     val previousBuckets = lazyBuckets(Seq(previousBucket1, previousBucket2, previousBucket3))
     val uniqueTimestampsPreviousBuckets = uniqueTimestamps(Seq(previousBucket1, previousBucket2, previousBucket3))
-    val previousBucketsMap = uniqueTimestampsPreviousBuckets.zip(previousBuckets)
+    val previousBucketsMap = BucketSlice(uniqueTimestampsPreviousBuckets.zip(previousBuckets).map(tuple => BucketResult(tuple._1, tuple._2)))
 
     val tick = Tick(previousBucket3.bucketNumber ~ windowDuration) //The last one
 

@@ -28,9 +28,9 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
     val bucketTuplesFromCassandra = await {
       Buckets.histogramBucketStore.slice(testMetric, 1, executionTimestamp, 30 seconds)
     }
-    val bucketTupleFromCassandra = bucketTuplesFromCassandra(0)
+    val bucketTupleFromCassandra = bucketTuplesFromCassandra.results(0)
 
-    histogram shouldEqual bucketTupleFromCassandra._2().histogram
+    histogram shouldEqual bucketTupleFromCassandra.lazyBucket().histogram
   }
 
   test("should not retrieve buckets from the future") {
@@ -49,8 +49,8 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
       Buckets.histogramBucketStore.slice(testMetric, 1, System.currentTimeMillis(), 30 seconds)
     }
 
-    bucketTuplesFromCassandra should have length 1
-    bucketTuplesFromCassandra(0)._2() shouldEqual bucketFromThePast
+    bucketTuplesFromCassandra.results should have length 1
+    bucketTuplesFromCassandra.results(0).lazyBucket() shouldEqual bucketFromThePast
   }
 
   private def fill(histogram: Histogram) = {

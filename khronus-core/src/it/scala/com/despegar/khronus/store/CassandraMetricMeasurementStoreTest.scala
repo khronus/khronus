@@ -20,8 +20,8 @@ class CassandraMetricMeasurementStoreTest extends FunSuite with BaseIntegrationT
     val fslice = Buckets.histogramBucketStore.slice(Metric("ultimo15",MetricType.Timer), 1, System.currentTimeMillis(), 1 millis)
     val slice = Await.result(fslice, 1 second)
 
-    slice.size should be (1)
-    slice(0)._2().histogram.getTotalCount should be(1)
+    slice.results.size should be (1)
+    slice.results(0).lazyBucket().histogram.getTotalCount should be(1)
   }
 
   test("Negative values should be skipped") {
@@ -35,8 +35,8 @@ class CassandraMetricMeasurementStoreTest extends FunSuite with BaseIntegrationT
     val fslice = Buckets.histogramBucketStore.slice(Metric("ultimo15",MetricType.Timer), 1, System.currentTimeMillis(), 1 millis)
     val slice = Await.result(fslice, 1 second)
 
-    slice.size should be (1)
-    slice(0)._2().histogram.getTotalCount should be(2)
+    slice.results.size should be (1)
+    slice.results(0).lazyBucket().histogram.getTotalCount should be(2)
   }
 
 }

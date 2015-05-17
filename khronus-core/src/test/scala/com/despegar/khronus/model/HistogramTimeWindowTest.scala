@@ -46,7 +46,7 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindow
     val previousBucket3 = new HistogramBucket((30001, previousWindowDuration), histogram3)
     val previousBuckets = lazyBuckets(Seq(previousBucket1, previousBucket2, previousBucket3))
     val uniqueTimestampsPreviousBuckets = uniqueTimestamps(Seq(previousBucket1, previousBucket2, previousBucket3))
-    val previousBucketsMap = uniqueTimestampsPreviousBuckets.zip(previousBuckets)
+    val previousBucketsMap = bucketSlice(uniqueTimestampsPreviousBuckets.zip(previousBuckets))
 
     val tick = Tick(previousBucket3.bucketNumber ~ windowDuration) //The last one
 
@@ -86,7 +86,7 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindow
     val somePreviousBucket = new HistogramBucket((15000, previousWindowDuration), histogram1)
     val previousUndeletedBuckets = lazyBuckets(Seq(somePreviousBucket))
     val previousUndeletedBucketsUniqueTimestamps = uniqueTimestamps(Seq(somePreviousBucket))
-    val previousUndeletedBucketsMap = previousUndeletedBucketsUniqueTimestamps.zip(previousUndeletedBuckets)
+    val previousUndeletedBucketsMap = bucketSlice(previousUndeletedBucketsUniqueTimestamps.zip(previousUndeletedBuckets))
 
     val tick = Tick(somePreviousBucket.bucketNumber ~ windowDuration) //The last one
 
@@ -115,7 +115,7 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindow
     val window = mockedWindow(windowDuration, previousWindowDuration)
 
     //mock temporal data to be empty
-    when(window.bucketStore.slice(Matchers.eq(metric), any[Timestamp], Matchers.any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future(Seq()))
+    when(window.bucketStore.slice(Matchers.eq(metric), any[Timestamp], Matchers.any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future(bucketSlice(Seq())))
     when(window.bucketStore.store(metric, windowDuration, Seq())).thenReturn(Future {})
     when(window.summaryStore.store(metric, windowDuration, Seq())).thenReturn(Future {})
     when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](neverProcessedTimestamp))
@@ -171,7 +171,7 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindow
     val previousBucket3 = new HistogramBucket((30001, previousWindowDuration), histogram3)
     val previousBuckets = lazyBuckets(Seq(previousBucket1, previousBucket2, previousBucket3))
     val uniqueTimestampsPreviousBuckets = uniqueTimestamps(Seq(previousBucket1, previousBucket2, previousBucket3))
-    val previousBucketsMap = uniqueTimestampsPreviousBuckets.zip(previousBuckets)
+    val previousBucketsMap = bucketSlice(uniqueTimestampsPreviousBuckets.zip(previousBuckets))
 
     val tick = Tick(previousBucket3.bucketNumber ~ windowDuration) //The last one
 
@@ -209,7 +209,7 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindow
     val previousBucket3 = new HistogramBucket((30001, previousWindowDuration), histogram3)
     val previousBuckets = lazyBuckets(Seq(previousBucket1, previousBucket2, previousBucket3))
     val uniqueTimestampsPreviousBuckets = uniqueTimestamps(Seq(previousBucket1, previousBucket2, previousBucket3))
-    val previousBucketsMap = uniqueTimestampsPreviousBuckets.zip(previousBuckets)
+    val previousBucketsMap = bucketSlice(uniqueTimestampsPreviousBuckets.zip(previousBuckets))
 
     val tick = Tick(previousBucket3.bucketNumber ~ windowDuration) //The last one
 

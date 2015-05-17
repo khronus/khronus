@@ -97,7 +97,6 @@ object Settings {
     val BucketFetchSize = histogramConfig.getInt("bucket-fetch-size")
     val SummaryLimit = histogramConfig.getInt("summary-limit")
     val SummaryFetchSize = histogramConfig.getInt("summary-fetch-size")
-
   }
 
   object Counter {
@@ -114,6 +113,16 @@ object Settings {
     val BucketFetchSize = counterConfig.getInt("bucket-fetch-size")
     val SummaryLimit = counterConfig.getInt("summary-limit")
     val SummaryFetchSize = counterConfig.getInt("summary-fetch-size")
+  }
+
+  object BucketCache {
+    private val bucketCacheConfig = config.getConfig("khronus.bucket-cache")
+
+    val Enabled = bucketCacheConfig.getBoolean("enabled")
+
+    val MaximumCacheStore = bucketCacheConfig.getInt("maximum-cache-store")
+
+    def IsEnabledFor(metricType: String): Boolean = Option(bucketCacheConfig.getBoolean(metricType)).getOrElse(false)
   }
 
   private def adjustDuration(durationInMillis: Long): FiniteDuration = {
