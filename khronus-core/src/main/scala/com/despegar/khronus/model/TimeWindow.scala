@@ -92,6 +92,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
         case Success(previousBuckets) ⇒
           if (previousBuckets.isEmpty) {
             recordTime(formatLabel("emptySliceTime", metric, duration), System.currentTimeMillis() - start)
+            log.debug(s"EMPTY slice $metric")
           }
           log.debug(s"${p(metric, duration)} - Found ${previousBuckets.size} buckets of $previousWindowDuration")
         case Failure(reason) ⇒ log.error(s"Fail to retrieve previous buckets for $metric", reason)
