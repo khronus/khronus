@@ -200,7 +200,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
   private def releaseResources(): Unit = {
     log.info("Releasing resources in Master Actor")
-    router map (router => stop(router))
+    router ! Broadcast(PoisonPill)
     heartbeatScheduler.map { case scheduler: Cancellable ⇒ scheduler.cancel() }
     tickActorRef.map { case actor: ActorRef ⇒ stop(actor) }
     checkLeadershipScheduler.map { case actor: ActorRef ⇒ stop(actor) }
