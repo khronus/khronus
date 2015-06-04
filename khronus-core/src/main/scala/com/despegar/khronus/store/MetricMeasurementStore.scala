@@ -6,6 +6,7 @@ import com.despegar.khronus.util.log.Logging
 
 import scala.concurrent.duration._
 import scala.concurrent.{ ExecutionContext, Future }
+import scala.util.Failure
 
 trait MetricMeasurementStoreSupport {
   def metricStore: MetricMeasurementStore = CassandraMetricMeasurementStore
@@ -61,8 +62,15 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
   private def storeHistogramMetric(metric: Metric, metricMeasurement: MetricMeasurement) = {
     storeGrouped(metric, metricMeasurement) { (bucketNumber, measurements) ⇒
       val histogram = HistogramBucket.newHistogram
-      measurements.foreach(measurement ⇒ skipNegativeValues(metricMeasurement, measurement.values).foreach(value ⇒ histogram.recordValue(value)))
-      histogramBucketStore.store(metric, 1 millis, Seq(new HistogramBucket(bucketNumber, histogram)))
+      measurements.foreach(measurement ⇒ skipNegativeValues(metricMeasurement, measurement.values).foreach(value ⇒
+        try {
+          histogram.recordValue(value)
+        } catch {
+          case e: Exception ⇒ log.error(s"Error recording value $value in histogram for metric $metric")
+        }))
+      histogramBucketStore.store(metric, 1 millis, Seq(new HistogramBucket(bucketNumber, histogram))) andThen {
+        case Failure(e) ⇒ log.error(s"Error storing in bucketStore metric $metric", e)
+      }
     }
   }
 
