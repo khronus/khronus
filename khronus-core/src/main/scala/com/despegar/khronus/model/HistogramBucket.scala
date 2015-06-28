@@ -65,4 +65,3 @@ object HistogramBucket extends Measurable {
   //1 hour in milliseconds
   def newHistogram = new SkinnyHistogram(36000000L, 3)
 }
-

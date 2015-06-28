@@ -1,13 +1,16 @@
 package com.despegar.khronus.store
 
 import com.despegar.khronus.util.ConcurrencySupport
+import com.despegar.khronus.util.log.Logging
 
-trait CassandraSupport {
+trait CassandraSupport extends Logging {
+
+  log.info("Initializing Cassandra")
   val cassandraCluster = CassandraCluster
   val cassandraBuckets = Buckets
   val cassandraSummaries = Summaries
   val cassandraMeta = Meta
 
-  cassandraMeta.metaStore.startSnapshotReloads()
-  ConcurrencySupport.startConcurrencyMonitoring
+  Meta.startReloads()
+  ConcurrencySupport.startThreadPoolsMonitoring
 }

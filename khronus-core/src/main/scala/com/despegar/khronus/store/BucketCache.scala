@@ -1,7 +1,7 @@
 package com.despegar.khronus.store
 
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 
 import com.despegar.khronus.model._
 import com.despegar.khronus.util.log.Logging
@@ -27,6 +27,7 @@ trait BucketCache {
 object InMemoryBucketCache extends BucketCache with Logging with Measurable {
 
   type MetricCache = ConcurrentHashMap[BucketNumber, Bucket]
+  private val cachedMetrics = new AtomicLong(0)
   private val cachesByMetric = new ConcurrentHashMap[Metric, MetricCache]()
   private val lastKnownTick = new AtomicReference[Tick]()
 
@@ -45,21 +46,22 @@ object InMemoryBucketCache extends BucketCache with Logging with Measurable {
   }
 
   private def noCachedBucketFor(metric: Metric, bucketNumber: BucketNumber): Boolean = {
-    !metricCacheOf(metric).keySet().asScala.exists(a ⇒ a.equals(bucketNumber))
+    !metricCacheOf(metric).map(cache => cache.keySet().asScala.exists(a ⇒ a.contains(bucketNumber))).getOrElse(false)
   }
 
   def cacheBuckets(metric: Metric, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber, buckets: Seq[Bucket]): Unit = {
-    if (isEnabledFor(metric) && buckets.length <= Settings.BucketCache.MaximumCacheStore) {
+    if (isEnabledFor(metric) && (toBucketNumber.number - fromBucketNumber.number - 1) <= Settings.BucketCache.MaxStore) {
       log.debug(s"Caching ${buckets.length} buckets of ${fromBucketNumber.duration} for $metric")
-      val cache = metricCacheOf(metric)
-      buckets.foreach { bucket ⇒
-        val previousBucket = cache.put(bucket.bucketNumber, bucket)
-        if (previousBucket != null) {
-          incrementCounter("bucketCache.overrideWarning")
-          log.warn("More than one cached Bucket per BucketNumber. Overriding it to leave just one of them.")
+      metricCacheOf(metric).map { cache =>
+        buckets.foreach { bucket ⇒
+          val previousBucket = cache.put(bucket.bucketNumber, bucket)
+          if (previousBucket != null) {
+            incrementCounter("bucketCache.overrideWarning")
+            log.warn("More than one cached Bucket per BucketNumber. Overriding it to leave just one of them.")
+          }
         }
+        fillEmptyBucketsIfNecessary(metric, cache, fromBucketNumber, toBucketNumber)
       }
-      fillEmptyBucketsIfNecessary(cache, fromBucketNumber, toBucketNumber)
     }
   }
 
@@ -68,24 +70,30 @@ object InMemoryBucketCache extends BucketCache with Logging with Measurable {
   }
 
   def take[T <: Bucket](metric: Metric, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber): Option[BucketSlice[T]] = {
-    if (!enabled || !Settings.BucketCache.IsEnabledFor(metric.mtype) || isFirstTimeWindow(fromBucketNumber) ) return None
+    if (!enabled || !Settings.BucketCache.IsEnabledFor(metric.mtype) || isRawTimeWindow(fromBucketNumber)) return None
     val expectedBuckets = toBucketNumber.number - fromBucketNumber.number
-    val buckets = takeRecursive(metricCacheOf(metric), fromBucketNumber, toBucketNumber)
-    if (buckets.size == expectedBuckets) {
-      cacheHit(metric, buckets)
-    } else {
-      cacheMiss(metric, expectedBuckets)
+    val slice:Option[BucketSlice[T]] = metricCacheOf(metric).flatMap { cache =>
+      val buckets = takeRecursive(cache, fromBucketNumber, toBucketNumber)
+      if (buckets.size == expectedBuckets) {
+        cacheHit(metric, buckets, fromBucketNumber, toBucketNumber)
+      } else {
+        None
+      }
     }
+    if (slice.isEmpty) {
+      cacheMiss(metric, expectedBuckets, fromBucketNumber, toBucketNumber)
+    }
+    slice
   }
 
-  def cacheMiss[T <: Bucket](metric: Metric, expectedBuckets: Long): None.type = {
-    log.info(s"CacheMiss of ${expectedBuckets} buckets for $metric")
+  def cacheMiss[T <: Bucket](metric: Metric, expectedBuckets: Long, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber): Option[BucketSlice[T]] = {
+    log.debug(s"CacheMiss of ${expectedBuckets} buckets for $metric between $fromBucketNumber and $toBucketNumber")
     incrementCounter("bucketCache.miss")
     None
   }
 
-  def cacheHit[T <: Bucket](metric: Metric, buckets: List[(BucketNumber, Any)]): Some[BucketSlice[T]] = {
-    log.info(s"CacheHit of ${buckets.size} buckets for $metric")
+  def cacheHit[T <: Bucket](metric: Metric, buckets: List[(BucketNumber, Any)], fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber): Option[BucketSlice[T]] = {
+    log.debug(s"CacheHit of ${buckets.size} buckets for $metric between $fromBucketNumber and $toBucketNumber")
     incrementCounter("bucketCache.hit")
     val noEmptyBuckets: List[(BucketNumber, Any)] = buckets.filterNot(bucket ⇒ bucket._2.isInstanceOf[EmptyBucket])
     if (noEmptyBuckets.isEmpty) {
@@ -96,20 +104,25 @@ object InMemoryBucketCache extends BucketCache with Logging with Measurable {
     }))
   }
 
-  def isFirstTimeWindow[T <: Bucket](fromBucketNumber: BucketNumber): Boolean = {
-    fromBucketNumber.duration == Settings.Window.WindowDurations(0)
+  def isRawTimeWindow[T <: Bucket](fromBucketNumber: BucketNumber): Boolean = {
+    fromBucketNumber.duration == Settings.Window.RawDuration
   }
 
   @tailrec
-  private def fillEmptyBucketsIfNecessary(cache: MetricCache, bucketNumber: BucketNumber, until: BucketNumber): Unit = {
+  private def fillEmptyBucketsIfNecessary(metric: Metric, cache: MetricCache, bucketNumber: BucketNumber, until: BucketNumber): Unit = {
     if (bucketNumber < until) {
-      cache.putIfAbsent(bucketNumber, EmptyBucket)
-      fillEmptyBucketsIfNecessary(cache, bucketNumber + 1, until)
+      val previous = cache.putIfAbsent(bucketNumber, EmptyBucket)
+      if (previous == null) {
+        log.debug(s"Filling empty bucket $bucketNumber of metric $metric")
+      }
+      fillEmptyBucketsIfNecessary(metric, cache, bucketNumber + 1, until)
     }
   }
 
   private def cleanCache(metric: Metric) = {
+    log.debug(s"Lose $metric affinity. Cleaning its bucket cache")
     cachesByMetric.remove(metric)
+    cachedMetrics.decrementAndGet()
   }
 
   @tailrec
@@ -122,13 +135,19 @@ object InMemoryBucketCache extends BucketCache with Logging with Measurable {
     }
   }
 
-  private def metricCacheOf(metric: Metric): MetricCache = {
+  private def metricCacheOf(metric: Metric): Option[MetricCache] = {
     val metricCache = cachesByMetric.get(metric)
-    if (metricCache != null) metricCache
+    if (metricCache != null) Some(metricCache)
     else {
-      val cache: MetricCache = new ConcurrentHashMap()
-      val previous = cachesByMetric.putIfAbsent(metric, cache)
-      if (previous != null) previous else cache
+      if (cachedMetrics.incrementAndGet() > Settings.BucketCache.MaxMetrics) {
+        cachedMetrics.decrementAndGet()
+        None
+      } else {
+
+        val cache: MetricCache = new ConcurrentHashMap()
+        val previous = cachesByMetric.putIfAbsent(metric, cache)
+        Some(if (previous != null) previous else cache)
+      }
     }
   }
 
@@ -140,4 +159,8 @@ class EmptyBucket extends Bucket(UndefinedBucketNumber) {
   val summary = null
 }
 
-object UndefinedBucketNumber extends BucketNumber(-1, null)
+object UndefinedBucketNumber extends BucketNumber(-1, null) {
+  override def toString = {
+    "UndefinedBucketNumber"
+  }
+}

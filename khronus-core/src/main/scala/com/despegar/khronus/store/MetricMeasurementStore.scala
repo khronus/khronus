@@ -19,12 +19,15 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
 
   implicit val executionContext: ExecutionContext = executionContext("metric-receiver-worker")
 
+  private val rawDuration = 1 millis
+  private val storeGroupDuration = 5 seconds
+
   def storeMetricMeasurements(metricMeasurements: List[MetricMeasurement]) = {
     store(metricMeasurements)
   }
 
   private def store(metrics: List[MetricMeasurement]) = {
-    log.info(s"Received ${metrics.length} metrics to be stored")
+    log.info(s"Received samples of ${metrics.length} metrics")
     metrics foreach storeMetric
   }
 
@@ -62,12 +65,12 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
     storeGrouped(metric, metricMeasurement) { (bucketNumber, measurements) ⇒
       val histogram = HistogramBucket.newHistogram
       measurements.foreach(measurement ⇒ skipNegativeValues(metricMeasurement, measurement.values).foreach(value ⇒ histogram.recordValue(value)))
-      histogramBucketStore.store(metric, 1 millis, Seq(new HistogramBucket(bucketNumber, histogram)))
+      histogramBucketStore.store(metric, rawDuration, Seq(new HistogramBucket(bucketNumber, histogram)))
     }
   }
 
   private def storeGrouped(metric: Metric, metricMeasurement: MetricMeasurement)(block: (BucketNumber, List[Measurement]) ⇒ Future[Unit]): Unit = {
-    val groupedMeasurements = metricMeasurement.measurements.groupBy(measurement ⇒ Timestamp(measurement.ts).alignedTo(5 seconds))
+    val groupedMeasurements = metricMeasurement.measurements.groupBy(measurement ⇒ Timestamp(measurement.ts).alignedTo(storeGroupDuration))
     groupedMeasurements.foldLeft(Future.successful(())) { (acc, measurementsGroup) ⇒
       acc.flatMap { _ ⇒
         val timestamp = measurementsGroup._1
@@ -84,7 +87,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
   private def storeCounterMetric(metric: Metric, metricMeasurement: MetricMeasurement) = {
     storeGrouped(metric, metricMeasurement) { (bucketNumber, measurements) ⇒
       val counts = measurements.map(measurement ⇒ skipNegativeValues(metricMeasurement, measurement.values).sum).sum
-      counterBucketStore.store(metric, 1 millis, Seq(new CounterBucket(bucketNumber, counts)))
+      counterBucketStore.store(metric, rawDuration, Seq(new CounterBucket(bucketNumber, counts)))
     }
   }
 

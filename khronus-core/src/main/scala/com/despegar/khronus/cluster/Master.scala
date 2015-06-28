@@ -78,7 +78,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
       pendingMetrics ++= metrics filterNot (metric ⇒ sortedPendingMetrics(metric))
 
-      if (busyWorkers.nonEmpty) log.warning(s"There are still busy workers from previous Tick: $busyWorkers. This may mean that either workers are still processing metrics or Terminated message has not been received yet")
+      if (busyWorkers.nonEmpty) log.warning(s"There are still ${busyWorkers.size} busy workers from previous Tick. This may mean that either workers are still processing metrics or Terminated message has not been received yet")
       else start = System.currentTimeMillis()
 
       while (pendingMetrics.nonEmpty && idleWorkers.nonEmpty) {
@@ -98,13 +98,13 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
       }
 
     case Register(worker) ⇒
-      log.info("Registering worker [{}]", worker.path)
+      log.info("Registering Worker [{}]", worker.path.name)
       watch(worker)
       idleWorkers += worker
       removeBusyWorker(worker)
 
     case WorkDone(worker) ⇒
-      if (pendingMetrics.nonEmpty) {
+      if (pendingMetrics.nonEmpty) {spent
         val (currentBatch, pending) = pendingMetrics.splitAt(settings.WorkerBatchSize)
 
         log.debug(s"Fast-Dispatching ${currentBatch.mkString(",")} to ${worker.path}")
@@ -128,7 +128,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
   private def recordSystemMetrics(metrics: Seq[Metric]) {
     val metricsSize = metrics.size
 
-    log.info(s"Metrics received: $metricsSize, Pending metrics: ${pendingMetrics.size}, ${idleWorkers.size} idle workers, ${busyWorkers.size} busy workers")
+    log.info(s"Starting Tick. [metrics=$metricsSize,pending=${pendingMetrics.size},idle-workers=${idleWorkers.size},busy-workers=${busyWorkers.size}]")
     log.debug(s"Pending metrics: $pendingMetrics workers idle: $idleWorkers")
 
     recordGauge("idleWorkers", idleWorkers.size)
@@ -144,7 +144,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
         //no more busy workers. end of the tick
         val timeElapsed = System.currentTimeMillis() - start
         recordTime("totalTimeTick", timeElapsed)
-        log.info(s"Total time spent in Tick: $timeElapsed ms")
+        log.info(s"Finished Tick. [elapsed-time=${timeElapsed}ms]")
       }
     }
   }

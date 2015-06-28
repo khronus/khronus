@@ -28,11 +28,6 @@ import scala.util.{ Failure, Success, Try };
 object CassandraCluster extends Logging with CassandraClusterConfiguration {
   private val cluster: Cluster = clusterBuilder.build()
 
-  /*
-  val cassandraMeta = Meta
-  val cassandraBuckets = Buckets
-  val cassandraSummaries = Summaries
-*/
   def connect() = cluster.connect()
 
   def close() = {
@@ -96,18 +91,21 @@ trait CassandraKeyspace extends Logging with CassandraUtils {
 
 object Meta extends CassandraKeyspace {
 
-  initialize
+  initialize()
   val metaStore = new CassandraMetaStore(session)
 
   override def keyspace = "meta"
 
   override def getRF: Int = Settings.CassandraMeta.ReplicationFactor
+
+  def startReloads() = {
+    metaStore.startSnapshotReloads()
+  }
 }
 
 object Buckets extends CassandraKeyspace {
 
-  log.info("Will initialize Buckets....")
-  initialize
+  initialize()
   val histogramBucketStore = new CassandraHistogramBucketStore(session)
   val counterBucketStore = new CassandraCounterBucketStore(session)
 
@@ -118,7 +116,7 @@ object Buckets extends CassandraKeyspace {
 
 object Summaries extends CassandraKeyspace {
 
-  initialize
+  initialize()
   val histogramSummaryStore = new CassandraStatisticSummaryStore(session)
   val counterSummaryStore = new CassandraCounterSummaryStore(session)
 

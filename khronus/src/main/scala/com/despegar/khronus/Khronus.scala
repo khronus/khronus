@@ -20,5 +20,17 @@ import com.despegar.khronus.cluster.ClusterSupport
 import com.despegar.khronus.service.ActorSystemSupport
 import com.despegar.khronus.service.KhronusService
 import com.despegar.khronus.store.CassandraSupport
+import com.despegar.khronus.util.log.Logging
 
-object Khronus extends App with ActorSystemSupport with CassandraSupport with KhronusService with ClusterSupport
+object Khronus extends App with Logging {
+  log.info("""
+               _   ___
+              | | / / |
+              | |/ /| |__  _ __ ___  _ __  _   _ ___
+              |    \| '_ \| '__/ _ \| '_ \| | | / __|
+              | |\  \ | | | | | (_) | | | | |_| \__ \
+              \_| \_/_| |_|_|  \___/|_| |_|\__,_|___/""")
+  KhronusApp
+}
+
+object KhronusApp extends ActorSystemSupport with CassandraSupport with KhronusService with ClusterSupport

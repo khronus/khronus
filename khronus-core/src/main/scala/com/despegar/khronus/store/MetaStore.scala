@@ -25,6 +25,7 @@ import com.despegar.khronus.util.log.Logging
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.collection.mutable.Buffer
+import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future, Promise }
 import scala.util.{ Failure, Success }
 import com.despegar.khronus.util.Settings
@@ -45,6 +46,8 @@ trait MetaStore {
   def contains(metric: Metric): Boolean
 
   def getFromSnapshotSync(metricName: String): Option[(Metric, Timestamp)]
+
+  def notifyEmptySlice(metric: Metric, duration: Duration)
 }
 
 trait MetaSupport {
@@ -128,6 +131,28 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
       andThen {
         case Failure(reason) ⇒ log.error(s"$metric - Failed to retrieve last processed timestamp from meta", reason)
       }
+  }
+
+  private def invalidate(metric: Metric) = {
+
+  }
+
+  private def activate(metric: Metric) = {
+
+  }
+
+  private def isInvalidated(metric: Metric): Boolean = false
+
+  def notifyMetricMeasurement(metric: Metric) = {
+     if (isInvalidated(metric)) {
+        activate(metric)
+     }
+  }
+
+  def notifyEmptySlice(metric: Metric, duration: Duration) = {
+    if (Settings.Window.WindowDurations.last.equals(duration)) {
+        invalidate(metric)
+    }
   }
 
   private def asString(metric: Metric) = s"${metric.name}|${metric.mtype}"

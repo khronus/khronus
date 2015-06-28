@@ -40,8 +40,10 @@ object Settings {
 
   object Window {
     val ExecutionDelay: Long = config.getDuration("khronus.windows.execution-delay", MILLISECONDS)
+    val TickDelay = config.getInt("khronus.windows.tick-delay")
     val ConfiguredWindows = config.getDurationList("khronus.windows.durations", MILLISECONDS).asScala.map(adjustDuration(_))
-    val WindowDurations = (1 millis) +: ConfiguredWindows
+    val RawDuration = 1 millis
+    val WindowDurations = RawDuration +: ConfiguredWindows
   }
 
   object Dashboard {
@@ -120,7 +122,9 @@ object Settings {
 
     val Enabled = bucketCacheConfig.getBoolean("enabled")
 
-    val MaximumCacheStore = bucketCacheConfig.getInt("maximum-cache-store")
+    val MaxStore = bucketCacheConfig.getInt("max-store")
+
+    val MaxMetrics = bucketCacheConfig.getInt("max-metrics")
 
     def IsEnabledFor(metricType: String): Boolean = Option(bucketCacheConfig.getBoolean(metricType)).getOrElse(false)
   }

@@ -18,10 +18,10 @@ package com.despegar.khronus.model
 
 import com.despegar.khronus.store.MetaSupport
 import com.despegar.khronus.util.log.Logging
-import com.despegar.khronus.util.{ FutureSupport, ConcurrencySupport, SameThreadExecutionContext }
+import com.despegar.khronus.util.{FutureSupport, SameThreadExecutionContext}
 
-import scala.concurrent.{ ExecutionContext, Future }
-import scala.util.{ Failure, Success }
+import scala.concurrent.Future
+import scala.util.Failure
 
 class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport with FutureSupport {
 
@@ -29,15 +29,15 @@ class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport w
 
   def process(metrics: Seq[Metric]): Future[Unit] = {
     val tick = currentTick()
-    serialiseFutures(metrics) { metric ⇒
+    serializeFutures(metrics) { metric ⇒
       process(metric, tick)
-    } flatMap (metrics ⇒ metaStore.update(metrics, currentTick.endTimestamp))
+    } flatMap (metrics ⇒ metaStore.update(metrics, tick.endTimestamp))
   }
 
   private def process(metric: Metric, currentTick: Tick): Future[Metric] = {
     val windowsToProcessInThisTick = windows(metric.mtype).filter(mustExecuteInThisTick(_, metric, currentTick))
 
-    serialiseFutures(windowsToProcessInThisTick) { window ⇒
+    serializeFutures(windowsToProcessInThisTick) { window ⇒
       window.process(metric, currentTick) andThen {
         case Failure(reason) ⇒ log.error(s"Fail to process window ${window.duration} for $metric", reason)
       }
@@ -55,7 +55,7 @@ class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport w
   }
 
   def currentTick(): Tick = {
-    Tick.current
+    Tick.current()
   }
 
 }

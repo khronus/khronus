@@ -1,12 +1,12 @@
 package com.despegar.khronus.model
 
-import java.util.concurrent.{ ConcurrentLinkedQueue, TimeUnit }
+import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
 
 import com.despegar.khronus.store.MetricMeasurementStoreSupport
 import com.despegar.khronus.util.log.Logging
-import com.despegar.khronus.util.{ ConcurrencySupport, Settings }
+import com.despegar.khronus.util.{ConcurrencySupport, Settings}
 
-import scala.collection.mutable.{ Buffer, Map }
+import scala.collection.mutable.{Buffer, Map}
 
 trait MonitoringSupport {
   def recordTime(metricName: String, time: Long): Unit = Monitoring.recordTime(metricName, time)
@@ -30,7 +30,7 @@ object Monitoring extends MetricMeasurementStoreSupport with Logging with Concur
   val schedule = enabled {
     val scheduler = scheduledThreadPool("monitoring-flusher-worker")
     scheduler.scheduleAtFixedRate(new Runnable() {
-      override def run() = flush
+      override def run() = flush()
     }, 0, 2, TimeUnit.SECONDS)
 
   }
@@ -59,11 +59,12 @@ object Monitoring extends MetricMeasurementStoreSupport with Logging with Concur
       case (mtype, mtypeMap) ⇒
         mtypeMap.collect {
           case (metricName, rawMeasurements) ⇒
-            MetricMeasurement(s"~system.$metricName", mtype, rawMeasurements.collect { case (ts, value) ⇒ Measurement(ts, value.toSeq) }.toList)
+            MetricMeasurement(s"~system.$metricName", mtype, rawMeasurements.collect { case (ts, value) ⇒ Measurement(ts, value.toSeq)}.toList)
         }
     }.toList.flatten
-
-    metricStore.storeMetricMeasurements(metricMeasurements)
+    if (!metricMeasurements.isEmpty) {
+      metricStore.storeMetricMeasurements(metricMeasurements)
+    }
   }
 
   private def drained(queue: ConcurrentLinkedQueue[MonitoringMetric]): Seq[MonitoringMetric] = {

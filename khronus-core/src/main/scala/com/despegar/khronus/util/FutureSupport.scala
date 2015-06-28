@@ -7,7 +7,7 @@ trait FutureSupport {
   import scala.language.higherKinds
 
   // thanks http://www.michaelpollmeier.com/execute-scala-futures-in-serial-one-after-the-other-non-blocking/
-  def serialiseFutures[A, B, C[A] <: Iterable[A]](collection: C[A])(fn: A ⇒ Future[B])(
+  def serializeFutures[A, B, C[A] <: Iterable[A]](collection: C[A])(fn: A ⇒ Future[B])(
     implicit ec: ExecutionContext, cbf: CanBuildFrom[C[B], B, C[B]]): Future[C[B]] = {
     val builder = cbf()
     builder.sizeHint(collection.size)

@@ -1,5 +1,6 @@
 package com.despegar.khronus.model
 
+import com.despegar.khronus.util.Settings
 import com.despegar.khronus.util.log.Logging
 
 import scala.concurrent.duration.Duration
@@ -18,8 +19,7 @@ class LazyBucket[T <: Bucket](bucket: => T) {
 
 case class BucketResult[T <: Bucket](timestamp: Timestamp, lazyBucket: LazyBucket[T])
 
-case class BucketSlice[T <: Bucket](results: Seq[BucketResult[T]]) {
-}
+case class BucketSlice[T <: Bucket](results: Seq[BucketResult[T]])
 
 case class Timestamp(ms: Long) {
   /** Returns a BucketNumber of the given Duration using this Timestamp as it's startTimestamp */
@@ -75,9 +75,18 @@ case class BucketNumber(number: Long, duration: Duration) {
 
   def +(aNumber: Int): BucketNumber = BucketNumber(number + aNumber, duration)
 
+  def contains(otherBucketNumber: BucketNumber) = this <= otherBucketNumber && endTimestamp().ms >= otherBucketNumber.endTimestamp().ms
+
   def following: BucketNumber = this + 1
 
-  override def toString() = s"BucketNumber($number, $duration) from ${date(startTimestamp().ms)} to ${date(endTimestamp().ms)}"
+  override def toString() = {
+    val prefix = s"BucketNumber($number, $duration)"
+    if (Settings.Window.WindowDurations.head.equals(duration)) {
+      s"$prefix ${date(startTimestamp().ms)}"
+    } else {
+      s"$prefix from ${date(startTimestamp().ms)} to ${date(endTimestamp().ms)}"
+    }
+  }
 
 }
 

@@ -60,13 +60,13 @@ object ConcurrencySupport extends Measurable {
 
   def register(name: String, pool: ThreadPoolExecutor) = pools.put(name, pool)
 
-  def startConcurrencyMonitoring = {
+  def startThreadPoolsMonitoring = {
     monitoringScheduler.scheduleAtFixedRate(new Runnable() {
-      override def run = reportPoolStatus
+      override def run() = reportPoolStatus()
     }, 0, 1, TimeUnit.SECONDS)
   }
 
-  private def reportPoolStatus = {
+  private def reportPoolStatus() = {
     pools.asScala.foreach { entry ⇒
       val name = entry._1
       val pool = entry._2
