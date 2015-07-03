@@ -1,12 +1,12 @@
 package com.despegar.khronus.model
 
-import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
+import java.util.concurrent.{ ConcurrentLinkedQueue, TimeUnit }
 
 import com.despegar.khronus.store.MetricMeasurementStoreSupport
 import com.despegar.khronus.util.log.Logging
-import com.despegar.khronus.util.{ConcurrencySupport, Settings}
+import com.despegar.khronus.util.{ ConcurrencySupport, Settings }
 
-import scala.collection.mutable.{Buffer, Map}
+import scala.collection.mutable.{ Buffer, Map }
 
 trait MonitoringSupport {
   def recordTime(metricName: String, time: Long): Unit = Monitoring.recordTime(metricName, time)
@@ -59,7 +59,7 @@ object Monitoring extends MetricMeasurementStoreSupport with Logging with Concur
       case (mtype, mtypeMap) ⇒
         mtypeMap.collect {
           case (metricName, rawMeasurements) ⇒
-            MetricMeasurement(s"~system.$metricName", mtype, rawMeasurements.collect { case (ts, value) ⇒ Measurement(ts, value.toSeq)}.toList)
+            MetricMeasurement(s"~system.$metricName", mtype, rawMeasurements.collect { case (ts, value) ⇒ Measurement(ts, value.toSeq) }.toList)
         }
     }.toList.flatten
     if (!metricMeasurements.isEmpty) {

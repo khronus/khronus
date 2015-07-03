@@ -144,14 +144,14 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
   private def isInvalidated(metric: Metric): Boolean = false
 
   def notifyMetricMeasurement(metric: Metric) = {
-     if (isInvalidated(metric)) {
-        activate(metric)
-     }
+    if (isInvalidated(metric)) {
+      activate(metric)
+    }
   }
 
   def notifyEmptySlice(metric: Metric, duration: Duration) = {
     if (Settings.Window.WindowDurations.last.equals(duration)) {
-        invalidate(metric)
+      invalidate(metric)
     }
   }
 

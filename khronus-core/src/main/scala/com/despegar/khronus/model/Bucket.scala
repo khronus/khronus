@@ -11,7 +11,7 @@ abstract case class Bucket(bucketNumber: BucketNumber) {
   def summary: Summary
 }
 
-class LazyBucket[T <: Bucket](bucket: => T) {
+class LazyBucket[T <: Bucket](bucket: ⇒ T) {
   def apply() = {
     bucket
   }

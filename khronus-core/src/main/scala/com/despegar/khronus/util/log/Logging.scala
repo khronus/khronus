@@ -15,7 +15,7 @@
  */
 package com.despegar.khronus.util.log
 
-import com.despegar.khronus.model.{Metric, Timestamp}
+import com.despegar.khronus.model.{ Metric, Timestamp }
 import com.typesafe.scalalogging.Logger
 import org.apache.commons.lang.time.FastDateFormat
 import org.slf4j.LoggerFactory

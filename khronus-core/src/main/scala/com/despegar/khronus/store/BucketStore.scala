@@ -19,14 +19,14 @@ package com.despegar.khronus.store
 import java.nio.ByteBuffer
 
 import com.datastax.driver.core.utils.Bytes
-import com.datastax.driver.core.{BatchStatement, ResultSet, Session, SimpleStatement}
+import com.datastax.driver.core.{ BatchStatement, ResultSet, Session, SimpleStatement }
 import com.despegar.khronus.model._
 import com.despegar.khronus.util.log.Logging
-import com.despegar.khronus.util.{ConcurrencySupport, Measurable, Settings}
+import com.despegar.khronus.util.{ ConcurrencySupport, Measurable, Settings }
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ ExecutionContext, Future }
 
 trait BucketStoreSupport[T <: Bucket] {
   def bucketStore: BucketStore[T]
@@ -77,23 +77,24 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
   }).toMap
 
   def store(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit] = executeChunked(s"bucket of $metric-$windowDuration", buckets, Settings.CassandraBuckets.insertChunkSize) {
-    bucketsChunk ⇒ {
-      log.trace(s"${p(metric, windowDuration)} - Storing chunk of ${bucketsChunk.length} buckets")
+    bucketsChunk ⇒
+      {
+        log.trace(s"${p(metric, windowDuration)} - Storing chunk of ${bucketsChunk.length} buckets")
 
-      val boundBatchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
-      val stmt = stmtPerWindow(windowDuration).insert
-      bucketsChunk.foreach(bucket ⇒ {
-        val serializedBucket = serialize(metric, windowDuration, bucket)
-        log.trace(s"${p(metric, windowDuration)} Storing a bucket of ${serializedBucket.limit()} bytes")
-        boundBatchStmt.add(stmt.bind(Seq(serializedBucket).asJava, metric.name, Long.box(bucket.timestamp.ms)))
-      })
+        val boundBatchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
+        val stmt = stmtPerWindow(windowDuration).insert
+        bucketsChunk.foreach(bucket ⇒ {
+          val serializedBucket = serialize(metric, windowDuration, bucket)
+          log.trace(s"${p(metric, windowDuration)} Storing a bucket of ${serializedBucket.limit()} bytes")
+          boundBatchStmt.add(stmt.bind(Seq(serializedBucket).asJava, metric.name, Long.box(bucket.timestamp.ms)))
+        })
 
-      val future: Future[Unit] = measureAndCheckForTimeOutliers("bucketBatchStoreCassandra", metric, windowDuration, getQueryAsString(stmt.getQueryString, bucketsChunk.length, metric.name)) {
-        session.executeAsync(boundBatchStmt)
+        val future: Future[Unit] = measureAndCheckForTimeOutliers("bucketBatchStoreCassandra", metric, windowDuration, getQueryAsString(stmt.getQueryString, bucketsChunk.length, metric.name)) {
+          session.executeAsync(boundBatchStmt)
+        }
+
+        future
       }
-
-      future
-    }
   }
 
   def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[BucketSlice[T]] = measureFutureTime("slice", metric, sourceWindow) {

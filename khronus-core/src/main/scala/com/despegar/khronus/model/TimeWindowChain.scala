@@ -18,7 +18,7 @@ package com.despegar.khronus.model
 
 import com.despegar.khronus.store.MetaSupport
 import com.despegar.khronus.util.log.Logging
-import com.despegar.khronus.util.{FutureSupport, SameThreadExecutionContext}
+import com.despegar.khronus.util.{ FutureSupport, SameThreadExecutionContext }
 
 import scala.concurrent.Future
 import scala.util.Failure
