@@ -31,6 +31,7 @@ object Settings {
     val DiscoveryStartDelay = FiniteDuration(config.getDuration("khronus.master.discovery-start-delay", MILLISECONDS), MILLISECONDS)
     val DiscoveryInterval = FiniteDuration(config.getDuration("khronus.master.discovery-interval", MILLISECONDS), MILLISECONDS)
     val WorkerBatchSize = config.getInt("khronus.master.worker-batch-size")
+    val MaxDelayBetweenClocks = FiniteDuration(config.getDuration("khronus.master.max-delay-between-clocks", MILLISECONDS), MILLISECONDS)
   }
 
   object Http {
@@ -39,7 +40,6 @@ object Settings {
   }
 
   object Window {
-    val ExecutionDelay: Long = config.getDuration("khronus.windows.execution-delay", MILLISECONDS)
     val TickDelay = config.getInt("khronus.windows.tick-delay")
     val ConfiguredWindows = config.getDurationList("khronus.windows.durations", MILLISECONDS).asScala.map(adjustDuration(_))
     val RawDuration = 1 millis
@@ -99,6 +99,7 @@ object Settings {
     val BucketFetchSize = histogramConfig.getInt("bucket-fetch-size")
     val SummaryLimit = histogramConfig.getInt("summary-limit")
     val SummaryFetchSize = histogramConfig.getInt("summary-fetch-size")
+
   }
 
   object Counter {

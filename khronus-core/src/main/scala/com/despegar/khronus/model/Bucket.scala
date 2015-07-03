@@ -1,9 +1,9 @@
 package com.despegar.khronus.model
 
 import com.despegar.khronus.util.Settings
-import com.despegar.khronus.util.log.Logging
 
 import scala.concurrent.duration.Duration
+import com.despegar.khronus.util.log.Logging
 
 abstract case class Bucket(bucketNumber: BucketNumber) {
   def timestamp = bucketNumber.startTimestamp()
@@ -53,7 +53,7 @@ object Timestamp {
 
 case class BucketNumber(number: Long, duration: Duration) {
 
-  import com.despegar.khronus.model.BucketNumber._
+  import BucketNumber._
 
   def startTimestamp(): Timestamp = {
     Timestamp(duration.toMillis * number)

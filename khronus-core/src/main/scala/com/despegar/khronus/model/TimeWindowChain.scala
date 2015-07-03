@@ -54,8 +54,6 @@ class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport w
     }
   }
 
-  def currentTick(): Tick = {
-    Tick.current()
-  }
+  def currentTick(): Tick = Tick()
 
 }

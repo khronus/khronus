@@ -10,8 +10,8 @@ trait BucketCacheSupportMock extends BucketCacheSupport {
 class BucketCacheMock extends BucketCache {
   override def markProcessedTick(metric: Metric, tick: Tick): Unit = {}
 
-  override def take[T <: Bucket](metric: Metric, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber): Option[BucketSlice[T]] = None
+  override def multiGet[T <: Bucket](metric: Metric, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber): Option[BucketSlice[T]] = None
 
-  override def cacheBuckets(metric: Metric, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber, buckets: Seq[Bucket]): Unit = {}
+  override def multiSet(metric: Metric, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber, buckets: Seq[Bucket]): Unit = {}
 }
 

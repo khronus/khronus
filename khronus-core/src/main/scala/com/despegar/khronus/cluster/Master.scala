@@ -104,7 +104,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
       removeBusyWorker(worker)
 
     case WorkDone(worker) ⇒
-      if (pendingMetrics.nonEmpty) {spent
+      if (pendingMetrics.nonEmpty) {
         val (currentBatch, pending) = pendingMetrics.splitAt(settings.WorkerBatchSize)
 
         log.debug(s"Fast-Dispatching ${currentBatch.mkString(",")} to ${worker.path}")

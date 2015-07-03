@@ -80,7 +80,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
       val storeFuture = bucketStore.store(metric, duration, buckets)
       storeFuture.onFailure { case reason: Throwable ⇒ log.error(s"$context - Fail to store temporal buckets", reason)}
       storeFuture.map { _ ⇒
-        bucketCache.cacheBuckets(metric, from ~ duration, to ~ duration, buckets)
+        bucketCache.multiSet(metric, from ~ duration, to ~ duration, buckets)
       }
     }
     else {
@@ -114,7 +114,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
 
     log.debug(s"${p(metric, duration)} - Slice [${date(fromBucketNumber.startTimestamp())}, ${date(toBucketNumber.startTimestamp())})")
 
-    bucketCache.take[T](metric, fromBucketNumber, toBucketNumber).map { buckets ⇒ Future.successful(buckets)}.getOrElse {
+    bucketCache.multiGet[T](metric, fromBucketNumber, toBucketNumber).map { buckets ⇒ Future.successful(buckets)}.getOrElse {
       val futureSlice = bucketStore.slice(metric, fromBucketNumber.startTimestamp(), toBucketNumber.startTimestamp(), previousWindowDuration)
       futureSlice.map { bucketSlice ⇒
         if (bucketSlice.results.isEmpty) {

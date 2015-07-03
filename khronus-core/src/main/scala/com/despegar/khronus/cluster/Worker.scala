@@ -52,7 +52,7 @@ class Worker extends Actor with ActorLogging with TimeWindowChainProvider with M
         requestor ! WorkDone(self)
 
       case Failure(NonFatal(reason)) ⇒
-        log.error(reason, s"Error processing ${metrics.mkString(",")}")
+        log.error(reason, s"(${reason.getMessage}}) Error processing ${metrics.splitAt(20)._1.mkString(",")}")
         self ! WorkError(new WorkFailureException(reason.getMessage))
     }
   }

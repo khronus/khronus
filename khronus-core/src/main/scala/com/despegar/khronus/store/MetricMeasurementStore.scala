@@ -1,7 +1,7 @@
 package com.despegar.khronus.store
 
 import com.despegar.khronus.model.{ Metric, MetricMeasurement, _ }
-import com.despegar.khronus.util.ConcurrencySupport
+import com.despegar.khronus.util.{ Settings, ConcurrencySupport }
 import com.despegar.khronus.util.log.Logging
 
 import scala.concurrent.duration._
@@ -15,7 +15,7 @@ trait MetricMeasurementStore {
   def storeMetricMeasurements(metricMeasurements: List[MetricMeasurement])
 }
 
-object CassandraMetricMeasurementStore extends MetricMeasurementStore with BucketSupport with MetaSupport with Logging with ConcurrencySupport {
+object CassandraMetricMeasurementStore extends MetricMeasurementStore with BucketSupport with MetaSupport with Logging with ConcurrencySupport with MonitoringSupport with TimeWindowsSupport {
 
   implicit val executionContext: ExecutionContext = executionContext("metric-receiver-worker")
 
@@ -55,7 +55,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
       log.debug(s"Got a new metric: $metric. Will store metadata for it")
       storeMetadata(metric)
     } else {
-      log.trace(s"$metric is already known. No need to store meta for it")
+      log.debug(s"$metric is already known. No need to store meta for it")
     }
   }
 
@@ -74,8 +74,8 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
     groupedMeasurements.foldLeft(Future.successful(())) { (acc, measurementsGroup) ⇒
       acc.flatMap { _ ⇒
         val timestamp = measurementsGroup._1
-        val bucketNumber = timestamp.toBucketNumberOf(1 millis)
-        if (!alreadyProcessed(bucketNumber)) {
+        val bucketNumber = timestamp.toBucketNumberOf(rawDuration)
+        if (!alreadyProcessed(metric, bucketNumber)) {
           block(bucketNumber, measurementsGroup._2)
         } else {
           Future.successful(())
@@ -98,9 +98,16 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
     okValues
   }
 
-  private def alreadyProcessed(bucketNumber: BucketNumber) = false //how?
+  private def alreadyProcessed(metric: Metric, rawBucketNumber: BucketNumber) = {
+    //get the bucket number in the smallest window duration
+    val measureBucket = rawBucketNumber ~ smallestWindow.duration
+    //get the current tick. The delay is to softly avoid out of sync clocks between nodes (another node start to process the tick)
+    if (Tick.alreadyProcessed(rawBucketNumber)) {
+      log.warn(s"Measurements for $metric marked to be reprocessed because their bucket number ($measureBucket) is less or equals than the current bucket tick (${Tick().bucketNumber})")
+    }
+    false
+  }
 
-  //ok, this has to be improved. maybe scheduling a reload at some interval and only going to meta if not found
   private def isNew(metric: Metric) = !metaStore.contains(metric)
 
 }

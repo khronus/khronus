@@ -36,24 +36,43 @@ class CassandraHistogramBucketStore(session: Session) extends CassandraBucketSto
 
   override def fetchSize: Int = Settings.Histogram.BucketFetchSize
 
-  override def toBucket(windowDuration: Duration, timestamp: Long, histogram: Array[Byte]) = {
+  private val histogramSerializer: HistogramSerializer = DefaultHistogramSerializer
+
+  override def deserialize(windowDuration: Duration, timestamp: Long, histogram: Array[Byte]) = {
     new HistogramBucket(Timestamp(timestamp).toBucketNumberOf(windowDuration), deserializeHistogram(histogram))
   }
 
   override def tableName(duration: Duration) = s"histogramBucket${duration.length}${duration.unit}"
 
-  def serializeBucket(metric: Metric, windowDuration: Duration, bucket: HistogramBucket): ByteBuffer = {
-    val buffer = ByteBuffer.allocate(bucket.histogram.getEstimatedFootprintInBytes)
-    val bytesEncoded = bucket.histogram.encodeIntoCompressedByteBuffer(buffer)
+  def serialize(metric: Metric, windowDuration: Duration, bucket: HistogramBucket): ByteBuffer = {
+    val buffer = histogramSerializer.serialize(bucket.histogram)
+    val bytesEncoded = buffer.limit()
     log.trace(s"$metric- Histogram of $windowDuration with ${bucket.histogram.getTotalCount()} measures encoded and compressed into $bytesEncoded bytes")
     recordGauge(formatLabel("serializedBucketBytes", metric, windowDuration), bytesEncoded)
+    buffer
+  }
+
+  private def deserializeHistogram(bytes: Array[Byte]): Histogram = histogramSerializer.deserialize(ByteBuffer.wrap(bytes))
+
+  override def ttl(windowDuration: Duration): Int = Settings.Histogram.BucketRetentionPolicy
+
+}
+
+trait HistogramSerializer {
+  def serialize(histogram: Histogram): ByteBuffer
+  def deserialize(byteBuffer: ByteBuffer): Histogram
+}
+
+object DefaultHistogramSerializer extends HistogramSerializer {
+  override def serialize(histogram: Histogram): ByteBuffer = {
+    val buffer = ByteBuffer.allocate(histogram.getEstimatedFootprintInBytes)
+    val bytesEncoded = histogram.encodeIntoCompressedByteBuffer(buffer)
     buffer.limit(bytesEncoded)
     buffer.rewind()
     buffer
   }
 
-  private def deserializeHistogram(bytes: Array[Byte]): Histogram = SkinnyHistogram.decodeFromCompressedByteBuffer(ByteBuffer.wrap(bytes), 0)
-
-  override def ttl(windowDuration: Duration): Int = Settings.Histogram.BucketRetentionPolicy
-
+  override def deserialize(buffer: ByteBuffer): Histogram = {
+    SkinnyHistogram.decodeFromCompressedByteBuffer(buffer, 0)
+  }
 }

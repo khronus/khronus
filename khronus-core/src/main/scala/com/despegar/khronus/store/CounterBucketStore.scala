@@ -38,11 +38,11 @@ class CassandraCounterBucketStore(session: Session) extends CassandraBucketStore
 
   override def tableName(duration: Duration): String = s"counterBucket${duration.length}${duration.unit}"
 
-  override def toBucket(windowDuration: Duration, timestamp: Long, counts: Array[Byte]) = {
+  override def deserialize(windowDuration: Duration, timestamp: Long, counts: Array[Byte]) = {
     new CounterBucket(Timestamp(timestamp).toBucketNumberOf(windowDuration), deserializeCounts(counts))
   }
 
-  override def serializeBucket(metric: Metric, windowDuration: Duration, bucket: CounterBucket): ByteBuffer = {
+  override def serialize(metric: Metric, windowDuration: Duration, bucket: CounterBucket): ByteBuffer = {
     val baos = new ByteArrayOutputStream()
     val output = new Output(baos)
     output.writeByte(1)

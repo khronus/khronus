@@ -11,12 +11,19 @@ case class Tick(bucketNumber: BucketNumber) extends Logging {
 
 object Tick extends Logging {
 
-  def current(implicit clock: Clock = SystemClock): Tick = {
+  def apply()(implicit clock: Clock = SystemClock): Tick = {
     val executionTimestamp = Timestamp(clock.now)
     val bucketNumber = executionTimestamp.alignedTo(smallestWindow()).fromEndTimestampToBucketNumberOf(smallestWindow())
     val tick = Tick(bucketNumber - Settings.Window.TickDelay)
     log.debug(s"$tick")
     tick
+  }
+
+  def alreadyProcessed(bucketNumber: BucketNumber)(implicit clock: Clock = SystemClock) = {
+    val currentTick = Tick()(new Clock {
+      override def now: Long = clock.now + Settings.Master.MaxDelayBetweenClocks.toMillis
+    })
+    (bucketNumber ~ smallestWindow()) <= currentTick.bucketNumber
   }
 
   def smallestWindow() = Settings.Histogram.TimeWindows.head.duration

@@ -50,9 +50,9 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
 
   protected def fetchSize: Int
 
-  protected def toBucket(windowDuration: Duration, timestamp: Long, counts: Array[Byte]): T
+  protected def deserialize(windowDuration: Duration, timestamp: Long, bytes: Array[Byte]): T
 
-  protected def serializeBucket(metric: Metric, windowDuration: Duration, bucket: T): ByteBuffer
+  protected def serialize(metric: Metric, windowDuration: Duration, bucket: T): ByteBuffer
 
   implicit val asyncExecutionContext: ExecutionContext = executionContext("bucket-store-worker")
 
@@ -83,7 +83,7 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
       val boundBatchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
       val stmt = stmtPerWindow(windowDuration).insert
       bucketsChunk.foreach(bucket ⇒ {
-        val serializedBucket = serializeBucket(metric, windowDuration, bucket)
+        val serializedBucket = serialize(metric, windowDuration, bucket)
         log.trace(s"${p(metric, windowDuration)} Storing a bucket of ${serializedBucket.limit()} bytes")
         boundBatchStmt.add(stmt.bind(Seq(serializedBucket).asJava, metric.name, Long.box(bucket.timestamp.ms)))
       })
@@ -107,7 +107,7 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
       BucketSlice(resultSet.asScala.flatMap(row ⇒ {
         val ts = row.getLong("timestamp")
         val buckets = row.getList("buckets", classOf[java.nio.ByteBuffer])
-        buckets.asScala.map(serializedBucket ⇒ BucketResult(Timestamp(ts), new LazyBucket(toBucket(sourceWindow, ts, Bytes.getArray(serializedBucket)))))
+        buckets.asScala.map(serializedBucket ⇒ BucketResult(Timestamp(ts), new LazyBucket(deserialize(sourceWindow, ts, Bytes.getArray(serializedBucket)))))
       }).toSeq)
     })
   }
