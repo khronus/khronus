@@ -11,7 +11,7 @@ import com.despegar.khronus.util.{ Measurable, Settings }
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.collection.concurrent.TrieMap
-import scala.collection.mutable
+import scala.collection.{ Set, mutable }
 
 trait BucketCacheSupport[T <: Bucket] {
   val bucketCache: BucketCache[T]
@@ -40,8 +40,7 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
       log.debug(s"Caching ${buckets.length} buckets of ${fromBucketNumber.duration} for $metric")
       metricCacheOf(metric).map { cache ⇒
         buckets.foreach { bucket ⇒
-          val previousBucket = cache.putIfAbsent(bucket.bucketNumber, bucket)
-          if (previousBucket != null) {
+          val previousBucket = cache.putIfAbsent(bucket.bucketNumber, bucket) map { _ ⇒
             incrementCounter("bucketCache.overrideWarning")
             log.warn("More than one cached Bucket per BucketNumber. Overriding it to leave just one of them.")
           }
@@ -79,17 +78,18 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
   }
 
   private def metricCacheOf(metric: Metric): Option[MetricBucketCache[T]] = {
-    val cache = cachesByMetric.get(metric)
-    if (cache.isDefined) {
-      cache
+    val currentCache = cachesByMetric.get(metric)
+    if (currentCache.isDefined) {
+      currentCache
     } else {
       if (nCachedMetrics.incrementAndGet() > Settings.BucketCache.MaxMetrics) {
         nCachedMetrics.decrementAndGet()
         None
       } else {
-        val previous = cachesByMetric.putIfAbsent(metric, buildCache())
+        val newCache = buildCache()
+        val previous = cachesByMetric.putIfAbsent(metric, newCache)
 
-        if (previous != null) previous else cache
+        if (previous.isDefined) previous else Option(newCache)
       }
     }
   }
@@ -104,7 +104,7 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
   private def fillEmptyBucketsIfNecessary(metric: Metric, cache: MetricBucketCache[T], bucketNumber: BucketNumber, until: BucketNumber): Unit = {
     if (bucketNumber < until) {
       val previous = cache.putIfAbsent(bucketNumber, cache.buildEmptyBucket())
-      if (previous == null) {
+      if (previous.isEmpty) {
         log.debug(s"Filling empty bucket $bucketNumber of metric $metric")
       }
       fillEmptyBucketsIfNecessary(metric, cache, bucketNumber + 1, until)
@@ -112,10 +112,10 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
   }
 
   @tailrec
-  private def takeRecursive(metricCache: MetricBucketCache[_ <: Bucket], bucketNumber: BucketNumber, until: BucketNumber, buckets: List[(BucketNumber, Any)] = List[(BucketNumber, Any)]()): List[(BucketNumber, Any)] = {
+  private def takeRecursive(metricCache: MetricBucketCache[T], bucketNumber: BucketNumber, until: BucketNumber, buckets: List[(BucketNumber, Bucket)] = List[(BucketNumber, Bucket)]()): List[(BucketNumber, Bucket)] = {
     if (bucketNumber < until) {
-      val bucket: Bucket = metricCache.remove(bucketNumber)
-      takeRecursive(metricCache, bucketNumber + 1, until, if (bucket != null) buckets :+ (bucketNumber, bucket) else buckets)
+      val bucket: Option[Bucket] = metricCache.remove(bucketNumber)
+      takeRecursive(metricCache, bucketNumber + 1, until, if (bucket.isDefined) buckets :+ (bucketNumber, bucket.get) else buckets)
     } else {
       buckets
     }
@@ -132,7 +132,7 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
   }
 
   private def cacheHit(metric: Metric, buckets: List[(BucketNumber, Any)], fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber): Option[BucketSlice[T]] = {
-    log.debug(s"CacheHit of ${buckets.size} buckets for $metric between $fromBucketNumber and $toBucketNumber")
+    log.info(s"CacheHit of ${buckets.size} buckets for $metric between $fromBucketNumber and $toBucketNumber")
     incrementCounter("bucketCache.hit")
     val noEmptyBuckets: List[(BucketNumber, Any)] = buckets.filterNot(bucket ⇒ bucket._2.isInstanceOf[EmptyBucket])
     if (noEmptyBuckets.isEmpty) {
@@ -165,24 +165,22 @@ object InMemoryHistogramBucketCache extends BucketCache[HistogramBucket] {
 trait MetricBucketCache[T <: Bucket] {
   def buildEmptyBucket(): T
 
-  protected val cache = new ConcurrentHashMap[BucketNumber, Array[Byte]]()
+  protected val cache = new TrieMap[BucketNumber, Array[Byte]]()
 
   def serialize(bucket: T): Array[Byte]
 
   def deserialize(bytes: Array[Byte], bucketNumber: BucketNumber): T
 
-  def putIfAbsent(bucketNumber: BucketNumber, bucket: T): Bucket = {
+  def putIfAbsent(bucketNumber: BucketNumber, bucket: T): Option[Bucket] = {
     if (bucket.isInstanceOf[EmptyBucket]) {
-      val older = cache.putIfAbsent(bucketNumber, Array.empty[Byte])
-      checkEmptyBucket(older, bucketNumber)
+      cache.putIfAbsent(bucketNumber, Array.empty[Byte]) map (older ⇒ checkEmptyBucket(older, bucketNumber))
     } else {
-      deserialize(cache.putIfAbsent(bucketNumber, serialize(bucket)), bucketNumber)
+      cache.putIfAbsent(bucketNumber, serialize(bucket)) map (older ⇒ deserialize(older, bucketNumber))
     }
   }
 
-  def remove(bucketNumber: BucketNumber): Bucket = {
-    val bytes = cache.remove(bucketNumber)
-    checkEmptyBucket(bytes, bucketNumber)
+  def remove(bucketNumber: BucketNumber): Option[Bucket] = {
+    cache.remove(bucketNumber) map (bytes ⇒ checkEmptyBucket(bytes, bucketNumber))
   }
 
   def checkEmptyBucket(bytes: Array[Byte], bucketNumber: BucketNumber): Bucket = {
@@ -193,7 +191,7 @@ trait MetricBucketCache[T <: Bucket] {
     }
   }
 
-  def keySet(): mutable.Set[BucketNumber] = cache.keySet().asScala
+  def keySet(): Set[BucketNumber] = cache.keySet
 }
 
 class CounterMetricBucketCache extends MetricBucketCache[CounterBucket] {
