@@ -132,7 +132,7 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
   }
 
   private def cacheHit(metric: Metric, buckets: List[(BucketNumber, Any)], fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber): Option[BucketSlice[T]] = {
-    log.info(s"CacheHit of ${buckets.size} buckets for $metric between $fromBucketNumber and $toBucketNumber")
+    log.debug(s"CacheHit of ${buckets.size} buckets for $metric between $fromBucketNumber and $toBucketNumber")
     incrementCounter("bucketCache.hit")
     val noEmptyBuckets: List[(BucketNumber, Any)] = buckets.filterNot(bucket ⇒ bucket._2.isInstanceOf[EmptyBucket])
     if (noEmptyBuckets.isEmpty) {
