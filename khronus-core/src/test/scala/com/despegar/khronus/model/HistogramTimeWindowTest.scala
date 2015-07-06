@@ -36,7 +36,7 @@ import scala.util.control.NoStackTrace
 
 class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindowTest[HistogramBucket] {
 
-  val metric = Metric("metrickA", "histogram")
+  val metric = Metric("metrickA", MetricType.Timer)
 
   test("with previous buckets should store its buckets and summaries and remove previous buckets") {
     val window = mockedWindow(windowDuration, previousWindowDuration)

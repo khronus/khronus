@@ -13,7 +13,7 @@ trait TimeWindowTest[T <: Bucket] {
   }
 
   protected def bucketSlice(results: Seq[(Timestamp, LazyBucket[T])]): BucketSlice[T] = {
-     BucketSlice[T](results.map(tuple => BucketResult(tuple._1, tuple._2)))
+    BucketSlice[T](results.map(tuple ⇒ BucketResult(tuple._1, tuple._2)))
   }
 
   protected def uniqueTimestamps(buckets: Seq[T]): Seq[Timestamp] = {

@@ -6,7 +6,7 @@ import java.util.Date
 import com.despegar.khronus.util.Settings
 import com.despegar.khronus.util.log.Logging
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.{ FunSuite, Matchers }
 
 import scala.concurrent.duration._
 

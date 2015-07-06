@@ -47,7 +47,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
       //retrieve the buckets from previous window
       withPreviousWindowBuckets(fromBucketNumber, toBucketNumber) { previousWindowBuckets ⇒
         //group in buckets of my window duration
-        val myBuckets = aggregateBuckets(grouped(previousWindowBuckets))
+        val myBuckets = aggregateBuckets(filterOutAlreadyProcessedBuckets(grouped(previousWindowBuckets), lastProcessedBucket))
         //calculate the summaries
         val mySummaries = myBuckets map (bucket ⇒ calculateSummary(bucket))
         //store temporal buckets for next window if needed
@@ -94,6 +94,10 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
       log.debug(s"$context - Grouped ${groupedBuckets.size} buckets ${groupedBuckets.keys}")
     }
     groupedBuckets
+  }
+
+  private def filterOutAlreadyProcessedBuckets(groupedHistogramBuckets: Map[BucketNumber, Seq[T]], lastProcessed: BucketNumber)(implicit metric: Metric, context: Context) = {
+    groupedHistogramBuckets.filter(_._1.number > lastProcessed.number)
   }
 
   protected def aggregateBuckets(buckets: Map[BucketNumber, Seq[T]]): Seq[T] = {
