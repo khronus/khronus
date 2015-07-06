@@ -26,7 +26,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.{ Failure, Success }
 
-abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[T] with SummaryStoreSupport[U] with MetaSupport with Logging with Measurable with BucketCacheSupport {
+abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[T] with SummaryStoreSupport[U] with MetaSupport with Logging with Measurable with BucketCacheSupport[T] {
 
   import com.despegar.khronus.model.TimeWindow._
 
@@ -113,7 +113,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
 
     log.debug(s"${p(metric, duration)} - Slice [${date(fromBucketNumber.startTimestamp())}, ${date(toBucketNumber.startTimestamp())})")
 
-    bucketCache.multiGet[T](metric, fromBucketNumber, toBucketNumber).map { buckets ⇒ Future.successful(buckets) }.getOrElse {
+    bucketCache.multiGet(metric, fromBucketNumber, toBucketNumber).map { buckets ⇒ Future.successful(buckets) }.getOrElse {
       val futureSlice = bucketStore.slice(metric, fromBucketNumber.startTimestamp(), toBucketNumber.startTimestamp(), previousWindowDuration)
       futureSlice.map { bucketSlice ⇒
         if (bucketSlice.results.isEmpty) {
@@ -151,6 +151,7 @@ case class CounterTimeWindow(duration: Duration, previousWindowDuration: Duratio
 
   override def calculateSummary(bucket: CounterBucket): CounterSummary = bucket.summary
 
+  override val bucketCache: BucketCache[CounterBucket] = InMemoryCounterBucketCache
 }
 
 case class HistogramTimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true)
@@ -159,6 +160,8 @@ case class HistogramTimeWindow(duration: Duration, previousWindowDuration: Durat
   override def aggregate(bucketNumber: BucketNumber, buckets: Seq[HistogramBucket]): HistogramBucket = new HistogramBucket(bucketNumber, buckets)
 
   override def calculateSummary(bucket: HistogramBucket): StatisticSummary = bucket.summary
+
+  override val bucketCache: BucketCache[HistogramBucket] = InMemoryHistogramBucketCache
 }
 
 case class Context(metric: Metric, durationStr: String) extends Logging {

@@ -38,11 +38,30 @@ class CassandraCounterBucketStore(session: Session) extends CassandraBucketStore
 
   override def tableName(duration: Duration): String = s"counterBucket${duration.length}${duration.unit}"
 
+  private val serializer: CounterBucketSerializer = DefaultCounterBucketSerializer
+
   override def deserialize(windowDuration: Duration, timestamp: Long, counts: Array[Byte]) = {
     new CounterBucket(Timestamp(timestamp).toBucketNumberOf(windowDuration), deserializeCounts(counts))
   }
 
   override def serialize(metric: Metric, windowDuration: Duration, bucket: CounterBucket): ByteBuffer = {
+    val buffer = serializer.serialize(bucket)
+    recordGauge(formatLabel("serializedBucketBytes", metric, windowDuration), buffer.array().length)
+    buffer
+  }
+
+  private def deserializeCounts(buffer: Array[Byte]): Long = serializer.deserializeCounts(buffer)
+
+  override def ttl(windowDuration: Duration): Int = Settings.Counter.BucketRetentionPolicy
+}
+
+trait CounterBucketSerializer {
+  def serialize(bucket: CounterBucket): ByteBuffer
+  def deserializeCounts(buffer: Array[Byte]): Long
+}
+
+object DefaultCounterBucketSerializer extends CounterBucketSerializer {
+  override def serialize(bucket: CounterBucket): ByteBuffer = {
     val baos = new ByteArrayOutputStream()
     val output = new Output(baos)
     output.writeByte(1)
@@ -52,12 +71,11 @@ class CassandraCounterBucketStore(session: Session) extends CassandraBucketStore
     output.close()
     val array: Array[Byte] = baos.toByteArray
     val buffer = ByteBuffer.wrap(array)
-    recordGauge(formatLabel("serializedBucketBytes", metric, windowDuration), array.length)
     output.close()
     buffer
   }
 
-  private def deserializeCounts(buffer: Array[Byte]): Long = {
+  override def deserializeCounts(buffer: Array[Byte]): Long = {
     val input = new Input(buffer)
     val version = input.readByte()
     if (version == 1) {
@@ -67,6 +85,4 @@ class CassandraCounterBucketStore(session: Session) extends CassandraBucketStore
     input.close()
     count
   }
-
-  override def ttl(windowDuration: Duration): Int = Settings.Counter.BucketRetentionPolicy
 }
