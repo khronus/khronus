@@ -4,9 +4,9 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.despegar.khronus.model._
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.{ FunSuite, Matchers }
 
-class BucketCacheTest extends FunSuite with MockitoSugar  with Matchers {
+class BucketCacheTest extends FunSuite with MockitoSugar with Matchers {
 
   test("two consecutive Ticks maintain affinity") {
     val cache = InMemoryCounterBucketCache

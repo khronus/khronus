@@ -1,11 +1,11 @@
 package com.despegar.khronus.store
 
 import java.nio.ByteBuffer
-import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
+import java.util.concurrent.atomic.{ AtomicLong, AtomicReference }
 
 import com.despegar.khronus.model._
 import com.despegar.khronus.util.log.Logging
-import com.despegar.khronus.util.{Measurable, Settings}
+import com.despegar.khronus.util.{ Measurable, Settings }
 
 import scala.annotation.tailrec
 import scala.collection.Set
@@ -22,18 +22,18 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
 
   val gobalLastKnownTick: AtomicReference[Tick] = new AtomicReference[Tick]()
 
-
   def markProcessedTick(tick: Tick): Unit = if (enabled) {
     //gobalLastKnownTick for only one do the check affinity for all metrics
     val globalPreviousKnownTick = gobalLastKnownTick.getAndSet(tick)
     if (globalPreviousKnownTick != tick) {
-      cachesByMetric map { case (metric, cache) ⇒
-        //Ticks must be consecutive to ensure affinity
-        val metricPreviousTick = cache.lastKnownTick.getAndSet(tick)
-        if (metricPreviousTick != null && !metricPreviousTick.bucketNumber.following.equals(tick.bucketNumber)) {
-          incrementCounter("bucketCache.noMetricAffinity")
-          cleanCache(metric)
-        }
+      cachesByMetric map {
+        case (metric, cache) ⇒
+          //Ticks must be consecutive to ensure affinity
+          val metricPreviousTick = cache.lastKnownTick.getAndSet(tick)
+          if (metricPreviousTick != null && !metricPreviousTick.bucketNumber.following.equals(tick.bucketNumber)) {
+            incrementCounter("bucketCache.noMetricAffinity")
+            cleanCache(metric)
+          }
       }
     }
   }
