@@ -53,7 +53,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
         //store temporal buckets for next window if needed
         //store the summaries
         val stores = storeBucketsAndSummaries(myBuckets, mySummaries, fromBucketNumber, toBucketNumber)
-        stores.map { _ ⇒ bucketCache.markProcessedTick(metric, tick) }
+        stores.map { _ ⇒ bucketCache.markProcessedTick(tick) }
       }
     }
   }

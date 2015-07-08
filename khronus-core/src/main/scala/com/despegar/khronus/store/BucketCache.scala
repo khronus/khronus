@@ -1,17 +1,15 @@
 package com.despegar.khronus.store
 
 import java.nio.ByteBuffer
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.{ AtomicLong, AtomicReference }
+import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 
 import com.despegar.khronus.model._
 import com.despegar.khronus.util.log.Logging
-import com.despegar.khronus.util.{ Measurable, Settings }
+import com.despegar.khronus.util.{Measurable, Settings}
 
 import scala.annotation.tailrec
-import scala.collection.JavaConverters._
+import scala.collection.Set
 import scala.collection.concurrent.TrieMap
-import scala.collection.{ Set, mutable }
 
 trait BucketCacheSupport[T <: Bucket] {
   val bucketCache: BucketCache[T]
@@ -20,14 +18,19 @@ trait BucketCacheSupport[T <: Bucket] {
 trait BucketCache[T <: Bucket] extends Logging with Measurable {
   val cachesByMetric: TrieMap[Metric, MetricBucketCache[T]]
   val nCachedMetrics: AtomicLong
-  val lastKnownTick: AtomicReference[Tick]
   private val enabled = Settings.BucketCache.Enabled
 
-  def markProcessedTick(metric: Metric, tick: Tick): Unit = if (enabled) {
-    val previousKnownTick = lastKnownTick.getAndSet(tick)
-    if (previousKnownTick != tick && previousKnownTick != null) {
-      cachesByMetric.keySet.foreach { metric ⇒
-        if (noCachedBucketFor(metric, previousKnownTick.bucketNumber)) {
+  val gobalLastKnownTick: AtomicReference[Tick] = new AtomicReference[Tick]()
+
+
+  def markProcessedTick(tick: Tick): Unit = if (enabled) {
+    //gobalLastKnownTick for only one do the check affinity for all metrics
+    val globalPreviousKnownTick = gobalLastKnownTick.getAndSet(tick)
+    if (globalPreviousKnownTick != tick) {
+      cachesByMetric map { case (metric, cache) ⇒
+        //Ticks must be consecutive to ensure affinity
+        val metricPreviousTick = cache.lastKnownTick.getAndSet(tick)
+        if (metricPreviousTick != null && !metricPreviousTick.bucketNumber.following.equals(tick.bucketNumber)) {
           incrementCounter("bucketCache.noMetricAffinity")
           cleanCache(metric)
         }
@@ -148,7 +151,6 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
 object InMemoryCounterBucketCache extends BucketCache[CounterBucket] {
   override val cachesByMetric: TrieMap[Metric, MetricBucketCache[CounterBucket]] = new TrieMap[Metric, MetricBucketCache[CounterBucket]]()
   override val nCachedMetrics = new AtomicLong(0)
-  override val lastKnownTick = new AtomicReference[Tick]()
 
   override def buildCache(): MetricBucketCache[CounterBucket] = new CounterMetricBucketCache()
 
@@ -157,7 +159,6 @@ object InMemoryCounterBucketCache extends BucketCache[CounterBucket] {
 object InMemoryHistogramBucketCache extends BucketCache[HistogramBucket] {
   override val cachesByMetric: TrieMap[Metric, MetricBucketCache[HistogramBucket]] = new TrieMap[Metric, MetricBucketCache[HistogramBucket]]()
   override val nCachedMetrics: AtomicLong = new AtomicLong(0)
-  override val lastKnownTick: AtomicReference[Tick] = new AtomicReference[Tick]()
 
   override def buildCache(): MetricBucketCache[HistogramBucket] = new HistogramMetricBucketCache()
 }
@@ -166,6 +167,8 @@ trait MetricBucketCache[T <: Bucket] {
   def buildEmptyBucket(): T
 
   protected val cache = new TrieMap[BucketNumber, Array[Byte]]()
+
+  val lastKnownTick: AtomicReference[Tick] = new AtomicReference[Tick]()
 
   def serialize(bucket: T): Array[Byte]
 
