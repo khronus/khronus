@@ -117,7 +117,10 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
 
     log.debug(s"${p(metric, duration)} - Slice [${date(fromBucketNumber.startTimestamp())}, ${date(toBucketNumber.startTimestamp())})")
 
-    bucketCache.multiGet(metric, fromBucketNumber, toBucketNumber).map { buckets ⇒ Future.successful(buckets) }.getOrElse {
+    bucketCache.multiGet(metric, fromBucketNumber, toBucketNumber).map { buckets ⇒
+      if (buckets.results.isEmpty) notifyEmptySlice(metric, duration)
+      Future.successful(buckets)
+    }.getOrElse {
       val futureSlice = bucketStore.slice(metric, fromBucketNumber.startTimestamp(), toBucketNumber.startTimestamp(), previousWindowDuration)
       futureSlice.map { bucketSlice ⇒
         if (bucketSlice.results.isEmpty) {

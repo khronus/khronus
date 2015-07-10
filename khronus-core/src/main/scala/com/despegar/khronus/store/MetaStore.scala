@@ -24,11 +24,12 @@ import com.despegar.khronus.util.log.Logging
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
+import scala.collection.concurrent.TrieMap
 import scala.collection.mutable.Buffer
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
 import scala.concurrent.{ ExecutionContext, Future, Promise }
 import scala.util.{ Failure, Success }
-import com.despegar.khronus.util.Settings
+import com.despegar.khronus.util.{ ConcurrencySupport, Settings }
 
 case class MetricMetadata(metric: Metric, timestamp: Timestamp)
 
@@ -54,17 +55,25 @@ trait MetaSupport {
   def metaStore: MetaStore = Meta.metaStore
 }
 
-class CassandraMetaStore(session: Session) extends MetaStore with Logging with CassandraUtils with Snapshot[Map[Metric, Timestamp]] {
+class CassandraMetaStore(session: Session) extends MetaStore with Logging with CassandraUtils with Snapshot[Map[Metric, Timestamp]] with ConcurrencySupport {
   //------- cassandra initialization
   val MetricsKey = "metrics"
 
-  private val CreateTableStmt = s"create table if not exists meta (key text, metric text, timestamp bigint, primary key (key, metric));"
+  private val CreateTableStmt = s"create table if not exists meta (key text, metric text, timestamp bigint, active boolean, primary key (key, metric));"
   retry(MaxRetries, "Creating table meta") {
     session.execute(CreateTableStmt)
   }
-  private val InsertStmt = session.prepare(s"insert into meta (key, metric, timestamp) values (?, ?, ?);")
-  private val GetByKeyStmt = session.prepare(s"select metric, timestamp from meta where key = ?;")
+  private val InsertStmt = session.prepare(s"insert into meta (key, metric, timestamp, active) values (?, ?, ?, ?);")
+  private val GetByKeyStmt = session.prepare(s"select metric, timestamp, active from meta where key = ?;")
   private val GetLastProcessedTimeStmt = session.prepare(s"select timestamp from meta where key = ? and metric = ?;")
+  private val UpdateActiveStatus = session.prepare(s"update meta set active = ? where key = ? and metric = ?;")
+
+  //for buffering active status updates
+  private var activeStatusBuffer = TrieMap.empty[String, Boolean]
+  val scheduler = scheduledThreadPool("meta-flusher-worker")
+  scheduler.scheduleAtFixedRate(new Runnable() {
+    override def run() = changeActiveStatus()
+  }, 0, 2, TimeUnit.SECONDS)
 
   implicit val asyncExecutionContext = executionContext("meta-worker")
 
@@ -85,7 +94,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
     metricsChunk ⇒
       val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
       metricsChunk.foreach {
-        metric ⇒ batchStmt.add(InsertStmt.bind(MetricsKey, asString(metric), Long.box(lastProcessedTimestamp.ms)))
+        metric ⇒ batchStmt.add(InsertStmt.bind(MetricsKey, asString(metric), Long.box(lastProcessedTimestamp.ms), new java.lang.Boolean(metric.active)))
       }
 
       val future: Future[ResultSet] = session.executeAsync(batchStmt)
@@ -96,7 +105,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
     getFromSnapshot.keys.filter(_.name.matches(expression)).toSeq
   }
 
-  def contains(metric: Metric): Boolean = getFromSnapshot.contains(metric)
+  def contains(metric: Metric): Boolean = getFromSnapshot.contains(metric) //getFromSnapshot.keys.exists(e => e.name.equals(metric.name) && e.mtype.equals(metric.mtype))
 
   def getFromSnapshotSync(metricName: String): Option[(Metric, Timestamp)] = {
     getFromSnapshot.find { case (metric, timestamp) ⇒ metric.name.matches(metricName) }
@@ -108,7 +117,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
     val future: Future[ResultSet] = session.executeAsync(GetByKeyStmt.bind(MetricsKey))
     future.
       map(resultSet ⇒ {
-        val metrics = resultSet.all().asScala.map(row ⇒ (fromString(row.getString("metric")), Timestamp(row.getLong("timestamp")))).toMap
+        val metrics = resultSet.all().asScala.map(row ⇒ (toMetric(row.getString("metric"), row.getBool("active")), Timestamp(row.getLong("timestamp")))).toMap
         log.info(s"Found ${metrics.size} metrics in meta")
         metrics
       })(executor).
@@ -133,36 +142,59 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
       }
   }
 
-  private def invalidate(metric: Metric) = {
+  private def changeActiveStatus(): Unit = try {
+    if (!activeStatusBuffer.isEmpty) {
+      val older = activeStatusBuffer
+      activeStatusBuffer = TrieMap.empty[String, Boolean]
 
+      executeChunked("meta-active-status", older.toList, Settings.CassandraMeta.insertChunkSize) {
+        metricsChunk: Seq[(String, Boolean)] ⇒
+          val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
+          metricsChunk.foreach {
+            case (metric, active) ⇒ batchStmt.add(UpdateActiveStatus.bind(new java.lang.Boolean(active), MetricsKey, metric))
+          }
+
+          val future: Future[ResultSet] = session.executeAsync(batchStmt)
+          future.map(_ ⇒ log.trace(s"Update meta active status chunk successfully"))
+      }
+    }
+  } catch {
+    case e: Throwable ⇒ log.error("Error changing meta active status", e)
   }
 
-  private def activate(metric: Metric) = {
-
+  private def deactivate(metric: Metric): Unit = {
+    activeStatusBuffer.update(asString(metric), false)
   }
 
-  private def isInvalidated(metric: Metric): Boolean = false
+  private def activate(metric: Metric): Unit = {
+    activeStatusBuffer.update(asString(metric), true)
+  }
+
+  private def isDeactivated(metric: Metric): Boolean = !metric.active
 
   def notifyMetricMeasurement(metric: Metric) = {
-    if (isInvalidated(metric)) {
+    if (isDeactivated(metric)) {
+      log.info(s"Activate $metric!")
       activate(metric)
     }
   }
 
   def notifyEmptySlice(metric: Metric, duration: Duration) = {
-    if (Settings.Window.WindowDurations.last.equals(duration)) {
-      invalidate(metric)
+    //if (Settings.Window.WindowDurations.last.equals(duration)) {
+    if (duration.equals(1 minute)) {
+      log.info(s"DEACTIVATE $metric!")
+      deactivate(metric)
     }
   }
 
   private def asString(metric: Metric) = s"${metric.name}|${metric.mtype}"
 
-  private def fromString(str: String): Metric = {
-    val tokens = str.split("\\|")
+  private def toMetric(key: String, active: Boolean): Metric = {
+    val tokens = key.split("\\|")
     if (tokens.length > 2) {
-      Metric((str splitAt (str lastIndexOf '|'))._1, tokens.last)
+      Metric((key splitAt (key lastIndexOf '|'))._1, tokens.last, active)
     } else {
-      Metric(tokens(0), tokens(1))
+      Metric(tokens(0), tokens(1), active)
     }
   }
 
