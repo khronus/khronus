@@ -51,11 +51,9 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
   }
 
   private def track(metric: Metric) = {
-    if (isNew(metric)) {
+    metaStore.searchInSnapshot(metric.name, metric.mtype) map (metaStore.notifyMetricMeasurement(_)) getOrElse {
       log.debug(s"Got a new metric: $metric. Will store metadata for it")
       storeMetadata(metric)
-    } else {
-      log.debug(s"$metric is already known. No need to store meta for it")
     }
   }
 
@@ -107,7 +105,5 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
     }
     false
   }
-
-  private def isNew(metric: Metric) = !metaStore.contains(metric)
 
 }

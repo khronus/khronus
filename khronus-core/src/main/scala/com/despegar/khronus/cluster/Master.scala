@@ -190,5 +190,5 @@ trait RouterProvider {
 }
 
 trait MetricFinder extends MetaSupport {
-  def lookupMetrics: Future[Seq[Metric]] = metaStore.allMetrics
+  def lookupMetrics: Future[Seq[Metric]] = metaStore.allActiveMetrics
 }

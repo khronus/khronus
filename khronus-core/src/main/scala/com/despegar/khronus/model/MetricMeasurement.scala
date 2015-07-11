@@ -17,7 +17,7 @@
 package com.despegar.khronus.model
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
-import org.apache.commons.lang.builder.{EqualsBuilder, HashCodeBuilder}
+import org.apache.commons.lang.builder.{ EqualsBuilder, HashCodeBuilder }
 
 import scala.concurrent.duration._
 import org.HdrHistogram.Histogram
@@ -35,11 +35,11 @@ case class Metric(name: String, mtype: String, active: Boolean = true) {
 
   override def equals(that: Any): Boolean =
     that match {
-      case that: Metric => that.canEqual(this) && this.hashCode == that.hashCode
-      case _ => false
+      case that: Metric ⇒ that.canEqual(this) && this.hashCode == that.hashCode
+      case _            ⇒ false
     }
 
-  override def hashCode:Int = {
+  override def hashCode: Int = {
     val prime = 31
     var result = 1
     result = prime * result + (if (name == null) 0 else name.hashCode);

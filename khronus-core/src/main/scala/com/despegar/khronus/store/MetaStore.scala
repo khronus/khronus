@@ -19,7 +19,7 @@ package com.despegar.khronus.store
 import java.util.concurrent.{ ConcurrentLinkedQueue, TimeUnit }
 
 import com.datastax.driver.core.{ BatchStatement, ResultSet, Session }
-import com.despegar.khronus.model.{ Metric, Timestamp }
+import com.despegar.khronus.model.{ MonitoringSupport, Metric, Timestamp }
 import com.despegar.khronus.util.log.Logging
 
 import scala.annotation.tailrec
@@ -29,7 +29,7 @@ import scala.collection.mutable.Buffer
 import scala.concurrent.duration._
 import scala.concurrent.{ ExecutionContext, Future, Promise }
 import scala.util.{ Failure, Success }
-import com.despegar.khronus.util.{ ConcurrencySupport, Settings }
+import com.despegar.khronus.util.{ SameThreadExecutionContext, ConcurrencySupport, Settings }
 
 case class MetricMetadata(metric: Metric, timestamp: Timestamp)
 
@@ -42,20 +42,24 @@ trait MetaStore {
 
   def allMetrics: Future[Seq[Metric]]
 
+  def allActiveMetrics: Future[Seq[Metric]]
+
   def searchInSnapshot(expression: String): Future[Seq[Metric]]
 
-  def contains(metric: Metric): Boolean
+  def searchInSnapshot(metricName: String, metricType: String): Option[Metric]
 
   def getFromSnapshotSync(metricName: String): Option[(Metric, Timestamp)]
 
   def notifyEmptySlice(metric: Metric, duration: Duration)
+
+  def notifyMetricMeasurement(metric: Metric)
 }
 
 trait MetaSupport {
   def metaStore: MetaStore = Meta.metaStore
 }
 
-class CassandraMetaStore(session: Session) extends MetaStore with Logging with CassandraUtils with Snapshot[Map[Metric, Timestamp]] with ConcurrencySupport {
+class CassandraMetaStore(session: Session) extends MetaStore with Logging with CassandraUtils with Snapshot[Map[Metric, Timestamp]] with ConcurrencySupport with MonitoringSupport {
   //------- cassandra initialization
   val MetricsKey = "metrics"
 
@@ -105,13 +109,15 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
     getFromSnapshot.keys.filter(_.name.matches(expression)).toSeq
   }
 
-  def contains(metric: Metric): Boolean = getFromSnapshot.contains(metric) //getFromSnapshot.keys.exists(e => e.name.equals(metric.name) && e.mtype.equals(metric.mtype))
+  def searchInSnapshot(metricName: String, metricType: String): Option[Metric] = getFromSnapshot.keys.find(e ⇒ e.name.equals(metricName) && e.mtype.equals(metricType))
 
   def getFromSnapshotSync(metricName: String): Option[(Metric, Timestamp)] = {
     getFromSnapshot.find { case (metric, timestamp) ⇒ metric.name.matches(metricName) }
   }
 
   def allMetrics(): Future[Seq[Metric]] = retrieveMetrics.map(_.keys.toSeq)
+
+  def allActiveMetrics(): Future[Seq[Metric]] = retrieveMetrics.map(_.keys.filter(_.active).toSeq)
 
   private def retrieveMetrics(implicit executor: ExecutionContext): Future[Map[Metric, Timestamp]] = {
     val future: Future[ResultSet] = session.executeAsync(GetByKeyStmt.bind(MetricsKey))
@@ -142,47 +148,43 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
       }
   }
 
-  private def changeActiveStatus(): Unit = try {
+  private def changeActiveStatus(): Unit =
     if (!activeStatusBuffer.isEmpty) {
-      val older = activeStatusBuffer
-      activeStatusBuffer = TrieMap.empty[String, Boolean]
+      try {
+        val older = activeStatusBuffer
+        activeStatusBuffer = TrieMap.empty[String, Boolean]
 
-      executeChunked("meta-active-status", older.toList, Settings.CassandraMeta.insertChunkSize) {
-        metricsChunk: Seq[(String, Boolean)] ⇒
+        older.grouped(Settings.CassandraMeta.insertChunkSize).foreach(chunk ⇒ {
           val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
-          metricsChunk.foreach {
+          chunk.foreach {
             case (metric, active) ⇒ batchStmt.add(UpdateActiveStatus.bind(new java.lang.Boolean(active), MetricsKey, metric))
           }
 
-          val future: Future[ResultSet] = session.executeAsync(batchStmt)
-          future.map(_ ⇒ log.trace(s"Update meta active status chunk successfully"))
+          session.execute(batchStmt)
+        })
+      } catch {
+        case e: Throwable ⇒ log.error("Error changing meta active status", e)
       }
     }
-  } catch {
-    case e: Throwable ⇒ log.error("Error changing meta active status", e)
-  }
 
   private def deactivate(metric: Metric): Unit = {
     activeStatusBuffer.update(asString(metric), false)
+    incrementCounter("metaStore.deactivate")
   }
 
   private def activate(metric: Metric): Unit = {
     activeStatusBuffer.update(asString(metric), true)
+    incrementCounter("metaStore.activate")
   }
 
-  private def isDeactivated(metric: Metric): Boolean = !metric.active
-
   def notifyMetricMeasurement(metric: Metric) = {
-    if (isDeactivated(metric)) {
-      log.info(s"Activate $metric!")
+    if (!metric.active) {
       activate(metric)
     }
   }
 
   def notifyEmptySlice(metric: Metric, duration: Duration) = {
-    //if (Settings.Window.WindowDurations.last.equals(duration)) {
-    if (duration.equals(1 minute)) {
-      log.info(s"DEACTIVATE $metric!")
+    if (Settings.Window.WindowDurations.last.equals(duration) && metric.active) {
       deactivate(metric)
     }
   }
