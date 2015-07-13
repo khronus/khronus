@@ -91,7 +91,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
   }
 
   def insert(metric: Metric): Future[Unit] = {
-    update(Seq(metric), Timestamp(1))
+    update(Seq(metric), (Tick().bucketNumber - 1).startTimestamp())
   }
 
   def update(metrics: Seq[Metric], lastProcessedTimestamp: Timestamp): Future[Unit] = executeChunked("meta", metrics, Settings.CassandraMeta.insertChunkSize) {
