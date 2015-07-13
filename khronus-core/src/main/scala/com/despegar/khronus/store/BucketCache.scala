@@ -20,11 +20,11 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
   val nCachedMetrics: AtomicLong
   private val enabled = Settings.BucketCache.Enabled
 
-  val gobalLastKnownTick: AtomicReference[Tick] = new AtomicReference[Tick]()
+  val globalLastKnownTick: AtomicReference[Tick] = new AtomicReference[Tick]()
 
   def markProcessedTick(tick: Tick): Unit = if (enabled) {
     //gobalLastKnownTick for only one do the check affinity for all metrics
-    val globalPreviousKnownTick = gobalLastKnownTick.getAndSet(tick)
+    val globalPreviousKnownTick = globalLastKnownTick.getAndSet(tick)
     if (globalPreviousKnownTick != tick) {
       cachesByMetric map {
         case (metric, cache) ⇒
@@ -43,7 +43,7 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
       log.debug(s"Caching ${buckets.length} buckets of ${fromBucketNumber.duration} for $metric")
       metricCacheOf(metric).map { cache ⇒
         buckets.foreach { bucket ⇒
-          val previousBucket = cache.putIfAbsent(bucket.bucketNumber, bucket) map { _ ⇒
+          cache.putIfAbsent(bucket.bucketNumber, bucket) map { _ ⇒
             incrementCounter("bucketCache.overrideWarning")
             log.warn("More than one cached Bucket per BucketNumber. Overriding it to leave just one of them.")
           }
@@ -74,10 +74,6 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
     log.debug(s"Lose $metric affinity. Cleaning its bucket cache")
     cachesByMetric.remove(metric)
     nCachedMetrics.decrementAndGet()
-  }
-
-  private def noCachedBucketFor(metric: Metric, bucketNumber: BucketNumber): Boolean = {
-    !metricCacheOf(metric).map(cache ⇒ cache.keySet().exists(a ⇒ a.contains(bucketNumber))).getOrElse(false)
   }
 
   private def metricCacheOf(metric: Metric): Option[MetricBucketCache[T]] = {
@@ -217,6 +213,8 @@ class HistogramMetricBucketCache extends MetricBucketCache[HistogramBucket] {
   override def buildEmptyBucket(): HistogramBucket = EmptyHistogramBucket
 }
 
+trait EmptyBucket
+
 object EmptyHistogramBucket extends EmptyHistogramBucket
 
 class EmptyHistogramBucket extends HistogramBucket(UndefinedBucketNumber, null) with EmptyBucket {
@@ -229,16 +227,7 @@ class EmptyCounterBucket extends CounterBucket(UndefinedBucketNumber, 0) with Em
   override val summary = null
 }
 
-trait EmptyBucket
-//
-//object EmptyBucket extends EmptyBucket
-//
-//class EmptyBucket extends Bucket(UndefinedBucketNumber) {
-//  val summary = null
-//}
 
 object UndefinedBucketNumber extends BucketNumber(-1, null) {
-  override def toString = {
-    "UndefinedBucketNumber"
-  }
+  override def toString() = "UndefinedBucketNumber"
 }

@@ -12,7 +12,7 @@ class BucketCacheTest extends FunSuite with MockitoSugar with Matchers {
     val cache = InMemoryCounterBucketCache
     cache.cachesByMetric.clear()
     cache.nCachedMetrics.set(0)
-    cache.gobalLastKnownTick.set(null)
+    cache.globalLastKnownTick.set(null)
 
     val tick09_00a09_30 = Tick()(new TestClock("2015-06-21T00:10:00"))
     val fromTick1 = tick09_00a09_30.bucketNumber
@@ -48,7 +48,7 @@ class BucketCacheTest extends FunSuite with MockitoSugar with Matchers {
     val cache = InMemoryCounterBucketCache
     cache.cachesByMetric.clear()
     cache.nCachedMetrics.set(0)
-    cache.gobalLastKnownTick.set(null)
+    cache.globalLastKnownTick.set(null)
 
     val tick09_00a09_30 = Tick()(new TestClock("2015-06-21T00:10:00"))
     val fromTick1 = tick09_00a09_30.bucketNumber

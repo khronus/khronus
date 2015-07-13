@@ -15,7 +15,6 @@ object Tick extends Logging {
     val executionTimestamp = Timestamp(clock.now)
     val bucketNumber = executionTimestamp.alignedTo(smallestWindow()).fromEndTimestampToBucketNumberOf(smallestWindow())
     val tick = Tick(bucketNumber - Settings.Window.TickDelay)
-    log.debug(s"$tick")
     tick
   }
 
