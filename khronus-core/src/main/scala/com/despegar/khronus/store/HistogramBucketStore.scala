@@ -60,15 +60,41 @@ class CassandraHistogramBucketStore(session: Session) extends CassandraBucketSto
 
 trait HistogramSerializer {
   def serialize(histogram: Histogram): ByteBuffer
+
   def deserialize(byteBuffer: ByteBuffer): Histogram
 }
 
 object DefaultHistogramSerializer extends HistogramSerializer {
+
+  //this is a conservative upper limit to the cached byteBuffer.
+  //the resulting serialized bytes are expected to be in the order of few hundred bytes
+  private val cachedByteBufferCapacity = 200 * 1024 //200kb
+  private val cachedByteBuffer = new ThreadLocal[ByteBuffer]()
+
   override def serialize(histogram: Histogram): ByteBuffer = {
-    val buffer = ByteBuffer.allocate(histogram.getEstimatedFootprintInBytes)
-    val bytesEncoded = histogram.encodeIntoCompressedByteBuffer(buffer)
-    buffer.limit(bytesEncoded)
-    buffer.rewind()
+    val buffer = byteBuffer()
+    try {
+      val bytesEncoded = histogram.encodeIntoCompressedByteBuffer(buffer)
+      buffer.limit(bytesEncoded)
+      buffer.rewind()
+      ByteBuffer.wrap(toBytes(buffer))
+    } finally {
+      buffer.clear()
+    }
+  }
+
+  private def toBytes(buffer: ByteBuffer): Array[Byte] = {
+    val bytes = new Array[Byte](buffer.limit())
+    buffer.get(bytes)
+    bytes
+  }
+
+  private def byteBuffer() = {
+    var buffer = cachedByteBuffer.get()
+    if (buffer == null) {
+      buffer = ByteBuffer.allocate(cachedByteBufferCapacity)
+      cachedByteBuffer.set(buffer)
+    }
     buffer
   }
 
