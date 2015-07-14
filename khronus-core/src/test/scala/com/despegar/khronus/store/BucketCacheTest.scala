@@ -1,18 +1,16 @@
 package com.despegar.khronus.store
 
-import java.util.concurrent.atomic.AtomicLong
-
 import com.despegar.khronus.model._
+import com.despegar.khronus.util.Settings
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{ FunSuite, Matchers }
+import org.scalatest.{FunSuite, Matchers}
+import scala.concurrent.duration._
 
 class BucketCacheTest extends FunSuite with MockitoSugar with Matchers {
 
   test("two consecutive Ticks maintain affinity") {
-    val cache = InMemoryCounterBucketCache
-    cache.cachesByMetric.clear()
-    cache.nCachedMetrics.set(0)
-    cache.globalLastKnownTick.set(null)
+    val cache: InMemoryCounterBucketCache.type = buildCache
+
 
     val tick09_00a09_30 = Tick()(new TestClock("2015-06-21T00:10:00"))
     val fromTick1 = tick09_00a09_30.bucketNumber
@@ -36,7 +34,7 @@ class BucketCacheTest extends FunSuite with MockitoSugar with Matchers {
     cache.nCachedMetrics.intValue() shouldBe 1
     cache.cachesByMetric.get(metric).get.keySet().size shouldBe 2
 
-    val slice = cache.multiGet(metric, fromTick1, toTick2)
+    val slice = cache.multiGet(metric, 1 minute, fromTick1, toTick2)
     slice.isDefined shouldBe true
     slice.get.results.size shouldBe 2 //2 buckets of 30s
 
@@ -45,10 +43,7 @@ class BucketCacheTest extends FunSuite with MockitoSugar with Matchers {
   }
 
   test("non consecutive ticks must lost affinity") {
-    val cache = InMemoryCounterBucketCache
-    cache.cachesByMetric.clear()
-    cache.nCachedMetrics.set(0)
-    cache.globalLastKnownTick.set(null)
+    val cache: InMemoryCounterBucketCache.type = buildCache
 
     val tick09_00a09_30 = Tick()(new TestClock("2015-06-21T00:10:00"))
     val fromTick1 = tick09_00a09_30.bucketNumber
@@ -70,5 +65,36 @@ class BucketCacheTest extends FunSuite with MockitoSugar with Matchers {
     cache.markProcessedTick(tick10_00a10_30)
 
     cache.nCachedMetrics.intValue() shouldBe 0
+  }
+
+
+  test("huge slice is ignored by cache") {
+    val cache = buildCache
+
+    //1 minute duration must slice (2 * MaxStore) buckets of 30 seconds
+    var exceed = cache.sliceExceeded(1 minute, BucketNumber(47894183, 30 seconds), BucketNumber(47894186, 30 seconds))
+    exceed shouldBe true
+
+    exceed = cache.sliceExceeded(5 minute, BucketNumber(47894183, 1 minute), BucketNumber(47894190, 1 minute))
+    exceed shouldBe true
+  }
+
+  test("Common slice should not exceed limit") {
+    val cache = buildCache
+
+    var exceed = cache.sliceExceeded(1 minute, BucketNumber(47894184, 30 seconds), BucketNumber(47894186, 30 seconds))
+    exceed shouldBe false
+
+    exceed = cache.sliceExceeded(5 minute, BucketNumber(47894184, 1 minute), BucketNumber(47894189, 1 minute))
+    exceed shouldBe false
+  }
+
+
+  def buildCache: InMemoryCounterBucketCache.type = {
+    val cache = InMemoryCounterBucketCache
+    cache.cachesByMetric.clear()
+    cache.nCachedMetrics.set(0)
+    cache.globalLastKnownTick.set(null)
+    cache
   }
 }

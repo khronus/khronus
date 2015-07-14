@@ -10,6 +10,7 @@ import com.despegar.khronus.util.{ Measurable, Settings }
 import scala.annotation.tailrec
 import scala.collection.Set
 import scala.collection.concurrent.TrieMap
+import scala.concurrent.duration.Duration
 
 trait BucketCacheSupport[T <: Bucket] {
   val bucketCache: BucketCache[T]
@@ -53,8 +54,22 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
     }
   }
 
-  def multiGet(metric: Metric, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber): Option[BucketSlice[T]] = {
-    if (!enabled || !Settings.BucketCache.IsEnabledFor(metric.mtype) || isRawTimeWindow(fromBucketNumber)) return None
+  def sliceExceeded(currentDuration: Duration, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber): Boolean = {
+    val diff = toBucketNumber.number - fromBucketNumber.number
+    //how many buckets we need to fill the current duration. Ex: 5 minute window require 5 buckets of 1 minute
+    val previousDurationBuckets = currentDuration / fromBucketNumber.duration
+    val exceeded = diff > (previousDurationBuckets.toLong * Settings.BucketCache.MaxStore)
+
+    if (exceeded) {
+      log.debug(s"Exceeded max slice in cache multiget. From $fromBucketNumber to $toBucketNumber")
+      incrementCounter("bucketCache.sliceExceeded")
+    }
+
+    exceeded
+  }
+
+  def multiGet(metric: Metric, currentDuration: Duration, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber): Option[BucketSlice[T]] = {
+    if (!enabled || !Settings.BucketCache.IsEnabledFor(metric.mtype) || isRawTimeWindow(fromBucketNumber) || sliceExceeded(currentDuration, fromBucketNumber, toBucketNumber)) return None
     val expectedBuckets = toBucketNumber.number - fromBucketNumber.number
     val slice: Option[BucketSlice[T]] = metricCacheOf(metric).flatMap { cache ⇒
       val buckets = takeRecursive(cache, fromBucketNumber, toBucketNumber)
@@ -83,6 +98,7 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
     } else {
       if (nCachedMetrics.incrementAndGet() > Settings.BucketCache.MaxMetrics) {
         nCachedMetrics.decrementAndGet()
+        incrementCounter("bucketCache.maxMetrics")
         None
       } else {
         val newCache = buildCache()

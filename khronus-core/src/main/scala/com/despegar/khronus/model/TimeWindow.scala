@@ -117,7 +117,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
 
     log.debug(s"${p(metric, duration)} - Slice [${date(fromBucketNumber.startTimestamp())}, ${date(toBucketNumber.startTimestamp())})")
 
-    bucketCache.multiGet(metric, fromBucketNumber, toBucketNumber).map { buckets ⇒
+    bucketCache.multiGet(metric, duration, fromBucketNumber, toBucketNumber).map { buckets ⇒
       if (buckets.results.isEmpty) notifyEmptySlice(metric, duration)
       Future.successful(buckets)
     }.getOrElse {

@@ -16,20 +16,18 @@
 
 package com.despegar.khronus.store
 
-import java.util.concurrent.{ ConcurrentLinkedQueue, TimeUnit }
+import java.util.concurrent.TimeUnit
 
 import com.datastax.driver.core.{ BatchStatement, ResultSet, Session }
-import com.despegar.khronus.model.{ MonitoringSupport, Metric, Timestamp }
+import com.despegar.khronus.model.{ Tick, Metric, MonitoringSupport, Timestamp }
 import com.despegar.khronus.util.log.Logging
+import com.despegar.khronus.util.{ ConcurrencySupport, Settings }
 
-import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.collection.concurrent.TrieMap
-import scala.collection.mutable.Buffer
 import scala.concurrent.duration._
-import scala.concurrent.{ ExecutionContext, Future, Promise }
-import scala.util.{ Failure, Success }
-import com.despegar.khronus.util.{ SameThreadExecutionContext, ConcurrencySupport, Settings }
+import scala.concurrent.{ ExecutionContext, Future }
+import scala.util.Failure
 
 case class MetricMetadata(metric: Metric, timestamp: Timestamp)
 
