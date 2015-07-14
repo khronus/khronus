@@ -18,7 +18,7 @@ trait BucketCacheSupport[T <: Bucket] {
 
 trait BucketCache[T <: Bucket] extends Logging with Measurable {
   val cachesByMetric: TrieMap[Metric, MetricBucketCache[T]]
-  val nCachedMetrics: AtomicLong
+  val nCachedMetrics: Map[String, AtomicLong]
   private val enabled = Settings.BucketCache.Enabled
 
   val globalLastKnownTick: AtomicReference[Tick] = new AtomicReference[Tick]()
@@ -37,6 +37,8 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
           }
       }
     }
+
+    nCachedMetrics foreach { case (mtype, counter) => recordGauge(s"bucketCache.size.$mtype", counter.get())}
   }
 
   def multiSet(metric: Metric, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber, buckets: Seq[T]): Unit = {
@@ -88,7 +90,7 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
   private def cleanCache(metric: Metric) = {
     log.debug(s"Lose $metric affinity. Cleaning its bucket cache")
     cachesByMetric.remove(metric)
-    nCachedMetrics.decrementAndGet()
+    nCachedMetrics(metric.mtype).decrementAndGet()
   }
 
   private def metricCacheOf(metric: Metric): Option[MetricBucketCache[T]] = {
@@ -96,9 +98,9 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
     if (currentCache.isDefined) {
       currentCache
     } else {
-      if (nCachedMetrics.incrementAndGet() > Settings.BucketCache.MaxMetrics) {
-        nCachedMetrics.decrementAndGet()
-        incrementCounter("bucketCache.maxMetrics")
+      if (nCachedMetrics(metric.mtype).incrementAndGet() > Settings.BucketCache.MaxMetrics(metric.mtype)) {
+        nCachedMetrics(metric.mtype).decrementAndGet()
+        incrementCounter(s"bucketCache.maxMetrics.${metric.mtype}")
         None
       } else {
         val newCache = buildCache()
@@ -162,7 +164,7 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
 
 object InMemoryCounterBucketCache extends BucketCache[CounterBucket] {
   override val cachesByMetric: TrieMap[Metric, MetricBucketCache[CounterBucket]] = new TrieMap[Metric, MetricBucketCache[CounterBucket]]()
-  override val nCachedMetrics = new AtomicLong(0)
+  override val nCachedMetrics: Map[String, AtomicLong] = Map(MetricType.Counter -> new AtomicLong(0))
 
   override def buildCache(): MetricBucketCache[CounterBucket] = new CounterMetricBucketCache()
 
@@ -170,7 +172,7 @@ object InMemoryCounterBucketCache extends BucketCache[CounterBucket] {
 
 object InMemoryHistogramBucketCache extends BucketCache[HistogramBucket] {
   override val cachesByMetric: TrieMap[Metric, MetricBucketCache[HistogramBucket]] = new TrieMap[Metric, MetricBucketCache[HistogramBucket]]()
-  override val nCachedMetrics: AtomicLong = new AtomicLong(0)
+  override val nCachedMetrics: Map[String, AtomicLong] = Map(MetricType.Gauge -> new AtomicLong(0), MetricType.Timer -> new AtomicLong(0))
 
   override def buildCache(): MetricBucketCache[HistogramBucket] = new HistogramMetricBucketCache()
 }
@@ -242,7 +244,6 @@ object EmptyCounterBucket extends EmptyCounterBucket
 class EmptyCounterBucket extends CounterBucket(UndefinedBucketNumber, 0) with EmptyBucket {
   override val summary = null
 }
-
 
 object UndefinedBucketNumber extends BucketNumber(-1, null) {
   override def toString() = "UndefinedBucketNumber"

@@ -125,7 +125,8 @@ object Settings {
 
     val MaxStore = bucketCacheConfig.getInt("max-store")
 
-    val MaxMetrics = bucketCacheConfig.getInt("max-metrics")
+    val MaxMetrics: Map[String, Int] = Map(MetricType.Timer -> bucketCacheConfig.getInt("max-metrics.timers"),
+      MetricType.Counter -> bucketCacheConfig.getInt("max-metrics.counters"), MetricType.Gauge -> bucketCacheConfig.getInt("max-metrics.gauges"))
 
     def IsEnabledFor(metricType: String): Boolean = Option(bucketCacheConfig.getBoolean(metricType)).getOrElse(false)
   }
