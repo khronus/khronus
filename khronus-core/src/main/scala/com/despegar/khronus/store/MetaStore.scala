@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
 import com.datastax.driver.core.{ BatchStatement, ResultSet, Session }
 import com.despegar.khronus.model.{ Tick, Metric, MonitoringSupport, Timestamp }
 import com.despegar.khronus.util.log.Logging
-import com.despegar.khronus.util.{ ConcurrencySupport, Settings }
+import com.despegar.khronus.util.{Measurable, ConcurrencySupport, Settings}
 
 import scala.collection.JavaConverters._
 import scala.collection.concurrent.TrieMap
@@ -57,7 +57,7 @@ trait MetaSupport {
   def metaStore: MetaStore = Meta.metaStore
 }
 
-class CassandraMetaStore(session: Session) extends MetaStore with Logging with CassandraUtils with Snapshot[Map[Metric, Timestamp]] with ConcurrencySupport with MonitoringSupport {
+class CassandraMetaStore(session: Session) extends MetaStore with Logging with CassandraUtils with Snapshot[Map[Metric, Timestamp]] with ConcurrencySupport with MonitoringSupport with Measurable {
   //------- cassandra initialization
   val MetricsKey = "metrics"
 
@@ -107,7 +107,9 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
     getFromSnapshot.keys.filter(_.name.matches(expression)).toSeq
   }
 
-  def searchInSnapshot(metricName: String, metricType: String): Option[Metric] = getFromSnapshot.keys.find(e ⇒ e.name.equals(metricName) && e.mtype.equals(metricType))
+  def searchInSnapshot(metricName: String, metricType: String): Option[Metric] = measureTime("metaStore.searchInSnapshot","") {
+    getFromSnapshot.keys.find(e ⇒ e.name.equals(metricName) && e.mtype.equals(metricType))
+  }
 
   def getFromSnapshotSync(metricName: String): Option[(Metric, Timestamp)] = {
     getFromSnapshot.find { case (metric, timestamp) ⇒ metric.name.matches(metricName) }
