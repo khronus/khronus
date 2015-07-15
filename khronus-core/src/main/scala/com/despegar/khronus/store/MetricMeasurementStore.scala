@@ -3,6 +3,7 @@ package com.despegar.khronus.store
 import com.despegar.khronus.model.{ Metric, MetricMeasurement, _ }
 import com.despegar.khronus.util.{ Settings, ConcurrencySupport }
 import com.despegar.khronus.util.log.Logging
+import org.HdrHistogram.Histogram
 
 import scala.concurrent.duration._
 import scala.concurrent.{ ExecutionContext, Future }
@@ -23,7 +24,11 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
   private val storeGroupDuration = 5 seconds
 
   def storeMetricMeasurements(metricMeasurements: List[MetricMeasurement]) = {
-    store(metricMeasurements)
+    try {
+      store(metricMeasurements)
+    } catch {
+      case reason: Throwable ⇒ log.error("Failed receiving samples", reason)
+    }
   }
 
   private def store(metrics: List[MetricMeasurement]) = {
@@ -60,17 +65,18 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
   private def storeMetadata(metric: Metric) = metaStore.insert(metric)
 
   private def storeHistogramMetric(metric: Metric, metricMeasurement: MetricMeasurement) = {
+    val histogram = HistogramBucket.newHistogram
     storeGrouped(metric, metricMeasurement) { (bucketNumber, measurements) ⇒
-      val histogram = HistogramBucket.newHistogram
+      histogram.reset()
       measurements.foreach(measurement ⇒ skipNegativeValues(metricMeasurement, measurement.values).foreach(value ⇒ histogram.recordValue(value)))
       histogramBucketStore.store(metric, rawDuration, Seq(new HistogramBucket(bucketNumber, histogram)))
     }
   }
 
-  private def storeGrouped(metric: Metric, metricMeasurement: MetricMeasurement)(block: (BucketNumber, List[Measurement]) ⇒ Future[Unit]): Unit = {
+  private def storeGrouped[T](metric: Metric, metricMeasurement: MetricMeasurement)(block: (BucketNumber, List[Measurement]) ⇒ Future[Unit]): Unit = {
     val groupedMeasurements = metricMeasurement.measurements.groupBy(measurement ⇒ Timestamp(measurement.ts).alignedTo(storeGroupDuration))
-    groupedMeasurements.foldLeft(Future.successful(())) { (acc, measurementsGroup) ⇒
-      acc.flatMap { _ ⇒
+    groupedMeasurements.foldLeft(Future.successful(())) { (previousStore, measurementsGroup) ⇒
+      previousStore.flatMap { _ ⇒
         val timestamp = measurementsGroup._1
         val bucketNumber = timestamp.toBucketNumberOf(rawDuration)
         if (!alreadyProcessed(metric, bucketNumber)) {

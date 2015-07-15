@@ -75,7 +75,6 @@ object ConcurrencySupport extends Measurable {
       recordGauge(s"pool.$name.threads.active", pool.getActiveCount)
       recordGauge(s"pool.$name.queue.size", pool.getQueue.size())
     }
-    recordGauge("monitoring.queue.size", Monitoring.queue.size())
   }
 
 }
