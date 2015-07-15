@@ -55,17 +55,14 @@ object SystemMetric {
   }
 }
 
+case class MetricBatch(metrics: List[MetricMeasurement])
+
 case class MetricMeasurement(name: String, mtype: String, measurements: List[Measurement]) {
 
   override def toString = s"Metric($name,$mtype)"
 
   def asMetric = Metric(name, mtype)
 
-  def asCounterBuckets = measurements.map(measurement ⇒ new CounterBucket(BucketNumber(measurement.ts, 1 millis), measurement.values.sum)).toSeq
-
 }
 
 case class Measurement(ts: Long, @JsonDeserialize(contentAs = classOf[java.lang.Long]) values: Seq[Long])
-
-case class MetricBatch(metrics: List[MetricMeasurement])
-
