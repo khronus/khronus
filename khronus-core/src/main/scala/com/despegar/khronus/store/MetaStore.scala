@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
 import com.datastax.driver.core.{ BatchStatement, ResultSet, Session }
 import com.despegar.khronus.model.{ Tick, Metric, MonitoringSupport, Timestamp }
 import com.despegar.khronus.util.log.Logging
-import com.despegar.khronus.util.{Measurable, ConcurrencySupport, Settings}
+import com.despegar.khronus.util.{ Measurable, ConcurrencySupport, Settings }
 
 import scala.collection.JavaConverters._
 import scala.collection.concurrent.TrieMap
@@ -107,7 +107,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
     getFromSnapshot.keys.filter(_.name.matches(expression)).toSeq
   }
 
-  def searchInSnapshot(metricName: String, metricType: String): Option[Metric] = measureTime("metaStore.searchInSnapshot","") {
+  def searchInSnapshot(metricName: String, metricType: String): Option[Metric] = measureTime("metaStore.searchInSnapshot", "") {
     getFromSnapshot.keys.find(e ⇒ e.name.equals(metricName) && e.mtype.equals(metricType))
   }
 
@@ -172,7 +172,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
     incrementCounter("metaStore.deactivate")
   }
 
-  private def activate(metric: Metric): Unit = {
+  private def activate(metric: Metric): Unit = measureTime("metaStore.activate", "") {
     activeStatusBuffer.update(asString(metric), true)
     incrementCounter("metaStore.activate")
   }
