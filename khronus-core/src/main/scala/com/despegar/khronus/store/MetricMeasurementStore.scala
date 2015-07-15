@@ -1,7 +1,7 @@
 package com.despegar.khronus.store
 
 import com.despegar.khronus.model.{ Metric, MetricMeasurement, _ }
-import com.despegar.khronus.util.{ Settings, ConcurrencySupport }
+import com.despegar.khronus.util.{ Measurable, Settings, ConcurrencySupport }
 import com.despegar.khronus.util.log.Logging
 import org.HdrHistogram.Histogram
 
@@ -16,7 +16,7 @@ trait MetricMeasurementStore {
   def storeMetricMeasurements(metricMeasurements: List[MetricMeasurement])
 }
 
-object CassandraMetricMeasurementStore extends MetricMeasurementStore with BucketSupport with MetaSupport with Logging with ConcurrencySupport with MonitoringSupport with TimeWindowsSupport {
+object CassandraMetricMeasurementStore extends MetricMeasurementStore with BucketSupport with MetaSupport with Logging with ConcurrencySupport with MonitoringSupport with TimeWindowsSupport with Measurable {
 
   implicit val executionContext: ExecutionContext = executionContext("metric-receiver-worker")
 
@@ -31,12 +31,12 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
     }
   }
 
-  private def store(metrics: List[MetricMeasurement]) = {
+  private def store(metrics: List[MetricMeasurement]) = measureTime("measurementStore.store", "store metricMeasurements") {
     log.info(s"Received samples of ${metrics.length} metrics")
     metrics foreach storeMetric
   }
 
-  private def storeMetric(metricMeasurement: MetricMeasurement): Unit = {
+  private def storeMetric(metricMeasurement: MetricMeasurement): Unit = measureTime("measurementStore.storeMetric", "store metric") {
     if (metricMeasurement.measurements.isEmpty) {
       log.warn(s"Discarding store of ${metricMeasurement.asMetric} with empty measurements")
       return
@@ -55,14 +55,16 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
     track(metric)
   }
 
-  private def track(metric: Metric) = {
+  private def track(metric: Metric) = measureTime("measurementStore.track", "track metric") {
     metaStore.searchInSnapshot(metric.name, metric.mtype) map (metaStore.notifyMetricMeasurement(_)) getOrElse {
       log.debug(s"Got a new metric: $metric. Will store metadata for it")
       storeMetadata(metric)
     }
   }
 
-  private def storeMetadata(metric: Metric) = metaStore.insert(metric)
+  private def storeMetadata(metric: Metric) = measureTime("measurementStore.storeMetadata", "store metadata") {
+    metaStore.insert(metric)
+  }
 
   private def storeHistogramMetric(metric: Metric, metricMeasurement: MetricMeasurement) = {
     val histogram = HistogramBucket.newHistogram
