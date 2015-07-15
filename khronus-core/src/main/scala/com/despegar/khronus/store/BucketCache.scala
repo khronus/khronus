@@ -38,7 +38,7 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
       }
     }
 
-    nCachedMetrics foreach { case (mtype, counter) => recordGauge(s"bucketCache.size.$mtype", counter.get())}
+    nCachedMetrics foreach { case (mtype, counter) ⇒ recordGauge(s"bucketCache.size.$mtype", counter.get()) }
   }
 
   def multiSet(metric: Metric, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber, buckets: Seq[T]): Unit = {

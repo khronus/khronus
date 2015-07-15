@@ -19,9 +19,10 @@ package com.despegar.khronus.service
 import akka.actor._
 import com.despegar.khronus.service.HandShakeProtocol.Register
 import com.despegar.khronus.util.CORSSupport
+import spray.http.{Timedout, HttpRequest, HttpResponse, StatusCodes}
 import spray.http.StatusCodes._
 import spray.httpx.marshalling.ToResponseMarshaller
-import spray.routing.{ RequestContext, _ }
+import spray.routing._
 import spray.util.LoggingContext
 
 class KhronusHandler extends HttpServiceActor with ActorLogging with KhronusHandlerException {
@@ -39,7 +40,15 @@ class KhronusHandler extends HttpServiceActor with ActorLogging with KhronusHand
       context become receive
   }
 
-  def receive = registerReceive orElse runRoute(composedRoute)
+  def receive = registerReceive orElse handleTimeouts orElse runRoute(composedRoute)
+
+  def handleTimeouts: Receive = {
+    case Timedout(request: HttpRequest) => {
+      val message = s"Request timeout! URI: ${request.uri}"
+      log.error(message)
+      sender ! HttpResponse(StatusCodes.InternalServerError, message)
+    }
+  }
 
 }
 
