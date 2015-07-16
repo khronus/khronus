@@ -172,9 +172,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
     incrementCounter("metaStore.deactivate")
   }
 
-  private def activate(metric: Metric): Unit = measureTime("metaStore.activateTimer", "") {
-    activeStatusBuffer.update(asString(metric), true)
-  }
+  private def activate(metric: Metric): Unit = activeStatusBuffer.update(asString(metric), true)
 
   def notifyMetricMeasurement(metric: Metric) = {
     if (!metric.active) {

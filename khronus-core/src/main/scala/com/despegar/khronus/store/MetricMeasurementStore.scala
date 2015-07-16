@@ -53,15 +53,14 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
       }
     }
     track(metric)
-    log.trace(s"Finish storing metric $metric")
   }
 
-  private def track(metric: Metric) = measureFutureTime("measurementStore.track", "track metric")(Future {
+  private def track(metric: Metric) = measureTime("measurementStore.track", "track metric") {
     metaStore.searchInSnapshot(metric.name, metric.mtype) map (metaStore.notifyMetricMeasurement(_)) getOrElse {
       log.debug(s"Got a new metric: $metric. Will store metadata for it")
       storeMetadata(metric)
     }
-  })
+  }
 
   private def storeMetadata(metric: Metric) = measureFutureTime("measurementStore.storeMetadata", "store metadata") {
     metaStore.insert(metric)
