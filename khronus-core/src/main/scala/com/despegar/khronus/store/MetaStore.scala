@@ -44,7 +44,7 @@ trait MetaStore {
 
   def searchInSnapshot(expression: String): Future[Seq[Metric]]
 
-  def searchInSnapshot(metricName: String, metricType: String): Option[Metric]
+  def exists(metric: Metric): Boolean
 
   def getFromSnapshotSync(metricName: String): Option[(Metric, Timestamp)]
 
@@ -107,8 +107,8 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
     getFromSnapshot.keys.filter(_.name.matches(expression)).toSeq
   }
 
-  def searchInSnapshot(metricName: String, metricType: String): Option[Metric] = measureTime("metaStore.searchInSnapshot", "") {
-    getFromSnapshot.keys.find(e ⇒ e.name.equals(metricName) && e.mtype.equals(metricType))
+  def exists(metric: Metric): Boolean = measureTime("metaStore.searchInSnapshot", "") {
+    getFromSnapshot.contains(metric)
   }
 
   def getFromSnapshotSync(metricName: String): Option[(Metric, Timestamp)] = {

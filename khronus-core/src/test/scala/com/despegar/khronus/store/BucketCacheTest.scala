@@ -3,14 +3,13 @@ package com.despegar.khronus.store
 import com.despegar.khronus.model._
 import com.despegar.khronus.util.Settings
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.{ FunSuite, Matchers }
 import scala.concurrent.duration._
 
 class BucketCacheTest extends FunSuite with MockitoSugar with Matchers {
 
   test("two consecutive Ticks maintain affinity") {
     val cache: InMemoryCounterBucketCache.type = buildCache
-
 
     val tick09_00a09_30 = Tick()(new TestClock("2015-06-21T00:10:00"))
     val fromTick1 = tick09_00a09_30.bucketNumber
@@ -67,7 +66,6 @@ class BucketCacheTest extends FunSuite with MockitoSugar with Matchers {
     cache.nCachedMetrics(MetricType.Counter).intValue() shouldBe 0
   }
 
-
   test("huge slice is ignored by cache") {
     val cache = buildCache
 
@@ -88,7 +86,6 @@ class BucketCacheTest extends FunSuite with MockitoSugar with Matchers {
     exceed = cache.sliceExceeded(5 minute, BucketNumber(47894184, 1 minute), BucketNumber(47894189, 1 minute))
     exceed shouldBe false
   }
-
 
   def buildCache: InMemoryCounterBucketCache.type = {
     val cache = InMemoryCounterBucketCache
