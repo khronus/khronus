@@ -53,6 +53,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
       }
     }
     track(metric)
+    log.trace(s"Finish storing metric $metric")
   }
 
   private def track(metric: Metric) = measureFutureTime("measurementStore.track", "track metric")(Future {
@@ -62,7 +63,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
     }
   })
 
-  private def storeMetadata(metric: Metric) = measureTime("measurementStore.storeMetadata", "store metadata") {
+  private def storeMetadata(metric: Metric) = measureFutureTime("measurementStore.storeMetadata", "store metadata") {
     metaStore.insert(metric)
   }
 
