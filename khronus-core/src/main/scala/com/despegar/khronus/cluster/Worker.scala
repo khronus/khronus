@@ -16,14 +16,14 @@
 
 package com.despegar.khronus.cluster
 
-import akka.actor.{ ActorRef, Props, Actor, ActorLogging }
-import com.despegar.khronus.cluster.Worker.WorkError
-import com.despegar.khronus.model.{ MonitoringSupport, Monitoring, TimeWindowChain, Metric }
-import scala.concurrent.Future
+import akka.actor.{ Actor, ActorLogging, ActorRef, Props }
+import com.despegar.khronus.model.{ Metric, MonitoringSupport, TimeWindowChain }
+
 import scala.util.control.{ NoStackTrace, NonFatal }
 import scala.util.{ Failure, Success }
 
 class Worker extends Actor with ActorLogging with TimeWindowChainProvider with MonitoringSupport {
+
   import context._
 
   def receive: Receive = idle
@@ -36,9 +36,8 @@ class Worker extends Actor with ActorLogging with TimeWindowChainProvider with M
   }
 
   def ready: Receive = {
-    case Work(metric)      ⇒ process(metric, sender())
-    case WorkError(reason) ⇒ throw reason
-    case everythingElse    ⇒ //ignore
+    case Work(metric)   ⇒ process(metric, sender())
+    case everythingElse ⇒ //ignore
   }
 
   def process(metrics: Seq[Metric], requestor: ActorRef): Unit = {
@@ -49,11 +48,13 @@ class Worker extends Actor with ActorLogging with TimeWindowChainProvider with M
       case Success(_) ⇒
         log.info(s"Worker ${self.path.name} has processed ${metrics.size} metrics successfully")
         log.debug(s"Worker ${self.path} has processed ${metrics.mkString(",")} successfully")
+        incrementCounter("workerDone")
         requestor ! WorkDone(self)
 
       case Failure(NonFatal(reason)) ⇒
+        incrementCounter("workerErrors")
         log.error(reason, s"(${reason.getMessage}}) Error processing ${metrics.splitAt(20)._1.mkString(",")}")
-        self ! WorkError(new WorkFailureException(reason.getMessage))
+        requestor ! WorkError(self)
     }
   }
 
@@ -65,7 +66,6 @@ class Worker extends Actor with ActorLogging with TimeWindowChainProvider with M
 }
 
 object Worker {
-  case class WorkError(t: Throwable)
   def props: Props = Props(classOf[Worker])
 }
 

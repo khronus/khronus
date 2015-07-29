@@ -24,6 +24,7 @@ package object cluster {
   case class Register(worker: ActorRef)
   case class Work(metric: Seq[Metric])
   case class WorkDone(worker: ActorRef)
+  case class WorkError(worker: ActorRef)
   case object Heartbeat
 
   object RouterSupervisorStrategy {

@@ -120,9 +120,10 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
     case Terminated(worker) ⇒
       log.info("Removing worker [{}] from worker list", worker.path)
       idleWorkers -= worker
-      if (busyWorkers.contains(worker)) {
-        removeBusyWorker(worker)
-      }
+      removeBusyWorker(worker)
+
+    case WorkError(worker) ⇒ removeBusyWorker(worker)
+
   }
 
   private def recordSystemMetrics(metrics: Seq[Metric]) {
