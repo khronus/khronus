@@ -34,7 +34,7 @@ object Monitoring extends MetricMeasurementStoreSupport with Logging with Concur
     val scheduler = scheduledThreadPool("monitoring-flusher-worker")
     scheduler.scheduleAtFixedRate(new Runnable() {
       override def run() = flush()
-    }, 0, 2, TimeUnit.SECONDS)
+    }, 0, 10, TimeUnit.SECONDS)
   }
 
   def recordTime(metricName: String, value: Long) = enabled {
