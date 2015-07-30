@@ -17,7 +17,7 @@ class BucketCacheTest extends FunSuite with MockitoSugar with Matchers {
 
     val metric = new Metric("tito", MetricType.Counter)
     cache.multiSet(metric, fromTick1, toTick1, Seq(new CounterBucket(fromTick1, 10l)))
-    cache.markProcessedTick(tick09_00a09_30)
+    cache.markProcessedTick(tick09_00a09_30, metric)
 
     cache.nCachedMetrics(MetricType.Counter).intValue() shouldBe 1
     cache.cachesByMetric.get(metric).get.keySet().iterator.next() shouldBe fromTick1
@@ -28,7 +28,7 @@ class BucketCacheTest extends FunSuite with MockitoSugar with Matchers {
     val toTick2 = tick09_30a10_00.bucketNumber.following
 
     cache.multiSet(metric, fromTick2, toTick2, Seq(new CounterBucket(fromTick2, 15l)))
-    cache.markProcessedTick(tick09_30a10_00)
+    cache.markProcessedTick(tick09_30a10_00, metric)
 
     cache.nCachedMetrics(MetricType.Counter).intValue() shouldBe 1
     cache.cachesByMetric.get(metric).get.keySet().size shouldBe 2
@@ -37,7 +37,7 @@ class BucketCacheTest extends FunSuite with MockitoSugar with Matchers {
     slice.isDefined shouldBe true
     slice.get.results.size shouldBe 2 //2 buckets of 30s
 
-    cache.markProcessedTick(tick09_30a10_00)
+    cache.markProcessedTick(tick09_30a10_00, metric)
     cache.cachesByMetric.get(metric).get.keySet().size shouldBe 0 //in multiGet we remove values from cache
   }
 
@@ -50,7 +50,7 @@ class BucketCacheTest extends FunSuite with MockitoSugar with Matchers {
 
     val metric = new Metric("tito", MetricType.Counter)
     cache.multiSet(metric, fromTick1, toTick1, Seq(new CounterBucket(fromTick1, 10l)))
-    cache.markProcessedTick(tick09_00a09_30)
+    cache.markProcessedTick(tick09_00a09_30, metric)
 
     cache.nCachedMetrics(MetricType.Counter).intValue() shouldBe 1
     cache.cachesByMetric.get(metric).get.keySet().iterator.next() shouldBe fromTick1
@@ -61,7 +61,7 @@ class BucketCacheTest extends FunSuite with MockitoSugar with Matchers {
     val toTick2 = tick10_00a10_30.bucketNumber.following
 
     cache.multiSet(metric, fromTick2, toTick2, Seq(new CounterBucket(fromTick2, 15l)))
-    cache.markProcessedTick(tick10_00a10_30)
+    cache.markProcessedTick(tick10_00a10_30, metric)
 
     cache.nCachedMetrics(MetricType.Counter).intValue() shouldBe 0
   }
@@ -91,7 +91,7 @@ class BucketCacheTest extends FunSuite with MockitoSugar with Matchers {
     val cache = InMemoryCounterBucketCache
     cache.cachesByMetric.clear()
     cache.nCachedMetrics(MetricType.Counter).set(0)
-    cache.globalLastKnownTick.set(null)
+    cache.lastKnownTick.set(null)
     cache
   }
 }

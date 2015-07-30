@@ -1,6 +1,7 @@
 package com.despegar.khronus.store
 
 import java.nio.ByteBuffer
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.{ AtomicLong, AtomicReference }
 
 import com.despegar.khronus.model._
@@ -9,6 +10,7 @@ import com.despegar.khronus.util.{ Measurable, Settings }
 
 import scala.annotation.tailrec
 import scala.collection.Set
+import scala.collection.JavaConverters._
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.Duration
 
@@ -21,24 +23,40 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
   val nCachedMetrics: Map[String, AtomicLong]
   private val enabled = Settings.BucketCache.Enabled
 
-  val globalLastKnownTick: AtomicReference[Tick] = new AtomicReference[Tick]()
+  private[store] val lastKnownTick: AtomicReference[Tick] = new AtomicReference[Tick]()
+  private val metricsByTick = TrieMap[Tick, ConcurrentLinkedQueue[Metric]]()
 
-  def markProcessedTick(tick: Tick): Unit = if (enabled) {
-    //gobalLastKnownTick for only one do the check affinity for all metrics
-    val globalPreviousKnownTick = globalLastKnownTick.getAndSet(tick)
-    if (globalPreviousKnownTick != tick) {
-      cachesByMetric map {
-        case (metric, cache) ⇒
-          //Ticks must be consecutive to ensure affinity
-          val metricPreviousTick = cache.lastKnownTick.getAndSet(tick)
-          if (metricPreviousTick != null && !metricPreviousTick.bucketNumber.following.equals(tick.bucketNumber)) {
-            incrementCounter("bucketCache.noMetricAffinity")
-            cleanCache(metric)
-          }
-      }
+  def markProcessedTick(tick: Tick, metric: Metric): Unit = if (enabled) {
+    mark(tick, metric)
+
+    val previousKnownTick = lastKnownTick.getAndSet(tick)
+    if (previousKnownTick != null && previousKnownTick != tick) {
+      analyzeAffinity(previousKnownTick, tick)
+      reportCacheSizes()
     }
 
-    nCachedMetrics foreach { case (mtype, counter) ⇒ recordGauge(s"bucketCache.size.$mtype", counter.get()) }
+  }
+
+  private def analyzeAffinity(previousKnownTick: Tick, tick: Tick) {
+    if (!previousKnownTick.bucketNumber.following.equals(tick.bucketNumber)) {
+      cleanCaches(cachesByMetric.keys)
+    } else {
+      metricsByTick.get(previousKnownTick).foreach { metrics ⇒
+        val metricsProcessedInPreviousTick = collection.SortedSet(metrics.asScala.toSeq: _*)(Ordering[String].on[Metric] {
+          _.name
+        })
+        cleanCaches(cachesByMetric.keys.filterNot { metric ⇒ metricsProcessedInPreviousTick(metric) })
+
+      }
+    }
+    metricsByTick.remove(previousKnownTick)
+  }
+
+  private def cleanCaches(metrics: Iterable[Metric]) = {
+    metrics.foreach { metric ⇒
+      incrementCounter("bucketCache.noMetricAffinity")
+      cleanCache(metric)
+    }
   }
 
   def multiSet(metric: Metric, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber, buckets: Seq[T]): Unit = {
@@ -158,6 +176,12 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
     Some(BucketSlice(noEmptyBuckets.map { bucket ⇒
       BucketResult(bucket._1.startTimestamp(), new LazyBucket(bucket._2.asInstanceOf[T]))
     }))
+  }
+
+  private def mark(tick: Tick, metric: Metric) = metricsByTick.getOrElseUpdate(tick, new ConcurrentLinkedQueue[Metric]()).offer(metric)
+
+  private def reportCacheSizes() = {
+    nCachedMetrics foreach { case (mtype, counter) ⇒ recordGauge(s"bucketCache.size.$mtype", counter.get()) }
   }
 
 }
