@@ -122,7 +122,9 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
       idleWorkers -= worker
       removeBusyWorker(worker)
 
-    case WorkError(worker) ⇒ removeBusyWorker(worker)
+    case WorkError(worker) ⇒
+      idleWorkers += worker
+      removeBusyWorker(worker)
 
   }
 
