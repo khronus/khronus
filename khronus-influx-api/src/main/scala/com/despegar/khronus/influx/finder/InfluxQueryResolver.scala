@@ -42,7 +42,7 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
 
   private def listSeries(expression: String): Future[Seq[InfluxSeries]] = {
     log.info(s"Listing series $expression")
-    metaStore.searchInSnapshot(expression).map(results ⇒ results.map(x ⇒ new InfluxSeries(x.name)))
+    Future.successful(metaStore.searchInSnapshotByRegex(expression).map(x ⇒ new InfluxSeries(x.name)))
   }
 
   private def executeQuery(expression: String): Future[Seq[InfluxSeries]] = measureFutureTime("executeInfluxQuery", "executeInfluxQuery") {

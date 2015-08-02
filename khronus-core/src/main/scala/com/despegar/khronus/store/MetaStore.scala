@@ -31,33 +31,31 @@ import scala.util.Failure
 
 case class MetricMetadata(metric: Metric, timestamp: Timestamp)
 
-trait MetaStore {
-  def update(metric: Seq[Metric], lastProcessedTimestamp: Timestamp): Future[Unit]
+trait MetaStore extends Snapshot[Map[Metric, (Timestamp, Boolean)]] {
+  def update(metric: Seq[Metric], lastProcessedTimestamp: Timestamp, active: Boolean = true): Future[Unit]
 
   def getLastProcessedTimestamp(metric: Metric): Future[Timestamp]
 
-  def insert(metric: Metric): Future[Unit]
+  def insert(metric: Metric, active: Boolean = true): Future[Unit]
 
   def allMetrics: Future[Seq[Metric]]
 
   def allActiveMetrics: Future[Seq[Metric]]
 
-  def searchInSnapshot(expression: String): Future[Seq[Metric]]
+  def searchInSnapshotByRegex(regex: String): Seq[Metric]
 
-  def exists(metric: Metric): Boolean
-
-  def getFromSnapshotSync(metricName: String): Option[(Metric, Timestamp)]
+  def searchInSnapshotByMetricName(metricName: String): Option[(Metric, (Timestamp, Boolean))]
 
   def notifyEmptySlice(metric: Metric, duration: Duration)
 
-  def notifyMetricMeasurement(metric: Metric)
+  def notifyMetricMeasurement(metric: Metric, active: Boolean)
 }
 
 trait MetaSupport {
   def metaStore: MetaStore = Meta.metaStore
 }
 
-class CassandraMetaStore(session: Session) extends MetaStore with Logging with CassandraUtils with Snapshot[Map[Metric, Timestamp]] with ConcurrencySupport with MonitoringSupport with Measurable {
+class CassandraMetaStore(session: Session) extends MetaStore with Logging with CassandraUtils with ConcurrencySupport with MonitoringSupport with Measurable {
   //------- cassandra initialization
   val MetricsKey = "metrics"
 
@@ -82,48 +80,44 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
   //------- snapshot conf
   override val snapshotName = "meta"
 
-  override def initialValue = Map[Metric, Timestamp]()
+  override def initialValue = Map[Metric, (Timestamp, Boolean)]()
 
-  override def getFreshData()(implicit executor: ExecutionContext): Future[Map[Metric, Timestamp]] = {
+  override def getFreshData()(implicit executor: ExecutionContext): Future[Map[Metric, (Timestamp, Boolean)]] = {
     retrieveMetrics(executor)
   }
 
-  def insert(metric: Metric): Future[Unit] = {
-    update(Seq(metric), (Tick().bucketNumber - 1).startTimestamp())
+  def insert(metric: Metric, active: Boolean = true): Future[Unit] = {
+    update(Seq(metric), (Tick().bucketNumber - 1).startTimestamp(), active)
   }
 
-  def update(metrics: Seq[Metric], lastProcessedTimestamp: Timestamp): Future[Unit] = executeChunked("meta", metrics, Settings.CassandraMeta.insertChunkSize) {
+  def update(metrics: Seq[Metric], lastProcessedTimestamp: Timestamp, active: Boolean = true): Future[Unit] = executeChunked("meta", metrics, Settings.CassandraMeta.insertChunkSize) {
     metricsChunk ⇒
       val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
       metricsChunk.foreach {
-        metric ⇒ batchStmt.add(InsertStmt.bind(MetricsKey, asString(metric), Long.box(lastProcessedTimestamp.ms), new java.lang.Boolean(metric.active)))
+        metric ⇒ batchStmt.add(InsertStmt.bind(MetricsKey, asString(metric), Long.box(lastProcessedTimestamp.ms), new java.lang.Boolean(active)))
       }
 
       val future: Future[ResultSet] = session.executeAsync(batchStmt)
       future.map(_ ⇒ log.trace(s"Stored meta chunk successfully"))
   }
 
-  def searchInSnapshot(expression: String): Future[Seq[Metric]] = Future {
-    getFromSnapshot.keys.filter(_.name.matches(expression)).toSeq
+  def searchInSnapshotByRegex(regex: String): Seq[Metric] = {
+    getFromSnapshot.keys.filter(_.name.matches(regex)).toSeq
   }
 
-  def exists(metric: Metric): Boolean = measureTime("metaStore.searchInSnapshot", "") {
-    getFromSnapshot.contains(metric)
-  }
-
-  def getFromSnapshotSync(metricName: String): Option[(Metric, Timestamp)] = {
-    getFromSnapshot.find { case (metric, timestamp) ⇒ metric.name.matches(metricName) }
+  def searchInSnapshotByMetricName(metricName: String): Option[(Metric, (Timestamp, Boolean))] = {
+    getFromSnapshot.find { case (metric, (timestamp, active)) ⇒ metric.name.matches(metricName) }
   }
 
   def allMetrics(): Future[Seq[Metric]] = retrieveMetrics.map(_.keys.toSeq)
 
-  def allActiveMetrics(): Future[Seq[Metric]] = retrieveMetrics.map(_.keys.filter(_.active).toSeq)
+  def allActiveMetrics(): Future[Seq[Metric]] = retrieveMetrics.map(_.filter{ case (metric, (timestamp, active)) => active }.keys.toSeq)
 
-  private def retrieveMetrics(implicit executor: ExecutionContext): Future[Map[Metric, Timestamp]] = {
+  private def retrieveMetrics(implicit executor: ExecutionContext): Future[Map[Metric, (Timestamp, Boolean)]] = {
     val future: Future[ResultSet] = session.executeAsync(GetByKeyStmt.bind(MetricsKey))
     future.
       map(resultSet ⇒ {
-        val metrics = resultSet.all().asScala.map(row ⇒ (toMetric(row.getString("metric"), row.getBool("active")), Timestamp(row.getLong("timestamp")))).toMap
+        val metrics = resultSet.all().asScala.map(row ⇒ (toMetric(row.getString("metric")), (Timestamp(row.getLong("timestamp")), row.getBool("active")) )).toMap
         log.info(s"Found ${metrics.size} metrics in meta")
         metrics
       })(executor).
@@ -134,7 +128,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
 
   def getLastProcessedTimestamp(metric: Metric): Future[Timestamp] = {
     getFromSnapshot.get(metric) match {
-      case Some(timestamp) ⇒ Future.successful(timestamp)
+      case Some((timestamp, active)) ⇒ Future.successful(timestamp)
       case None            ⇒ getLastProcessedTimestampFromCassandra(metric)
     }
   }
@@ -177,26 +171,26 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
     incrementCounter("metaStore.activate")
   }
 
-  def notifyMetricMeasurement(metric: Metric) = {
-    if (!metric.active) {
+  def notifyMetricMeasurement(metric: Metric, active: Boolean) = {
+    if (!active) {
       activate(metric)
     }
   }
 
   def notifyEmptySlice(metric: Metric, duration: Duration) = {
-    if (Settings.Window.WindowDurations.last.equals(duration) && metric.active) {
+    if (Settings.Window.WindowDurations.last.equals(duration) && getFromSnapshot.get(metric).get._2) {
       deactivate(metric)
     }
   }
 
   private def asString(metric: Metric) = s"${metric.name}|${metric.mtype}"
 
-  private def toMetric(key: String, active: Boolean): Metric = {
+  private def toMetric(key: String): Metric = {
     val tokens = key.split("\\|")
     if (tokens.length > 2) {
-      Metric((key splitAt (key lastIndexOf '|'))._1, tokens.last, active)
+      Metric((key splitAt (key lastIndexOf '|'))._1, tokens.last)
     } else {
-      Metric(tokens(0), tokens(1), active)
+      Metric(tokens(0), tokens(1))
     }
   }
 

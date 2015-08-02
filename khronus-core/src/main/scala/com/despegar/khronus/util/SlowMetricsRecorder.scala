@@ -93,7 +93,7 @@ object SlowMetricsRecorder extends ConcurrencySupport with MetaSupport {
   })
 
   private def getPercentile(metricName: String, duration: Duration, percentile: Int): Future[Option[Long]] = {
-    metaStore.getFromSnapshotSync(metricName) map {
+    metaStore.searchInSnapshotByMetricName(metricName) map {
       case (metric, lastProcess) ⇒
         val slice = Slice(goBack(duration), System.currentTimeMillis())
         val percentile = getStore(metric.mtype).readAll(metric.name, Tick.smallestWindow(), slice, false, 1).map(summaries ⇒
