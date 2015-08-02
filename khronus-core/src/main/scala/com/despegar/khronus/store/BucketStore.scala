@@ -35,6 +35,8 @@ trait BucketStoreSupport[T <: Bucket] {
 trait BucketStore[T <: Bucket] {
   def store(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit]
 
+  def store(metrics: Seq[(Metric, T)], windowDuration: Duration): Future[Unit]
+
   def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[BucketSlice[T]]
 }
 
@@ -92,6 +94,28 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
         val future: Future[Unit] = measureAndCheckForTimeOutliers("bucketBatchStoreCassandra", metric, windowDuration, getQueryAsString(stmt.getQueryString, bucketsChunk.length, metric.name)) {
           session.executeAsync(boundBatchStmt)
         }
+
+        future
+      }
+  }
+
+  def store(metrics: Seq[(Metric, T)], windowDuration: Duration): Future[Unit] = executeChunked(s"buckets of $windowDuration", metrics, Settings.CassandraBuckets.insertChunkSize) {
+    bucketsChunk ⇒
+      {
+        val boundBatchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
+        val stmt = stmtPerWindow(windowDuration).insert
+        bucketsChunk.foreach {
+          case (metric, bucket) ⇒ {
+            val serializedBucket = serialize(metric, windowDuration, bucket)
+            boundBatchStmt.add(stmt.bind(Seq(serializedBucket).asJava, metric.name, Long.box(bucket.timestamp.ms)))
+          }
+        }
+
+        val future: Future[Unit] = {
+          session.executeAsync(boundBatchStmt)
+        }
+
+        future andThen { case _ ⇒ incrementCounter("bucketStore.batch") }
 
         future
       }

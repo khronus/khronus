@@ -111,13 +111,13 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
 
   def allMetrics(): Future[Seq[Metric]] = retrieveMetrics.map(_.keys.toSeq)
 
-  def allActiveMetrics(): Future[Seq[Metric]] = retrieveMetrics.map(_.filter{ case (metric, (timestamp, active)) => active }.keys.toSeq)
+  def allActiveMetrics(): Future[Seq[Metric]] = retrieveMetrics.map(_.filter { case (metric, (timestamp, active)) ⇒ active }.keys.toSeq)
 
   private def retrieveMetrics(implicit executor: ExecutionContext): Future[Map[Metric, (Timestamp, Boolean)]] = {
     val future: Future[ResultSet] = session.executeAsync(GetByKeyStmt.bind(MetricsKey))
     future.
       map(resultSet ⇒ {
-        val metrics = resultSet.all().asScala.map(row ⇒ (toMetric(row.getString("metric")), (Timestamp(row.getLong("timestamp")), row.getBool("active")) )).toMap
+        val metrics = resultSet.all().asScala.map(row ⇒ (toMetric(row.getString("metric")), (Timestamp(row.getLong("timestamp")), row.getBool("active")))).toMap
         log.info(s"Found ${metrics.size} metrics in meta")
         metrics
       })(executor).
@@ -129,7 +129,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
   def getLastProcessedTimestamp(metric: Metric): Future[Timestamp] = {
     getFromSnapshot.get(metric) match {
       case Some((timestamp, active)) ⇒ Future.successful(timestamp)
-      case None            ⇒ getLastProcessedTimestampFromCassandra(metric)
+      case None                      ⇒ getLastProcessedTimestampFromCassandra(metric)
     }
   }
 
