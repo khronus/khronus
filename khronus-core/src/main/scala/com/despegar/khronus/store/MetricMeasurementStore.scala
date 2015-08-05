@@ -68,7 +68,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
           else {
             val exceeded = value - highestTrackableValue
             log.warn(s"Sample of $metric has exceeded the highestTrackagleValue of $highestTrackableValue by $exceeded. Truncating the excedent. Try changing the sampling unit or increasing the highestTrackableValue")
-            histogram.recordValue(value)
+            histogram.recordValue(highestTrackableValue)
           }
         }))
         (metric, () ⇒ new HistogramBucket(bucketNumber, histogram))
