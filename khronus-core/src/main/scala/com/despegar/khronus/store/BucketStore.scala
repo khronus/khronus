@@ -27,6 +27,7 @@ import com.despegar.khronus.util.{ ConcurrencySupport, Measurable, Settings }
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future }
+import scala.util.{ Failure, Success }
 
 trait BucketStoreSupport[T <: Bucket] {
   def bucketStore: BucketStore[T]
@@ -35,7 +36,7 @@ trait BucketStoreSupport[T <: Bucket] {
 trait BucketStore[T <: Bucket] {
   def store(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit]
 
-  def store(metrics: Seq[(Metric, T)], windowDuration: Duration): Future[Unit]
+  def store(metrics: Seq[(Metric, () ⇒ T)], windowDuration: Duration): Future[Unit]
 
   def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[BucketSlice[T]]
 }
@@ -99,13 +100,14 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
       }
   }
 
-  def store(metrics: Seq[(Metric, T)], windowDuration: Duration): Future[Unit] = executeChunked(s"buckets of $windowDuration", metrics, Settings.CassandraBuckets.insertChunkSize) {
+  def store(metrics: Seq[(Metric, () ⇒ T)], windowDuration: Duration): Future[Unit] = executeChunked(s"buckets of $windowDuration", metrics, Settings.CassandraBuckets.insertChunkSize) {
     bucketsChunk ⇒
       {
         val boundBatchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
         val stmt = stmtPerWindow(windowDuration).insert
         bucketsChunk.foreach {
-          case (metric, bucket) ⇒ {
+          case (metric, fBucket) ⇒ {
+            val bucket = fBucket()
             val serializedBucket = serialize(metric, windowDuration, bucket)
             boundBatchStmt.add(stmt.bind(Seq(serializedBucket).asJava, metric.name, Long.box(bucket.timestamp.ms)))
           }
@@ -115,7 +117,13 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
           session.executeAsync(boundBatchStmt)
         }
 
-        future andThen { case _ ⇒ incrementCounter("bucketStore.batch") }
+        future andThen {
+          case Success(_) ⇒ incrementCounter("bucketStore.batch.ok")
+          case Failure(ex) ⇒ {
+            log.error("Fail to execute batch store of posted measures", ex)
+            incrementCounter("bucketStore.batch.fail")
+          }
+        }
 
         future
       }

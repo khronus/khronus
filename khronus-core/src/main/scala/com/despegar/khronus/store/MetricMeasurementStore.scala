@@ -34,8 +34,8 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
 
   private def store(metrics: List[MetricMeasurement]) = measureTime("measurementStore.store", "store metricMeasurements") {
     log.info(s"Received samples of ${metrics.length} metrics")
-    val histos = mutable.Buffer[(Metric, HistogramBucket)]()
-    val counters = mutable.Buffer[(Metric, CounterBucket)]()
+    val histos = mutable.Buffer[(Metric, () ⇒ HistogramBucket)]()
+    val counters = mutable.Buffer[(Metric, () ⇒ CounterBucket)]()
 
     metrics foreach (metricMeasurement ⇒ {
       val metric = metricMeasurement.asMetric
@@ -57,44 +57,24 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
     counterBucketStore.store(counters, rawDuration)
   }
 
-  private def buildHistogramBuckets(metric: Metric, groupedMeasurements: Map[Timestamp, List[Measurement]]): List[(Metric, HistogramBucket)] = {
+  private def buildHistogramBuckets(metric: Metric, groupedMeasurements: Map[Timestamp, List[Measurement]]): List[(Metric, () ⇒ HistogramBucket)] = {
     groupedMeasurements.toList.map {
       case (timestamp, measures) ⇒
         val histogram = HistogramBucket.newHistogram
         val bucketNumber = timestamp.toBucketNumberOf(rawDuration)
         measures.foreach(measure ⇒ skipNegativeValues(metric, measure.values).foreach(value ⇒ histogram.recordValue(value)))
-        (metric, new HistogramBucket(bucketNumber, histogram))
+        (metric, () ⇒ new HistogramBucket(bucketNumber, histogram))
     }
   }
 
-  private def buildCounterBuckets(metric: Metric, groupedMeasurements: Map[Timestamp, List[Measurement]]): List[(Metric, CounterBucket)] = {
+  private def buildCounterBuckets(metric: Metric, groupedMeasurements: Map[Timestamp, List[Measurement]]): List[(Metric, () ⇒ CounterBucket)] = {
     groupedMeasurements.toList.map {
       case (timestamp, measures) ⇒
         val bucketNumber = timestamp.toBucketNumberOf(rawDuration)
         val counts = measures.map(measure ⇒ skipNegativeValues(metric, measure.values).sum).sum
-        (metric, new CounterBucket(bucketNumber, counts))
+        (metric, () ⇒ new CounterBucket(bucketNumber, counts))
     }
   }
-
-  //  private def storeMetric(metricMeasurement: MetricMeasurement): Unit = measureTime("measurementStore.storeMetric", "store metric") {
-  //    if (metricMeasurement.measurements.isEmpty) {
-  //      log.warn(s"Discarding store of ${metricMeasurement.asMetric} with empty measurements")
-  //      return
-  //    }
-  //    val metric = metricMeasurement.asMetric
-  //    log.trace(s"Storing metric $metric")
-  //    metric.mtype match {
-  //      case MetricType.Timer | MetricType.Gauge ⇒ storeHistogramMetric(metric, metricMeasurement)
-  //      case MetricType.Counter                  ⇒ storeCounterMetric(metric, metricMeasurement)
-  //      case _ ⇒ {
-  //        val msg = s"Discarding $metric. Unknown metric type: ${metric.mtype}"
-  //        log.warn(msg)
-  //        throw new UnsupportedOperationException(msg)
-  //      }
-  //    }
-  //    track(metric)
-  //  }
-
   private def track(metric: Metric) = measureTime("measurementStore.track", "track metric") {
     metaStore.getFromSnapshot.get(metric) map { case (timestamp, active) ⇒ metaStore.notifyMetricMeasurement(metric, active) } getOrElse {
       log.debug(s"Got a new metric: $metric. Will store metadata for it")
@@ -105,37 +85,6 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
   private def storeMetadata(metric: Metric) = measureFutureTime("measurementStore.storeMetadata", "store metadata") {
     metaStore.insert(metric)
   }
-  //
-  //  private def storeHistogramMetric(metric: Metric, metricMeasurement: MetricMeasurement) = {
-  //    val histogram = HistogramBucket.newHistogram
-  //    storeGrouped(metric, metricMeasurement) { (bucketNumber, measurements) ⇒
-  //      histogram.reset()
-  //      measurements.foreach(measurement ⇒ skipNegativeValues(metricMeasurement, measurement.values).foreach(value ⇒ histogram.recordValue(value)))
-  //      histogramBucketStore.store(metric, rawDuration, Seq(new HistogramBucket(bucketNumber, histogram)))
-  //    }
-  //  }
-  //
-  //  private def storeGrouped[T](metric: Metric, metricMeasurement: MetricMeasurement)(block: (BucketNumber, List[Measurement]) ⇒ Future[Unit]): Unit = {
-  //    val groupedMeasurements = metricMeasurement.measurements.groupBy(measurement ⇒ Timestamp(measurement.ts).alignedTo(storeGroupDuration))
-  //    groupedMeasurements.foldLeft(Future.successful(())) { (previousStore, measurementsGroup) ⇒
-  //      previousStore.flatMap { _ ⇒
-  //        val timestamp = measurementsGroup._1
-  //        val bucketNumber = timestamp.toBucketNumberOf(rawDuration)
-  //        if (!alreadyProcessed(metric, bucketNumber)) {
-  //          block(bucketNumber, measurementsGroup._2)
-  //        } else {
-  //          Future.successful(())
-  //        }
-  //      }
-  //    } onFailure { case e: Exception ⇒ log.error(s"Fail to store submitted metric for $metric with measures ${metricMeasurement.measurements}", e) }
-  //  }
-  //
-  //  private def storeCounterMetric(metric: Metric, metricMeasurement: MetricMeasurement) = {
-  //    storeGrouped(metric, metricMeasurement) { (bucketNumber, measurements) ⇒
-  //      val counts = measurements.map(measurement ⇒ skipNegativeValues(metricMeasurement, measurement.values).sum).sum
-  //      counterBucketStore.store(metric, rawDuration, Seq(new CounterBucket(bucketNumber, counts)))
-  //    }
-  //  }
 
   private def skipNegativeValues(metric: Metric, values: Seq[Long]): Seq[Long] = {
     val (invalidValues, okValues) = values.partition(value ⇒ value < 0)
