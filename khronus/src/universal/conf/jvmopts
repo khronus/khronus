@@ -12,3 +12,4 @@
 -J-XX:ReservedCodeCacheSize=128m
 -J-XX:InitialCodeCacheSize=128m
 -J-XX:+HeapDumpOnOutOfMemoryError
+-J-XX:-OmitStackTraceInFastThrow
