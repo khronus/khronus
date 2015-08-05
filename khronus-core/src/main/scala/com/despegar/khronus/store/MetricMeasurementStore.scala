@@ -62,7 +62,15 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
       case (timestamp, measures) ⇒
         val histogram = HistogramBucket.newHistogram
         val bucketNumber = timestamp.toBucketNumberOf(rawDuration)
-        measures.foreach(measure ⇒ skipNegativeValues(metric, measure.values).foreach(value ⇒ histogram.recordValue(value)))
+        measures.foreach(measure ⇒ skipNegativeValues(metric, measure.values).foreach(value ⇒ {
+          val highestTrackableValue = histogram.getHighestTrackableValue
+          if (value <= highestTrackableValue) histogram.recordValue(value)
+          else {
+            val exceeded = value - highestTrackableValue
+            log.warn(s"Sample of $metric has exceeded the highestTrackagleValue of $highestTrackableValue by $exceeded. Truncating the excedent. Try changing the sampling unit or increasing the highestTrackableValue")
+            histogram.recordValue(value)
+          }
+        }))
         (metric, () ⇒ new HistogramBucket(bucketNumber, histogram))
     }
   }
