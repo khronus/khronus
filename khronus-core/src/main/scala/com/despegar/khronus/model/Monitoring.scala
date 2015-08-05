@@ -53,9 +53,6 @@ object Monitoring extends MetricMeasurementStoreSupport with Logging with Concur
   }
 
   private def enabled(block: ⇒ Unit): Unit = {
-    val histo = HistogramBucket.newHistogram
-
-    histo.allValues()
     if (enabled) block
   }
 
