@@ -3,7 +3,7 @@
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <layout>
-            <Pattern>%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n</Pattern>
+            <Pattern>%d{HH:mm:ss.SSS} %-5level %msg%n</Pattern>
         </layout>
     </appender>
 
@@ -15,7 +15,7 @@
         </rollingPolicy>
         <maxHistory>2</maxHistory>
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n</pattern>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %msg%n</pattern>
         </encoder>
     </appender>
 
@@ -23,8 +23,8 @@
         <appender-ref ref="FILE"/>
     </appender>
 
-    <logger name="com.despegar.khronus" level="info"/>
-    <logger name="com.despegar.khronus.cluster" level="debug"/>
+    <logger name="com.searchlight.khronus" level="info"/>
+    <logger name="com.searchlight.khronus.cluster" level="debug"/>
 
     <root level="info">
         <appender-ref ref="ASYNC"/>
