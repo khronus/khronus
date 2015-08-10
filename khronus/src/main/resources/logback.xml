@@ -23,8 +23,8 @@
         <appender-ref ref="FILE"/>
     </appender>
 
-    <logger name="com.despegar.khronus" level="info"/>
-    <logger name="com.despegar.khronus.cluster" level="debug"/>
+    <logger name="com.searchlight.khronus" level="info"/>
+    <logger name="com.searchlight.khronus.cluster" level="debug"/>
 
     <root level="info">
         <appender-ref ref="ASYNC"/>

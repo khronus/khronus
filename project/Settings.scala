@@ -13,7 +13,7 @@ object Settings {
 
   lazy val basicSettings = Seq(
     scalaVersion  := ScalaVersion,
-    organization := "com.despegar",
+    organization := "com.searchlight",
     version := "0.1-beta",
     exportJars := true,
     resolvers    ++= Dependencies.resolutionRepos,
