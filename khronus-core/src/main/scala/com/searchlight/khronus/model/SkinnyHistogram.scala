@@ -1,20 +1,27 @@
 package org.HdrHistogram
 
 import java.nio.ByteBuffer
+import java.util
 import java.util.zip.{ Deflater, Inflater }
 
 import com.searchlight.khronus.model.HistogramBucket
 import com.searchlight.khronus.util.Pool
 import com.esotericsoftware.kryo.io.{ Input, Output }
 
+import collection.JavaConverters._
+
 class SkinnyHistogram(lowestValue: Long, maxValue: Long, precision: Int) extends Histogram(lowestValue, maxValue, precision) {
+
+  private val cachedByteBuffer = new ThreadLocal[ByteBuffer]()
 
   def this(maxValue: Long, precision: Int) {
     this(1L, maxValue, precision)
+    cachedByteBuffer.set(ByteBuffer.allocate(this.getNeededByteBufferCapacity()))
   }
 
   override def encodeIntoCompressedByteBuffer(targetBuffer: ByteBuffer): Int = {
-    val intermediateUncompressedByteBuffer = ByteBuffer.allocate(this.getNeededByteBufferCapacity())
+    val intermediateUncompressedByteBuffer = cachedByteBuffer.get()
+    intermediateUncompressedByteBuffer.clear()
     val uncompressedLength = this.encodeIntoByteBuffer(intermediateUncompressedByteBuffer)
 
     targetBuffer.putInt(SkinnyHistogram.encodingCompressedCookieBase)
@@ -35,6 +42,8 @@ class SkinnyHistogram(lowestValue: Long, maxValue: Long, precision: Int) extends
     val output = new Output(buffer.array())
 
     val maxValue: Long = getMaxValue
+    val maxRelevantLength: Int = countsArrayIndex(maxValue) + 1
+    val minRelevant = countsArrayIndex(minNonZeroValue)
 
     output.writeInt(normalizingIndexOffset)
     output.writeVarInt(numberOfSignificantValueDigits, true)
@@ -43,33 +52,34 @@ class SkinnyHistogram(lowestValue: Long, maxValue: Long, precision: Int) extends
     output.writeDouble(getIntegerToDoubleValueConversionRatio)
     output.writeVarLong(getTotalCount, true)
 
-    val countsDiffsSeq = countsDiffs
-    output.writeVarInt(countsDiffsSeq.length, true)
-    countsDiffsSeq foreach { tuple ⇒
-      val idx = tuple._1
-      val freq = tuple._2
-      output.writeVarInt(idx, true)
-      output.writeVarLong(freq, false)
+    val position_length = output.position()
+    output.writeInt(1)
+
+    var lastValue: Long = 0
+    var lastIdx: Int = 0
+
+    var i = minRelevant
+    var count = 0
+    while (i < maxRelevantLength) {
+      val value = counts(i)
+      if (value > 0) {
+        output.writeVarInt(i - lastIdx, true)
+        output.writeVarLong(value - lastValue, false)
+        lastIdx = i
+        lastValue = value
+        count += 1
+      }
+      i += 1
     }
+    val position_aftercounts = output.position()
+    output.setPosition(position_length)
+    output.writeInt(count)
+    output.setPosition(position_aftercounts)
+
     output.flush()
     val total = output.total().toInt
     output.close()
     total
-  }
-
-  private def countsDiffs: Seq[(Int, Long)] = {
-    var vectorBuilder = Vector.newBuilder[(Int, Long)]
-    var lastValue: Long = 0
-    var lastIdx: Int = 0
-    for (i ← (0 to (counts.length - 1))) {
-      val (idx, value) = (i, counts(i))
-      if (value > 0) {
-        vectorBuilder += (((idx - lastIdx), (value - lastValue)))
-        lastIdx = idx
-        lastValue = value
-      }
-    }
-    vectorBuilder.result()
   }
 
 }
@@ -81,7 +91,7 @@ object SkinnyHistogram {
     _.reset()
   })
   private val deflatersPool = Pool[Deflater]("deflatersPool", 4, () ⇒ new Deflater(defaultCompressionLevel), {
-    _.reset()
+    _.end()
   })
 
   def decodeFromCompressedByteBuffer(buffer: ByteBuffer, minBarForHighestTrackableValue: Long): Histogram = {
@@ -115,7 +125,6 @@ object SkinnyHistogram {
 
     val skinnyHistogram = HistogramBucket.newHistogram
     skinnyHistogram.setIntegerToDoubleValueConversionRatio(integerToDoubleValueConversionRatio)
-    skinnyHistogram.resetNormalizingIndexOffset(normalizingIndexOffset)
     var lastIdx = 0
     var lastFreq = 0L
     var minNonZeroIndex: Int = -1

@@ -10,6 +10,7 @@ case class Pool[T](name: String, instances: Int, createInstance: () ⇒ T, relea
   (1 to instances) foreach { _ ⇒ pooledInstances.offer(createInstance()) }
 
   def take(): T = {
+    return createInstance()
     val pooledInstance = pooledInstances.poll()
     if (pooledInstance == null) {
       return createInstance()
