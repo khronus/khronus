@@ -39,6 +39,8 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
   var pendingMetrics = Vector[Metric]()
 
+  val affinityConsistentHashRing = AffinityConsistentHashRing()
+
   val settings = Settings.Master
 
   var start: Long = _
@@ -78,39 +80,30 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
       pendingMetrics ++= metrics filterNot (metric ⇒ sortedPendingMetrics(metric))
 
+      affinityConsistentHashRing.assignWorkers(pendingMetrics)
+
       if (busyWorkers.nonEmpty) log.warning(s"There are still ${busyWorkers.size} busy workers from previous Tick. This may mean that either workers are still processing metrics or Terminated message has not been received yet")
       else start = System.currentTimeMillis()
 
       while (pendingMetrics.nonEmpty && idleWorkers.nonEmpty) {
-
-        val (currentBatch, pending) = pendingMetrics.splitAt(settings.WorkerBatchSize)
-
         val worker = idleWorkers.head
 
-        log.debug(s"Dispatching ${currentBatch.mkString(",")} to ${worker.path}")
-        incrementCounter("dispatch")
-
-        worker ! Work(currentBatch)
+        dispatch(worker, "dispatch")
 
         busyWorkers += worker
         idleWorkers = idleWorkers.tail
-        pendingMetrics = pending
       }
 
     case Register(worker) ⇒
       log.info("Registering Worker [{}]", worker.path.name)
       watch(worker)
       idleWorkers += worker
+      affinityConsistentHashRing.addWorker(worker)
       removeBusyWorker(worker)
 
     case WorkDone(worker) ⇒
-      if (pendingMetrics.nonEmpty) {
-        val (currentBatch, pending) = pendingMetrics.splitAt(settings.WorkerBatchSize)
-
-        log.debug(s"Fast-Dispatching ${currentBatch.mkString(",")} to ${worker.path}")
-        incrementCounter("fastDispatch")
-        worker ! Work(currentBatch)
-        pendingMetrics = pending
+      if (pendingMetrics.nonEmpty && affinityConsistentHashRing.hasPendingMetrics(worker)) {
+        dispatch(worker, "fastDispatch")
       } else {
         log.debug(s"Pending metrics is empty. Adding worker ${worker.path} to worker idle list")
         idleWorkers += worker
@@ -120,12 +113,23 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
     case Terminated(worker) ⇒
       log.info("Removing worker [{}] from worker list", worker.path)
       idleWorkers -= worker
+      affinityConsistentHashRing.removeWorker(worker)
       removeBusyWorker(worker)
 
     case WorkError(worker) ⇒
       idleWorkers += worker
       removeBusyWorker(worker)
 
+  }
+
+  private def dispatch(worker: ActorRef, dispatchType: String) = {
+    val metrics = affinityConsistentHashRing.nextMetrics(worker)
+
+    log.debug(s"$dispatchType ${metrics.mkString(",")} to ${worker.path}")
+    incrementCounter(dispatchType)
+
+    worker ! Work(metrics)
+    pendingMetrics = pendingMetrics diff metrics
   }
 
   private def recordSystemMetrics(metrics: Seq[Metric]) {

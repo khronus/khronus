@@ -148,6 +148,8 @@ class MasterSpec extends BaseTest with TestKitBase with ImplicitSender
     "workDone received with pending metrics dispatch Work" in new MasterWithoutSchedulersProbeWorkerFixture {
       val firstMetric = Metric("metric1", "histogram")
       underlyingMaster.idleWorkers = Set()
+      underlyingMaster.affinityConsistentHashRing.addWorker(worker1)
+      underlyingMaster.affinityConsistentHashRing.assignWorkers(Seq(Metric("metric1", "histogram"), Metric("metric2", "histogram")))
       underlyingMaster.pendingMetrics = Vector(firstMetric, Metric("metric2", "histogram"))
 
       master ! WorkDone(worker1)
@@ -185,6 +187,8 @@ class MasterSpec extends BaseTest with TestKitBase with ImplicitSender
 
       underlyingMaster.idleWorkers = Set(worker1, worker2)
       underlyingMaster.pendingMetrics = Vector(Metric("a", "histogram"), Metric("b", "histogram"), Metric("c", "histogram"), Metric("d", "histogram"), Metric("e", "histogram"))
+      underlyingMaster.affinityConsistentHashRing.addWorker(worker1)
+      underlyingMaster.affinityConsistentHashRing.addWorker(worker2)
 
       master ! PendingMetrics(allMetrics)
       workerProbe1.expectMsg(Work(Seq(Metric("a", "histogram"))))
