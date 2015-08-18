@@ -13,3 +13,5 @@ addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.11.2")
 addSbtPlugin("com.typesafe.sbt" % "sbt-multi-jvm" % "0.3.8")
 
 addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "0.8.0-M2")
+
+addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.2.2")

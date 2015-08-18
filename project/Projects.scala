@@ -4,6 +4,7 @@ import sbt.Defaults.itSettings
 import sbtassembly.Plugin._
 import sbt.Keys._
 import sbt._
+import pl.project13.scala.sbt.JmhPlugin
 
 object Projects extends Build {
 
@@ -66,6 +67,13 @@ object Projects extends Build {
       test(sprayTestKit, mockito, akkaTestKit, scalaTest, specs2, mockito) ++
       it(scalaTest)
     )
+
+  lazy val khronusJmh = Project("khronus-jmh", file("khronus-jmh"))
+    .dependsOn(khronusCore)
+    .enablePlugins(JmhPlugin)
+    .settings(basicSettings: _*)
+    .settings(formatSettings: _*)
+    .settings(noPublishing: _*)
 
   val noPublishing = Seq(publish :=(), publishLocal :=(), publishArtifact := false)
 }
