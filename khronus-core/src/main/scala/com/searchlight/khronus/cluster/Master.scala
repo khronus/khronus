@@ -37,7 +37,8 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
   var idleWorkers = Set[ActorRef]()
   var busyWorkers = Set[ActorRef]()
 
-  var pendingMetrics = Vector[Metric]()
+  //var pendingMetrics = Vector[Metric]()
+  var pendingMetrics = 0
 
   val affinityConsistentHashRing = AffinityConsistentHashRing()
 
@@ -76,16 +77,26 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
     case PendingMetrics(metrics) ⇒
       recordSystemMetrics(metrics)
 
-      val sortedPendingMetrics = collection.SortedSet(pendingMetrics: _*)(Ordering[String].on[Metric] { _.name })
+      //val sortedPendingMetrics = collection.SortedSet(pendingMetrics: _*)(Ordering[String].on[Metric] { _.name })
 
-      pendingMetrics ++= metrics filterNot (metric ⇒ sortedPendingMetrics(metric))
+      //pendingMetrics ++= metrics filterNot (metric ⇒ sortedPendingMetrics(metric))
 
-      affinityConsistentHashRing.assignWorkers(pendingMetrics)
+      var metricsToProcess = metrics.toSet
+
+      if (pendingMetrics > 0) {
+        log.warning(s"There are still ${pendingMetrics} from previous Tick. Merging previous with actuals metrics")
+        //recover pending metrics
+        metricsToProcess ++= affinityConsistentHashRing.remainingMetrics()
+      }
+
+      pendingMetrics = metricsToProcess.size
+
+      affinityConsistentHashRing.assignWorkers(metricsToProcess.toSeq)
 
       if (busyWorkers.nonEmpty) log.warning(s"There are still ${busyWorkers.size} busy workers from previous Tick. This may mean that either workers are still processing metrics or Terminated message has not been received yet")
       else start = System.currentTimeMillis()
 
-      while (pendingMetrics.nonEmpty && idleWorkers.nonEmpty) {
+      while (pendingMetrics > 0 && idleWorkers.nonEmpty) {
         val worker = idleWorkers.head
 
         dispatch(worker, "dispatch")
@@ -102,10 +113,10 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
       removeBusyWorker(worker)
 
     case WorkDone(worker) ⇒
-      if (pendingMetrics.nonEmpty && affinityConsistentHashRing.hasPendingMetrics(worker)) {
+      if (pendingMetrics > 0 && affinityConsistentHashRing.hasPendingMetrics(worker)) {
         dispatch(worker, "fastDispatch")
       } else {
-        log.debug(s"Pending metrics is empty. Adding worker ${worker.path} to worker idle list")
+        log.debug(s"Pending metrics is 0. Adding worker ${worker.path} to worker idle list")
         idleWorkers += worker
         removeBusyWorker(worker)
       }
@@ -129,17 +140,17 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
     incrementCounter(dispatchType)
 
     worker ! Work(metrics)
-    pendingMetrics = pendingMetrics diff metrics
+    pendingMetrics -= metrics.size
   }
 
   private def recordSystemMetrics(metrics: Seq[Metric]) {
     val metricsSize = metrics.size
 
-    log.info(s"Starting Tick. [metrics=$metricsSize,pending=${pendingMetrics.size},idle-workers=${idleWorkers.size},busy-workers=${busyWorkers.size}]")
+    log.info(s"Starting Tick. [metrics=$metricsSize,pending=${pendingMetrics},idle-workers=${idleWorkers.size},busy-workers=${busyWorkers.size}]")
     log.debug(s"Pending metrics: $pendingMetrics workers idle: $idleWorkers")
 
     recordGauge("idleWorkers", idleWorkers.size)
-    recordGauge("pendingMetrics", pendingMetrics.size)
+    recordGauge("pendingMetrics", pendingMetrics)
     recordGauge("metrics", metricsSize)
     recordGauge("metricsReceived", metricsSize)
   }

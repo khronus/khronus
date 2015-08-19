@@ -46,6 +46,10 @@ class AffinityConsistentHashRing extends Logging {
   def nextMetrics(worker: ActorRef): Seq[Metric] = metricsByWorker(key(worker)).next
   def hasPendingMetrics(worker: ActorRef) = metricsByWorker(key(worker)).hasNext
 
+  def remainingMetrics(): Seq[Metric] = {
+    metricsByWorker.values flatMap (_.remaining) toSeq
+  }
+
 }
 
 object AffinityConsistentHashRing {
@@ -58,4 +62,5 @@ case class MetricsQueue(metrics: Seq[Metric]) {
   private val m = metrics.grouped(Settings.Master.WorkerBatchSize)
   def next = if (m.hasNext) m.next() else Seq()
   def hasNext = m.hasNext
+  def remaining = m.toList.flatten
 }
