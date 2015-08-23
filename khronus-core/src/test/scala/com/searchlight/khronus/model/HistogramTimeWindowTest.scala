@@ -57,8 +57,8 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindow
     val bucketB = new HistogramBucket((1, windowDuration), histogramB)
     val myBuckets = Seq(bucketA, bucketB)
 
-    val summaryBucketA = StatisticSummary(0, 50, 80, 90, 95, 99, 100, 1, 100, 100, 50)
-    val summaryBucketB = StatisticSummary(30000, 100, 100, 100, 100, 100, 100, 100, 100, 2, 100)
+    val summaryBucketA = HistogramSummary(0, 50, 80, 90, 95, 99, 100, 1, 100, 100, 50)
+    val summaryBucketB = HistogramSummary(30000, 100, 100, 100, 100, 100, 100, 100, 100, 2, 100)
     val mySummaries = Seq(summaryBucketA, summaryBucketB)
 
     when(window.bucketStore.slice(Matchers.eq(metric), any[Timestamp], any[Timestamp], Matchers.eq(previousWindowDuration))).thenReturn(Future(previousBucketsMap))
@@ -154,7 +154,7 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindow
     verify(window.bucketStore, never()).store(any[Metric], any[FiniteDuration], any[Seq[HistogramBucket]])
 
     //verify that not store any summary
-    verify(window.summaryStore, never()).store(any[Metric], any[FiniteDuration], any[Seq[StatisticSummary]])
+    verify(window.summaryStore, never()).store(any[Metric], any[FiniteDuration], any[Seq[HistogramSummary]])
 
     //verify that not remove anything
     //verify(window.bucketStore, never()).remove(any[Metric], any[FiniteDuration], any[Seq[Timestamp]])
@@ -220,8 +220,8 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindow
     val bucketB = new HistogramBucket((1, windowDuration), histogramB)
     val myBuckets = Seq(bucketA, bucketB)
 
-    val summaryBucketA = StatisticSummary(0, 50, 80, 90, 95, 99, 100, 1, 100, 100, 50)
-    val summaryBucketB = StatisticSummary(30000, 100, 100, 100, 100, 100, 100, 100, 100, 2, 100)
+    val summaryBucketA = HistogramSummary(0, 50, 80, 90, 95, 99, 100, 1, 100, 100, 50)
+    val summaryBucketB = HistogramSummary(30000, 100, 100, 100, 100, 100, 100, 100, 100, 2, 100)
     val mySummaries = Seq(summaryBucketA, summaryBucketB)
 
     when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](neverProcessedTimestamp))
@@ -268,7 +268,7 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindow
     val window = new HistogramTimeWindow(windowDuration, previousWindowDuration) with HistogramBucketSupport with StatisticSummarySupport with MetaSupport with MonitoringSupportMock {
       override val bucketStore = mock[BucketStore[HistogramBucket]]
 
-      override val summaryStore = mock[SummaryStore[StatisticSummary]]
+      override val summaryStore = mock[SummaryStore[HistogramSummary]]
 
       override val metaStore = mock[MetaStore]
     }

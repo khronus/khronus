@@ -29,7 +29,7 @@ object Dependencies {
   val specs2              =       "org.specs2"          	          %%  "specs2-core"   		          % "2.3.11"
   val mockito             =       "org.mockito"         	          %   "mockito-all"   		          % "1.9.5"
   val cassandraDriver     =       "com.datastax.cassandra"          %   "cassandra-driver-core"       % "2.1.4"
-  val kryo                =       "com.esotericsoftware.kryo"       %   "kryo"                        % "2.24.0"
+  val kryo                =       "com.esotericsoftware"            %   "kryo"                        % "3.0.3"
   val scalaLogging        =       "com.typesafe.scala-logging"      %%  "scala-logging"               % "3.1.0"
   val slf4j               =       "org.slf4j"                       %   "slf4j-api"                   % "1.7.7"
   val logbackClassic      =       "ch.qos.logback"                  %   "logback-classic"             % "1.1.2"

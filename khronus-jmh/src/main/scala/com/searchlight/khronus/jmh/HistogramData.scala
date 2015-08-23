@@ -2,7 +2,7 @@ package com.searchlight.khronus.jmh
 
 object HistogramData {
 
-  val latencies = Seq(1623, 1752, 3215, 1437, 154, 1358, 625, 217, 698, 6862, 1167, 1948, 1215, 665, 1372,
+  val case1Latencies = Seq(1623, 1752, 3215, 1437, 154, 1358, 625, 217, 698, 6862, 1167, 1948, 1215, 665, 1372,
     889, 767, 2135, 3163, 573, 1839, 922, 475, 1233, 1013, 434, 140, 684, 400, 879,
     621, 1167, 1518, 534, 420, 9, 906, 1060, 646, 1181, 661, 2661, 844, 1132, 1169,
     614, 904, 3531, 1830, 941, 1641, 546, 729, 10, 254, 779, 1233, 499, 439, 2597,
@@ -111,5 +111,23 @@ object HistogramData {
     739, 1600, 503, 123, 948, 2078, 390, 1675, 563, 1470, 4583, 537, 2501, 557, 3184,
     589, 503, 1853, 2247, 2131, 2687, 621, 2180, 760, 977, 698, 2333, 1849, 12, 6816,
     1042, 3926, 2414, 158, 361, 278, 2074, 1204, 1812, 918, 441, 974, 1803)
+
+  private val case2Latencies = (1 to 10000).map { i ⇒ 1000 * i }
+
+  private val case3Latencies = (1 to 100000).map { i ⇒ 1000 * i }
+
+  private val sparsed1Latencies = (1 to 5).map { i ⇒ Math.pow(i, i).toInt }
+
+  private val sparsed2Latencies = (1 to 8).map { i ⇒ Math.pow(i, i).toInt }
+
+  private val quadratic = (1 to 10000).map { i ⇒ Math.pow(i, 2).toInt }
+
+  private val cubic = (1 to 10000).map { i ⇒ Math.pow(i, 3).toInt }
+
+  private val case1PlusSparsed2 = case1Latencies ++ sparsed2Latencies
+
+  val data = Map("case1" -> case1Latencies, "case2" -> case2Latencies, "case3" -> case3Latencies,
+    "sparsed1" -> sparsed1Latencies, "sparsed2" -> sparsed2Latencies, "case1PlusSparsed2" -> case1PlusSparsed2,
+    "quadratic" -> quadratic, "cubic" -> cubic)
 
 }

@@ -2,7 +2,7 @@ package com.searchlight.khronus.store
 
 import com.searchlight.khronus.model.{CounterSummary, Metric, MetricType}
 import com.searchlight.khronus.util.BaseIntegrationTest
-import com.searchlight.khronus.model.{MetricType, CounterSummary, Metric, StatisticSummary}
+import com.searchlight.khronus.model.{MetricType, CounterSummary, Metric, HistogramSummary}
 import com.searchlight.khronus.util.{Settings, BaseIntegrationTest}
 import org.scalatest.{FunSuite, Matchers}
 

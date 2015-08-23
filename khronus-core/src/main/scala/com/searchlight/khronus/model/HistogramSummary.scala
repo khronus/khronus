@@ -18,8 +18,8 @@ package com.searchlight.khronus.model
 
 import scala.concurrent.duration._
 
-case class StatisticSummary(timestamp: Timestamp, p50: Long, p80: Long, p90: Long, p95: Long, p99: Long, p999: Long, min: Long, max: Long, count: Long, mean: Long) extends Summary {
-  override def toString = s"StatisticSummary(timestamp=${timestamp.ms},count=$count,...)"
+case class HistogramSummary(timestamp: Timestamp, p50: Long, p80: Long, p90: Long, p95: Long, p99: Long, p999: Long, min: Long, max: Long, count: Long, mean: Long) extends Summary {
+  override def toString = s"HistogramSummary(timestamp=${timestamp.ms},count=$count,...)"
 }
 
 object Functions {
@@ -60,32 +60,32 @@ object Functions {
   }
 
   case object Percentile50 extends Functions.Percentile {
-    val name = "p50";
+    val name = "p50"
     val value = 50
   }
 
   case object Percentile80 extends Functions.Percentile {
-    val name = "p80";
+    val name = "p80"
     val value = 80
   }
 
   case object Percentile90 extends Functions.Percentile {
-    val name = "p90";
+    val name = "p90"
     val value = 90
   }
 
   case object Percentile95 extends Functions.Percentile {
-    val name = "p95";
+    val name = "p95"
     val value = 95
   }
 
   case object Percentile99 extends Functions.Percentile {
-    val name = "p99";
+    val name = "p99"
     val value = 99
   }
 
   case object Percentile999 extends Functions.Percentile {
-    val name = "p999";
+    val name = "p999"
     val value = 999
   }
 
@@ -114,5 +114,5 @@ object Functions {
 
   def withName(s: String): Function = all.find(_.name == s).get
 
-  implicit def influxFunctions2Value(function: Functions.Function) = function.name
+  implicit def influxFunctions2Value(function: Functions.Function): String = function.name
 }

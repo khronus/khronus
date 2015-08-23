@@ -18,8 +18,8 @@ object HistogramTest extends App {
 
     val histogram0 = new Histogram(oneHourInMicroseconds, 2)
     val histogram1 = new Histogram(oneHourInMicroseconds, 3)
-    val histogram2 = new SkinnyHistogram(oneHourInMicroseconds, 3)
-    val histogram3 = new SkinnyHistogram(3600000L, onePercentError)
+    val histogram2 = SkinnyHistogram(oneHourInMicroseconds, 3)
+    val histogram3 = SkinnyHistogram(3600000L, onePercentError)
 
     for (i ← (1 to 1000000)) {
       val r = Random.nextInt(250)
@@ -53,13 +53,13 @@ object HistogramTest extends App {
   }
 
   def sum() = {
-    val testHistogram = new SkinnyHistogram(36000000L, 3)
+    val testHistogram = SkinnyHistogram(36000000L, 3)
 
     for (i ← 1 to 100) {
-      val skinnyHistogram = new SkinnyHistogram(36000000L, 3)
+      val skinnyHistogram = SkinnyHistogram(36000000L, 3)
 
       val histograms = for (i ← 1 to 100) yield {
-        val h = new SkinnyHistogram(36000000L, 3)
+        val h = SkinnyHistogram(36000000L, 3)
         LatencyTestUtil.latencies foreach { latency ⇒
           h.recordValue(latency)
         }
