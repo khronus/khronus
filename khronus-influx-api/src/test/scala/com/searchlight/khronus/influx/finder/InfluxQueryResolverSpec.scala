@@ -407,7 +407,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     assertPoint(series.points(0), expectedMillis, expectedValue)
   }
 
-  private def assertPoint(vector: Vector[AnyVal], timestamp: Long, value: Double) = {
+  private def assertPoint(vector: Vector[Any], timestamp: Long, value: Double) = {
     vector(0) should be(timestamp)
     vector(1) should be(value)
   }

@@ -36,7 +36,7 @@ object InfluxActor {
   def props = Props[InfluxActor]
 
   val Name = "influx-actor"
-  val Path = "khronus/influx"
+  val Path = "khronus/db/influx"
 }
 
 trait InfluxEndpoint extends HttpService with JacksonJsonSupport with Logging with CORSSupport with InfluxQueryResolver with DashboardSupport with ConcurrencySupport {
