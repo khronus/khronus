@@ -37,7 +37,7 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with InfluxCri
   override val lexical = new InfluxLexical
 
   lexical.reserved += ("select", "as", "from", "where", "or", "and", "group_by_time", "fill", "scale", "limit", "between", "null", "date", "time", "now", "order", "asc", "desc", "percentiles", "force",
-    TimeSuffixes.Seconds, TimeSuffixes.Minutes, TimeSuffixes.Hours, TimeSuffixes.Days, TimeSuffixes.Weeks)
+    TimeSuffixes.Milliseconds, TimeSuffixes.Seconds, TimeSuffixes.Minutes, TimeSuffixes.Hours, TimeSuffixes.Days, TimeSuffixes.Weeks)
 
   lexical.reserved ++= Functions.allNames
 
@@ -207,9 +207,10 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with InfluxCri
   }
 
   private def timeWindowParser: Parser[FiniteDuration] =
-    (numericLit ~ opt(".") ~ opt(numericLit) ~ (TimeSuffixes.Seconds | TimeSuffixes.Minutes | TimeSuffixes.Hours)) ^^ {
+    (numericLit ~ opt(".") ~ opt(numericLit) ~ (TimeSuffixes.Milliseconds | TimeSuffixes.Seconds | TimeSuffixes.Minutes | TimeSuffixes.Hours)) ^^ {
       case number ~ _ ~ _ ~ timeSuffix ⇒ {
         val window = timeSuffix match {
+          case TimeSuffixes.Milliseconds ⇒ new FiniteDuration(number.toLong, TimeUnit.MILLISECONDS)
           case TimeSuffixes.Seconds ⇒ new FiniteDuration(number.toLong, TimeUnit.SECONDS)
           case TimeSuffixes.Minutes ⇒ new FiniteDuration(number.toLong, TimeUnit.MINUTES)
           case TimeSuffixes.Hours   ⇒ new FiniteDuration(number.toLong, TimeUnit.HOURS)

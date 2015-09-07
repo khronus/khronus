@@ -133,6 +133,7 @@ case class GroupBy(forceResolution: Boolean = false, duration: FiniteDuration) {
 }
 
 object TimeSuffixes {
+  val Milliseconds = "ms"
   val Seconds = "s"
   val Minutes = "m"
   val Hours = "h"
