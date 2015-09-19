@@ -211,9 +211,9 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with InfluxCri
       case number ~ _ ~ _ ~ timeSuffix ⇒ {
         val window = timeSuffix match {
           case TimeSuffixes.Milliseconds ⇒ new FiniteDuration(number.toLong, TimeUnit.MILLISECONDS)
-          case TimeSuffixes.Seconds ⇒ new FiniteDuration(number.toLong, TimeUnit.SECONDS)
-          case TimeSuffixes.Minutes ⇒ new FiniteDuration(number.toLong, TimeUnit.MINUTES)
-          case TimeSuffixes.Hours   ⇒ new FiniteDuration(number.toLong, TimeUnit.HOURS)
+          case TimeSuffixes.Seconds      ⇒ new FiniteDuration(number.toLong, TimeUnit.SECONDS)
+          case TimeSuffixes.Minutes      ⇒ new FiniteDuration(number.toLong, TimeUnit.MINUTES)
+          case TimeSuffixes.Hours        ⇒ new FiniteDuration(number.toLong, TimeUnit.HOURS)
         }
 
         window

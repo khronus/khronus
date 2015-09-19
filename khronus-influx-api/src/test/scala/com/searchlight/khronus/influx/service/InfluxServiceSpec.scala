@@ -80,9 +80,10 @@ class InfluxServiceSpec extends Specification with MockitoSugar with HttpService
               val results = responseAs[Seq[InfluxSeries]]
               results.size must beEqualTo(1)
 
-              results(0).name === counter.name
-              results(0).columns must beEmpty
-              results(0).points must beEmpty
+              results(0).name === "list_series_result"
+              results(0).columns.size mustEqual 2
+              results(0).points.size mustEqual 1
+              results(0).points(0)(1) mustEqual counter.name
             }
           }
       }
