@@ -20,7 +20,7 @@ object Projects extends Build {
     .settings(noPublishing: _*)
 
   lazy val khronus = Project("khronus", file("khronus"))
-    .dependsOn(khronusCore, khronusInflux, khronusStress)
+    .dependsOn(khronusCore, khronusInflux)
     .settings(basicSettings: _*)
     .settings(formatSettings: _*)
     .settings(packagerSettings: _*)

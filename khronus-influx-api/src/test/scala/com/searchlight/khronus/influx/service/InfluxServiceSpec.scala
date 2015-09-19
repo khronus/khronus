@@ -17,9 +17,20 @@ import spray.testkit.Specs2RouteTest
 import scala.concurrent.Future
 
 class InfluxServiceSpec extends Specification with MockitoSugar with HttpService with Specs2RouteTest with JacksonJsonSupport {
-  def actorRefFactory = ActorSystem("TestSystem")
-  override def createActorSystem(): ActorSystem = actorRefFactory
 
+  def actorRefFactory = ActorSystem("TestSystem", ConfigFactory.parseString(
+    """
+      |akka {
+      |  loggers = ["akka.event.slf4j.Slf4jLogger"]
+      |  loglevel = INFO
+      |  stdout-loglevel = DEBUG
+      |  actor {
+      |    provider = "akka.actor.LocalActorRefProvider"
+      |  }
+      | }
+      |
+    """.stripMargin))
+  override def createActorSystem(): ActorSystem = actorRefFactory
   val influxSeriesURI = "/series"
 
   class MockedInfluxEndpoint extends InfluxEndpoint {

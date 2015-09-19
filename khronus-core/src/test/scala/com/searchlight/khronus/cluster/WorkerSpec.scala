@@ -19,13 +19,12 @@ package com.searchlight.khronus.cluster
 import akka.actor.{ ActorSystem, Props }
 import akka.testkit.{ ImplicitSender, TestActorRef, TestKit, TestKitBase }
 import com.searchlight.khronus.model.{ SystemClock, Clock, Metric, TimeWindowChain }
-import com.searchlight.khronus.util.BaseTest
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{ BeforeAndAfter, BeforeAndAfterAll, Matchers, WordSpecLike }
 import scala.concurrent.Future
 import com.typesafe.config.ConfigFactory
 
-class WorkerSpec extends BaseTest with TestKitBase with ImplicitSender
+class WorkerSpec extends TestKitBase with ImplicitSender
     with Matchers
     with WordSpecLike
     with BeforeAndAfterAll with BeforeAndAfter with MockitoSugar {
@@ -36,6 +35,9 @@ class WorkerSpec extends BaseTest with TestKitBase with ImplicitSender
       |  loglevel = INFO
       |  stdout-loglevel = DEBUG
       |  event-handlers = ["akka.event.Logging$DefaultLogger"]
+      |  actor {
+      |    provider = "akka.actor.LocalActorRefProvider"
+      |  }
       |}
     """.stripMargin))
 

@@ -14,7 +14,7 @@ object Settings {
   lazy val basicSettings = Seq(
     scalaVersion  := ScalaVersion,
     organization := "com.searchlight",
-    version := "0.1-beta",
+    version := "0.2",
     exportJars := true,
     resolvers    ++= Dependencies.resolutionRepos,
     fork in (Test, run) := true,
@@ -29,7 +29,7 @@ object Settings {
       "-unchecked",
       "-optimise",
       "-deprecation",
-      "-target:jvm-1.6",
+      "-target:jvm-1.7",
       "-language:postfixOps",
       "-language:implicitConversions",
       "-language:reflectiveCalls",

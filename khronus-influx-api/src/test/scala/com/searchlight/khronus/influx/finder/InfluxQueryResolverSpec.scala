@@ -34,7 +34,18 @@ import scala.concurrent.duration._
 import scala.concurrent.{ Await, Future }
 
 class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers with MockitoSugar with InfluxQueryResolver with InfluxEndpoint {
-  override implicit def actorRefFactory = ActorSystem("TestSystem")
+  override implicit def actorRefFactory = ActorSystem("TestSystem", ConfigFactory.parseString(
+    """
+      |akka {
+      |  loggers = ["akka.event.slf4j.Slf4jLogger"]
+      |  loglevel = INFO
+      |  stdout-loglevel = DEBUG
+      |
+      |  actor {
+      |    provider = "akka.actor.LocalActorRefProvider"
+      |  }
+      | }
+    """.stripMargin))
 
   val metaStoreMock = mock[MetaStore]
 

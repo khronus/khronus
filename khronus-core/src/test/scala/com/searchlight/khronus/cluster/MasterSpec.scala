@@ -21,14 +21,13 @@ import akka.routing.RoundRobinGroup
 import akka.testkit._
 import com.searchlight.khronus.cluster.Master.PendingMetrics
 import com.searchlight.khronus.model.Metric
-import com.searchlight.khronus.util.BaseTest
 import com.typesafe.config.ConfigFactory
 import org.scalatest.{ Ignore, BeforeAndAfterAll, Matchers, WordSpecLike }
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
-class MasterSpec extends BaseTest with TestKitBase with ImplicitSender
+class MasterSpec extends TestKitBase with ImplicitSender
     with Matchers
     with WordSpecLike
     with BeforeAndAfterAll {
