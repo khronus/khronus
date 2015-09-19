@@ -18,11 +18,11 @@ package com.searchlight.khronus.model
 
 import com.searchlight.khronus.store.MetaSupport
 import com.searchlight.khronus.util.log.Logging
-import com.searchlight.khronus.util.{ FutureSupport, SameThreadExecutionContext }
+import com.searchlight.khronus.util.{ Measurable, FutureSupport, SameThreadExecutionContext }
 import scala.concurrent.Future
 import scala.util.{ Try, Success, Failure }
 
-class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport with FutureSupport {
+class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport with FutureSupport with Measurable {
 
   private implicit val executionContext = SameThreadExecutionContext
 
@@ -48,7 +48,10 @@ class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport w
   }
 
   private def inCaseOfFailure(window: Window, metric: Metric): PartialFunction[Try[Unit], Unit] = {
-    case Failure(reason) ⇒ log.error(s"Fail to process window ${window.duration} for $metric", reason)
+    case Failure(reason) ⇒ {
+      incrementCounter("timeWindowError")
+      log.error(s"Fail to process window ${window.duration} for $metric", reason)
+    }
   }
 
   private def windowsToBeProcessed(metric: Metric, currentTick: Tick): Future[Seq[Window]] = {
