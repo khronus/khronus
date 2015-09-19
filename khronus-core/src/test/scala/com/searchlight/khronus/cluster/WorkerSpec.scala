@@ -18,21 +18,17 @@ package com.searchlight.khronus.cluster
 
 import akka.actor.{ ActorSystem, Props }
 import akka.testkit.{ ImplicitSender, TestActorRef, TestKit, TestKitBase }
-import com.searchlight.khronus.model.{ Metric, TimeWindowChain }
+import com.searchlight.khronus.model.{ SystemClock, Clock, Metric, TimeWindowChain }
 import com.searchlight.khronus.util.BaseTest
-import org.mockito.Matchers.any
-import org.mockito.Mockito.when
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpecLike }
-
-import scala.concurrent.ExecutionContext.Implicits.global
+import org.scalatest.{ BeforeAndAfter, BeforeAndAfterAll, Matchers, WordSpecLike }
 import scala.concurrent.Future
 import com.typesafe.config.ConfigFactory
 
 class WorkerSpec extends BaseTest with TestKitBase with ImplicitSender
     with Matchers
     with WordSpecLike
-    with BeforeAndAfterAll with MockitoSugar {
+    with BeforeAndAfterAll with BeforeAndAfter with MockitoSugar {
 
   implicit lazy val system: ActorSystem = ActorSystem("Worker-Spec", ConfigFactory.parseString(
     """
@@ -43,18 +39,19 @@ class WorkerSpec extends BaseTest with TestKitBase with ImplicitSender
       |}
     """.stripMargin))
 
+  val metric = Metric("some work", "histogram")
+
   override protected def afterAll() = TestKit.shutdownActorSystem(system)
 
-  trait TimeWindowChainProviderMock extends TimeWindowChainProvider {
-    override val timeWindowChain = mock[TimeWindowChain]
-    when(timeWindowChain.process(any())).thenReturn(Future { Thread.sleep(1000); () })
-  }
-
-  val worker = TestActorRef(Props(new Worker with TimeWindowChainProviderMock))
+  val worker = TestActorRef(Props(new Worker {
+    override def timeWindowChain = new TimeWindowChain {
+      override def process(metrics: Seq[Metric])(implicit clock: Clock = SystemClock) = Future.successful(Unit)
+    }
+  }))
 
   "The Worker actor" should {
-    "ignore the Work message if it'sappa received before register in the cluster" in {
-      worker ! Work(Seq(Metric("some work", "histogram")))
+    "ignore the Work message if it's received before register in the cluster" in {
+      worker ! Work(Seq(metric))
       expectNoMsg()
     }
 
@@ -64,7 +61,7 @@ class WorkerSpec extends BaseTest with TestKitBase with ImplicitSender
     }
 
     "respond with a WorkDone when receiving a Work message and finalize it successful" in {
-      worker ! Work(Seq(Metric("some work", "histogram")))
+      worker ! Work(Seq(metric))
       expectMsgClass(classOf[WorkDone])
     }
   }
