@@ -19,41 +19,54 @@ package com.searchlight.khronus.model
 import com.searchlight.khronus.store.MetaSupport
 import com.searchlight.khronus.util.log.Logging
 import com.searchlight.khronus.util.{ FutureSupport, SameThreadExecutionContext }
-
 import scala.concurrent.Future
-import scala.util.Failure
+import scala.util.{ Try, Success, Failure }
 
 class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport with FutureSupport {
 
-  implicit val executionContext = SameThreadExecutionContext
+  private implicit val executionContext = SameThreadExecutionContext
 
-  def process(metrics: Seq[Metric]): Future[Unit] = {
-    val tick = currentTick()
-    serializeFutures(metrics) { metric ⇒
+  def process(metrics: Seq[Metric])(implicit clock: Clock = SystemClock): Future[Unit] = {
+    val tick = Tick()
+    sequenced(metrics) { metric ⇒
       process(metric, tick)
-    } flatMap (metrics ⇒ metaStore.update(metrics, tick.endTimestamp))
-  }
-
-  private def process(metric: Metric, currentTick: Tick): Future[Metric] = {
-    val windowsToProcessInThisTick = windows(metric.mtype).filter(mustExecuteInThisTick(_, metric, currentTick))
-
-    serializeFutures(windowsToProcessInThisTick) { window ⇒
-      window.process(metric, currentTick) andThen {
-        case Failure(reason) ⇒ log.error(s"Fail to process window ${window.duration} for $metric", reason)
-      }
-    } flatMap (_ ⇒ Future.successful(metric))
-
-  }
-
-  private def mustExecuteInThisTick(timeWindow: TimeWindow[_, _], metric: Metric, tick: Tick): Boolean = {
-    if ((tick.endTimestamp.ms % timeWindow.duration.toMillis) == 0) {
-      true
-    } else {
-      log.trace(s"${p(metric, timeWindow.duration)} Excluded to run")
-      false
+    } flatMap { metrics ⇒
+      updateTickProcessed(tick, metrics)
     }
   }
 
-  def currentTick(): Tick = Tick()
+  private def updateTickProcessed(tick: Tick, metrics: Seq[Try[Metric]]): Future[Unit] = metaStore.update(successful(metrics), tick.endTimestamp)
+
+  private def successful(metrics: Seq[Try[Metric]]): Seq[Metric] = metrics.collect { case Success(m) ⇒ m }
+
+  private def process(metric: Metric, currentTick: Tick): Future[Try[Metric]] = {
+    windowsToBeProcessed(metric, currentTick) flatMap { windows ⇒
+      sequenced(windows) { window ⇒
+        window.process(metric, currentTick) andThen inCaseOfFailure(window, metric)
+      } flatMap (f ⇒ Future.successful(Success(metric))) recover { case reason ⇒ Failure(reason) }
+    }
+  }
+
+  private def inCaseOfFailure(window: Window, metric: Metric): PartialFunction[Try[Unit], Unit] = {
+    case Failure(reason) ⇒ log.error(s"Fail to process window ${window.duration} for $metric", reason)
+  }
+
+  private def windowsToBeProcessed(metric: Metric, currentTick: Tick): Future[Seq[Window]] = {
+    val futures = Future.sequence(windows(metric.mtype).map(window ⇒ mustExecuteInThisTickFuture(window, metric, currentTick)))
+    futures.map(windows ⇒ windows.collect { case (window, hasToBeProcessed) if hasToBeProcessed ⇒ window })
+  }
+
+  private def mustExecuteInThisTickFuture(timeWindow: Window, metric: Metric, tick: Tick): Future[(Window, Boolean)] = {
+    metaStore.getLastProcessedTimestamp(metric).map { lastProcessed ⇒
+      val lastProcessedBucket = lastProcessed.fromEndTimestampToBucketNumberOf(timeWindow.duration)
+      val currentBucket = tick.endTimestamp.fromEndTimestampToBucketNumberOf(timeWindow.duration)
+      if (currentBucket > lastProcessedBucket) {
+        (timeWindow, true)
+      } else {
+        log.trace(s"${p(metric, timeWindow.duration)} Excluded to run")
+        (timeWindow, false)
+      }
+    }
+  }
 
 }
