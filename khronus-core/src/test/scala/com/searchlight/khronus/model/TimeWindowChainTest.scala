@@ -93,7 +93,7 @@ class TimeWindowChainTest extends FunSuite with MockitoSugar with BeforeAndAfter
     when(chain.metaStore.getLastProcessedTimestamp(metric2)).thenReturn(Future.successful((tick.bucketNumber - 1).endTimestamp()))
 
     when(window30s.process(metric1, tick)).thenReturn(Future.failed(new RuntimeException()))
-    when(window30s.process(metric2, tick)).thenReturn(Future.successful())
+    when(window30s.process(metric2, tick)).thenReturn(Future.successful(()))
 
     val result = chain.process(Seq(metric1, metric2))
 

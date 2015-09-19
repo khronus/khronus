@@ -3,7 +3,6 @@ package com.searchlight.khronus.store
 import org.scalatest.Matchers
 import com.searchlight.khronus.util.BaseIntegrationTest
 import org.scalatest.FunSuite
-import scala.util.Try
 import com.searchlight.khronus.model.{Timestamp, MetricType, Metric}
 
 class CassandraMetaStoreTest extends FunSuite with BaseIntegrationTest with Matchers {

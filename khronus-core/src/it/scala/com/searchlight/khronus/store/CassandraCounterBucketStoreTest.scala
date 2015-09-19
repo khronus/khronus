@@ -2,7 +2,6 @@ package com.searchlight.khronus.store
 
 import com.searchlight.khronus.model.BucketNumber._
 import com.searchlight.khronus.model.Timestamp._
-import com.searchlight.khronus.model.{CounterBucket, Metric, MetricType}
 import com.searchlight.khronus.util.{Settings, BaseIntegrationTest}
 import org.scalatest.{FunSuite, Matchers}
 import com.searchlight.khronus.model.{Metric, MetricType, CounterBucket}
@@ -27,6 +26,46 @@ class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest 
     val bucketsFromCassandra = await {
       Buckets.counterBucketStore.slice(testMetric, 1, executionTimestamp, 30 seconds)
     }
+    val bucketFromCassandra = bucketsFromCassandra.results(0)
+
+    counter shouldEqual bucketFromCassandra.lazyBucket()
+
+  }
+
+  test("should store duplicates buckets as one in others windows than 1 millis") {
+    val counter = new CounterBucket((250L, 30 seconds), 200L)
+    await {
+      Buckets.counterBucketStore.store(testMetric, 30 seconds, Seq(counter))
+      Buckets.counterBucketStore.store(testMetric, 30 seconds, Seq(counter))
+    }
+
+    val executionTimestamp = counter.bucketNumber.startTimestamp()
+    val bucketsFromCassandra = await {
+      Buckets.counterBucketStore.slice(testMetric, 1, executionTimestamp, 30 seconds)
+    }
+
+    bucketsFromCassandra.results.size shouldEqual 1
+
+    val bucketFromCassandra = bucketsFromCassandra.results(0)
+
+    counter shouldEqual bucketFromCassandra.lazyBucket()
+
+  }
+
+  test("should store duplicates buckets as two different in window 1 millis") {
+    val counter = new CounterBucket((250L, 1 millis), 200L)
+    await {
+      Buckets.counterBucketStore.store(testMetric, 1 millis, Seq(counter))
+      Buckets.counterBucketStore.store(testMetric, 1 millis, Seq(counter))
+    }
+
+    val executionTimestamp = counter.bucketNumber.startTimestamp()
+    val bucketsFromCassandra = await {
+      Buckets.counterBucketStore.slice(testMetric, 1, executionTimestamp, 1 millis)
+    }
+
+    bucketsFromCassandra.results.size shouldEqual 2
+
     val bucketFromCassandra = bucketsFromCassandra.results(0)
 
     counter shouldEqual bucketFromCassandra.lazyBucket()

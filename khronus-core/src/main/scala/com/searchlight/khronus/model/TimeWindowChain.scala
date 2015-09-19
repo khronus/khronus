@@ -47,7 +47,7 @@ class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport w
     }
   }
 
-  private def inCaseOfFailure(window: Window, metric: Metric):PartialFunction[Try[Unit], Unit] = {
+  private def inCaseOfFailure(window: Window, metric: Metric): PartialFunction[Try[Unit], Unit] = {
     case Failure(reason) ⇒ log.error(s"Fail to process window ${window.duration} for $metric", reason)
   }
 
