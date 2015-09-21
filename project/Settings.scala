@@ -41,7 +41,10 @@ object Settings {
     ScalariformKeys.preferences in Test    := formattingPreferences
   )
 
-  lazy val extraPackagerSettings = Seq(bashScriptExtraDefines += """addJava "-Dconfig.file=${app_home}/../conf/application.conf"""")
+  lazy val extraPackagerSettings = Seq(bashScriptExtraDefines += """addJava "-Dconfig.file=${app_home}/../conf/application.conf" """,
+    bashScriptExtraDefines += """addJava "-Dlogback.configurationFile=${app_home}/../conf/logback.xml" """,
+    mappings in (Compile, packageBin) ~= { _.filter(!_._1.getName.equals("logback.xml")) }
+  )
 
   def formattingPreferences =
     FormattingPreferences()
