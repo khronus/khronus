@@ -147,7 +147,7 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
     case _                                   ⇒ throw new UnsupportedOperationException(s"Unknown metric type: $metricType")
   }
 
-  protected def getStatisticSummaryStore: SummaryStore[StatisticSummary] = Summaries.histogramSummaryStore
+  protected def getStatisticSummaryStore: SummaryStore[HistogramSummary] = Summaries.histogramSummaryStore
 
   protected def getCounterSummaryStore: SummaryStore[CounterSummary] = Summaries.counterSummaryStore
 

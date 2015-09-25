@@ -22,7 +22,7 @@ import com.datastax.driver.core.Session
 import com.searchlight.khronus.model._
 import com.searchlight.khronus.util.log.Logging
 import com.searchlight.khronus.util.{ Measurable, Settings }
-import org.HdrHistogram.{ Histogram, SkinnyHistogram }
+import org.HdrHistogram.Histogram
 
 import scala.concurrent.duration._
 
@@ -99,6 +99,6 @@ object DefaultHistogramSerializer extends HistogramSerializer {
   }
 
   override def deserialize(buffer: ByteBuffer): Histogram = {
-    SkinnyHistogram.decodeFromCompressedByteBuffer(buffer, 0)
+    Histogram.decodeFromCompressedByteBuffer(buffer, 0)
   }
 }

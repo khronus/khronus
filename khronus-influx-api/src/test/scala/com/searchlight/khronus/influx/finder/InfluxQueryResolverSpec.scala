@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor.ActorSystem
 import com.searchlight.khronus.influx.parser.InfluxQueryParser
 import com.searchlight.khronus.influx.service.{ InfluxEndpoint, InfluxSeries }
-import com.searchlight.khronus.model.{ CounterSummary, Functions, Metric, StatisticSummary, _ }
+import com.searchlight.khronus.model.{ CounterSummary, Functions, Metric, HistogramSummary, _ }
 import com.searchlight.khronus.store.{ Slice, _ }
 import com.typesafe.config.ConfigFactory
 import org.mockito.Mockito._
@@ -50,7 +50,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
   val metaStoreMock = mock[MetaStore]
 
   override lazy val metaStore = metaStoreMock
-  override lazy val getStatisticSummaryStore = mock[SummaryStore[StatisticSummary]]
+  override lazy val getStatisticSummaryStore = mock[SummaryStore[HistogramSummary]]
   override lazy val getCounterSummaryStore = mock[SummaryStore[CounterSummary]]
   override lazy val now = System.currentTimeMillis()
 
@@ -133,7 +133,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
 
     when(metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
 
-    val summary = StatisticSummary(from, 50L, 80L, 90L, 95L, 99L, 999L, 3L, 1000L, 100L, 200L)
+    val summary = HistogramSummary(from, 50L, 80L, 90L, 95L, 99L, 999L, 3L, 1000L, 100L, 200L)
     when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), false, 10)).thenReturn(Future { Seq(summary) })
 
     val results = await(search(query))
@@ -174,10 +174,10 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
 
     val query = s"""select max from "$regexCommon" where time >= $from and time <= $to force group by time (5m) limit 10 order desc"""
 
-    val summary1 = StatisticSummary(from, 50L, 80L, 90L, 95L, 99L, 999L, 3L, 1000L, 100L, 200L)
+    val summary1 = HistogramSummary(from, 50L, 80L, 90L, 95L, 99L, 999L, 3L, 1000L, 100L, 200L)
     when(getStatisticSummaryStore.readAll(timer1, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), false, 10)).thenReturn(Future { Seq(summary1) })
 
-    val summary2 = StatisticSummary(from, 1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L)
+    val summary2 = HistogramSummary(from, 1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L)
     when(getStatisticSummaryStore.readAll(timer2, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), false, 10)).thenReturn(Future { Seq(summary2) })
 
     val results = await(search(query))
@@ -205,7 +205,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
 
     val max = 1000L
     val min = 1L
-    val summary = StatisticSummary(time, 50L, 80L, 90L, 95L, 99L, 999L, min, max, 100L, 200L)
+    val summary = HistogramSummary(time, 50L, 80L, 90L, 95L, 99L, 999L, min, max, 100L, 200L)
     when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(time, time), true, Int.MaxValue)).thenReturn(Future { Seq(summary) })
 
     val results = await(search(query))
@@ -233,7 +233,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
 
     val query = s"""select 5 as constant from "$metricName" where time >= $from and time <= $to force group by time (5m)"""
 
-    val summary = StatisticSummary(from, 50L, 80L, 90L, 95L, 99L, 999L, 1L, 1000L, 100L, 200L)
+    val summary = HistogramSummary(from, 50L, 80L, 90L, 95L, 99L, 999L, 1L, 1000L, 100L, 200L)
     when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq(summary) })
 
     val results = await(search(query))
@@ -271,7 +271,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     val counter = CounterSummary(from, 300L)
     when(getCounterSummaryStore.readAll(counterName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq(counter) })
 
-    val timer = StatisticSummary(from, 50L, 80L, 90L, 95L, 99L, 999L, 1L, 1000L, 100L, 200L)
+    val timer = HistogramSummary(from, 50L, 80L, 90L, 95L, 99L, 999L, 1L, 1000L, 100L, 200L)
     when(getStatisticSummaryStore.readAll(timerName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq(timer) })
 
     val results = await(search(query))
@@ -313,8 +313,8 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     val counter98 = CounterSummary(window98, 30L)
     when(getCounterSummaryStore.readAll(counterName, FiniteDuration(5, TimeUnit.MINUTES), Slice(window96, window100), true, Int.MaxValue)).thenReturn(Future { Seq(counter97, counter98) })
 
-    val timer98 = StatisticSummary(window98, 50L, 50L, 50L, 50L, 50L, 50L, 50L, 50L, 50L, 50L)
-    val timer99 = StatisticSummary(window99, 50L, 50L, 50L, 50L, 50L, 50L, 50L, 50L, 50L, 50L)
+    val timer98 = HistogramSummary(window98, 50L, 50L, 50L, 50L, 50L, 50L, 50L, 50L, 50L, 50L)
+    val timer99 = HistogramSummary(window99, 50L, 50L, 50L, 50L, 50L, 50L, 50L, 50L, 50L, 50L)
     when(getStatisticSummaryStore.readAll(timerName, FiniteDuration(5, TimeUnit.MINUTES), Slice(window96, window100), true, Int.MaxValue)).thenReturn(Future { Seq(timer98, timer99) })
 
     val results = await(search(query))

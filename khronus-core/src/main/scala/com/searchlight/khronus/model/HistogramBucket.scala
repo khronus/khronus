@@ -17,15 +17,15 @@ package com.searchlight.khronus.model
 
 import java.io.{ ByteArrayOutputStream, PrintStream }
 
+import com.searchlight.khronus.util.Measurable
 import com.searchlight.khronus.util.log.Logging
-import com.searchlight.khronus.util.{ Measurable, Pool }
-import org.HdrHistogram.{ Histogram, SkinnyHistogram }
+import org.HdrHistogram.Histogram
 
 import scala.util.{ Failure, Try }
 
 class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Histogram) extends Bucket(bucketNumber) with Logging {
 
-  override def summary: StatisticSummary = Try {
+  override def summary: HistogramSummary = Try {
     val p50 = histogram.getValueAtPercentile(50)
     val p80 = histogram.getValueAtPercentile(80)
     val p90 = histogram.getValueAtPercentile(90)
@@ -36,11 +36,9 @@ class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Hi
     val max = histogram.getMaxValue
     val count = histogram.getTotalCount
     val mean = histogram.getMean
-    //HistogramBucket.histogramPool.release(histogram)
-    StatisticSummary(timestamp, p50, p80, p90, p95, p99, p999, min, max, count, mean.toLong)
-  }.recoverWith[StatisticSummary] {
+    HistogramSummary(timestamp, p50, p80, p90, p95, p99, p999, min, max, count, mean.toLong)
+  }.recoverWith[HistogramSummary] {
     case e: Exception ⇒
-
       val baos = new ByteArrayOutputStream()
       val printStream = new PrintStream(baos)
       histogram.outputPercentileDistribution(printStream, 1000.0)
@@ -52,10 +50,6 @@ class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Hi
 
 object HistogramBucket extends Measurable {
 
-  /*val histogramPool = Pool[Histogram]("histogramPool", newHistogram _, 4, {
-    _.reset()
-  })
-*/
   implicit def sumHistograms(buckets: Seq[HistogramBucket]): Histogram = measureTime("sumHistograms", "sumHistograms", false) {
     val histogram = newHistogram
     buckets.foreach(bucket ⇒ histogram.add(bucket.histogram))
@@ -63,5 +57,5 @@ object HistogramBucket extends Measurable {
   }
 
   //1 hour in milliseconds
-  def newHistogram = new SkinnyHistogram(36000000L, 3)
+  def newHistogram = new Histogram(36000000L, 3)
 }

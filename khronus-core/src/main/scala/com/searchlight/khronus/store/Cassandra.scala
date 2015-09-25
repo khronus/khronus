@@ -117,7 +117,7 @@ object Buckets extends CassandraKeyspace {
 object Summaries extends CassandraKeyspace {
 
   initialize()
-  val histogramSummaryStore = new CassandraStatisticSummaryStore(session)
+  val histogramSummaryStore = new CassandraHistogramSummaryStore(session)
   val counterSummaryStore = new CassandraCounterSummaryStore(session)
 
   override def keyspace = "summaries"

@@ -166,11 +166,11 @@ case class CounterTimeWindow(duration: Duration, previousWindowDuration: Duratio
 }
 
 case class HistogramTimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true)
-    extends TimeWindow[HistogramBucket, StatisticSummary] with HistogramBucketSupport with StatisticSummarySupport {
+    extends TimeWindow[HistogramBucket, HistogramSummary] with HistogramBucketSupport with HistogramSummarySupport {
 
   override def aggregate(bucketNumber: BucketNumber, buckets: Seq[HistogramBucket]): HistogramBucket = new HistogramBucket(bucketNumber, buckets)
 
-  override def calculateSummary(bucket: HistogramBucket): StatisticSummary = bucket.summary
+  override def calculateSummary(bucket: HistogramBucket): HistogramSummary = bucket.summary
 
   override val bucketCache: BucketCache[HistogramBucket] = InMemoryHistogramBucketCache
 }
