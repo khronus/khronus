@@ -105,19 +105,17 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
   def store(metrics: Seq[(Metric, () ⇒ T)], windowDuration: Duration): Future[Unit] = executeChunked(s"buckets of $windowDuration", metrics, Settings.CassandraBuckets.insertChunkSize) {
     bucketsChunk ⇒
       {
-        val boundBatchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
         val stmt = stmtPerWindow(windowDuration).insert
-        bucketsChunk.foreach {
+        val bounds = bucketsChunk.map {
           case (metric, fBucket) ⇒ {
             val bucket = fBucket()
             val serializedBucket = serialize(metric, windowDuration, bucket)
-            boundBatchStmt.add(stmt.bind(Seq(serializedBucket).asJava, metric.name, Long.box(bucket.timestamp.ms)))
+            val f: Future[Unit] = session.executeAsync(stmt.bind(Seq(serializedBucket).asJava, metric.name, Long.box(bucket.timestamp.ms)))
+            f
           }
         }
 
-        val future: Future[Unit] = {
-          session.executeAsync(boundBatchStmt)
-        }
+        val future = Future.sequence(bounds)
 
         future andThen {
           case Success(_) ⇒ incrementCounter("bucketStore.batch.ok")
@@ -127,7 +125,7 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
           }
         }
 
-        future
+        future.map(s ⇒ Unit)
       }
   }
 
