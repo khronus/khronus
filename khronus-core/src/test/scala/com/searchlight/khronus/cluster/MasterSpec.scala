@@ -311,7 +311,7 @@ class MasterSpec extends BaseTest with TestKitBase with ImplicitSender
     // Overriding schedulers to Nothing
     override def scheduleTick(): Option[ActorRef] = None
 
-    override def scheduleHeartbeat(router: ActorRef) = None
+    override def scheduleHeartbeat() = None
   }
 
 }

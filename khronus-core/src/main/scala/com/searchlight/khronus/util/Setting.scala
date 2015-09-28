@@ -28,6 +28,7 @@ object Settings {
 
   object Master {
     val TickCronExpression = config.getString("khronus.master.tick-expression")
+    val CheckLeaderCronExpression = config.getString("khronus.master.check-leader-expression")
     val DiscoveryStartDelay = FiniteDuration(config.getDuration("khronus.master.discovery-start-delay", MILLISECONDS), MILLISECONDS)
     val DiscoveryInterval = FiniteDuration(config.getDuration("khronus.master.discovery-interval", MILLISECONDS), MILLISECONDS)
     val WorkerBatchSize = config.getInt("khronus.master.worker-batch-size")
@@ -83,6 +84,11 @@ object Settings {
     private val cassandraCfg = config.getConfig("khronus.cassandra.summaries")
     val ReplicationFactor = cassandraCfg.getInt("rf")
     val insertChunkSize = cassandraCfg.getInt("insert-chunk-size")
+  }
+
+  object CassandraLeaderElection {
+    private val cassandraCfg = config.getConfig("khronus.cassandra.leader-election")
+    val ReplicationFactor = cassandraCfg.getInt("rf")
   }
 
   object Histogram {

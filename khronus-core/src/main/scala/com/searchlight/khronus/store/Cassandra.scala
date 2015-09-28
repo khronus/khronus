@@ -48,7 +48,7 @@ trait CassandraClusterConfiguration {
 
   def clusterBuilder = Cluster.builder().
     withClusterName(settingsCassandra.ClusterName).
-    addContactPoints(settingsCassandra.Seeds: _*).
+    addContactPoints("127.0.0.1","127.0.0.2","127.0.0.3").
     withPort(settingsCassandra.Port).
     withPoolingOptions(poolingOptions).
     withSocketOptions(socketOptions).
@@ -112,6 +112,16 @@ object Buckets extends CassandraKeyspace {
   override def keyspace = "buckets"
 
   override def getRF: Int = Settings.CassandraBuckets.ReplicationFactor
+}
+
+object LeaderElection extends CassandraKeyspace {
+  initialize()
+
+  val leaderElectionStore = new LeaderElectionStore(session)
+
+  override def keyspace = "leaderElection"
+
+  override def getRF: Int = Settings.CassandraLeaderElection.ReplicationFactor
 }
 
 object Summaries extends CassandraKeyspace {
