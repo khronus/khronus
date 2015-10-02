@@ -53,34 +53,44 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
       track(metric)
     })
 
-    histogramBucketStore.store(histos, rawDuration)
-    counterBucketStore.store(counters, rawDuration)
+    val histogramsFuture = histogramBucketStore.store(histos, rawDuration)
+    val countersFuture = counterBucketStore.store(counters, rawDuration)
+
+    measureFutureTime("measurementStore.store.futures", "store metricMeasurements futures")(Future.sequence(Seq(histogramsFuture, countersFuture)))
   }
 
   private def buildHistogramBuckets(metric: Metric, groupedMeasurements: Map[Timestamp, List[Measurement]]): List[(Metric, () ⇒ HistogramBucket)] = {
     groupedMeasurements.toList.map {
       case (timestamp, measures) ⇒
-        val histogram = HistogramBucket.newHistogram
-        val bucketNumber = timestamp.toBucketNumberOf(rawDuration)
-        measures.foreach(measure ⇒ skipNegativeValues(metric, measure.values).foreach(value ⇒ {
-          val highestTrackableValue = histogram.getHighestTrackableValue
-          if (value <= highestTrackableValue) histogram.recordValue(value)
-          else {
-            val exceeded = value - highestTrackableValue
-            log.warn(s"Sample of $metric has exceeded the highestTrackagleValue of $highestTrackableValue by $exceeded. Truncating the excedent. Try changing the sampling unit or increasing the highestTrackableValue")
-            histogram.recordValue(highestTrackableValue)
-          }
-        }))
-        (metric, () ⇒ new HistogramBucket(bucketNumber, histogram))
+        (metric, () ⇒ {
+          val histogram = HistogramBucket.newHistogram
+          val bucketNumber = timestamp.toBucketNumberOf(rawDuration)
+          measures.foreach(measure ⇒ record(metric, measure, histogram))
+          new HistogramBucket(bucketNumber, histogram)
+        })
     }
+  }
+
+  def record(metric: Metric, measure: Measurement, histogram: Histogram): Unit = {
+    skipNegativeValues(metric, measure.values).foreach(value ⇒ {
+      val highestTrackableValue = histogram.getHighestTrackableValue
+      if (value <= highestTrackableValue) histogram.recordValue(value)
+      else {
+        val exceeded = value - highestTrackableValue
+        log.warn(s"Sample of $metric has exceeded the highestTrackableValue of $highestTrackableValue by $exceeded. Truncating the excedent. Try changing the sampling unit or increasing the highestTrackableValue")
+        histogram.recordValue(highestTrackableValue)
+      }
+    })
   }
 
   private def buildCounterBuckets(metric: Metric, groupedMeasurements: Map[Timestamp, List[Measurement]]): List[(Metric, () ⇒ CounterBucket)] = {
     groupedMeasurements.toList.map {
       case (timestamp, measures) ⇒
-        val bucketNumber = timestamp.toBucketNumberOf(rawDuration)
-        val counts = measures.map(measure ⇒ skipNegativeValues(metric, measure.values).sum).sum
-        (metric, () ⇒ new CounterBucket(bucketNumber, counts))
+        (metric, () ⇒ {
+          val bucketNumber = timestamp.toBucketNumberOf(rawDuration)
+          val counts = measures.map(measure ⇒ skipNegativeValues(metric, measure.values).sum).sum
+          new CounterBucket(bucketNumber, counts)
+        })
     }
   }
   private def track(metric: Metric) = measureTime("measurementStore.track", "track metric") {
