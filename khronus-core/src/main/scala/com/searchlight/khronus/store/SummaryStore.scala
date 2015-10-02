@@ -102,7 +102,7 @@ abstract class CassandraSummaryStore[T <: Summary](session: Session) extends Sum
     readAll(metric.name, windowDuration, slice)
   }
 
-  def readAll(metric: String, windowDuration: Duration, slice: Slice, ascendingOrder: Boolean = true, count: Int = limit): Future[Seq[T]] = {
+  def readAll(metric: String, windowDuration: Duration, slice: Slice, ascendingOrder: Boolean = true, count: Int = limit): Future[Seq[T]] = measureFutureTime("summary.readAll", "summary.readAll") {
     log.debug(s"Reading from Cassandra: Cf: $windowDuration - Metric: $metric - From: ${slice.from} - To: ${slice.to} - ascendingOrder: $ascendingOrder - Max results: $count")
 
     val queryKey = if (ascendingOrder) QueryAsc else QueryDesc
