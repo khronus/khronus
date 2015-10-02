@@ -17,6 +17,7 @@
 package com.searchlight.khronus.store
 
 import java.util.concurrent.TimeUnit
+import java.util.regex.Pattern
 
 import com.datastax.driver.core.{ BatchStatement, ResultSet, Session }
 import com.searchlight.khronus.model.{ Tick, Metric, MonitoringSupport, Timestamp }
@@ -102,11 +103,15 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
   }
 
   def searchInSnapshotByRegex(regex: String): Seq[Metric] = {
-    getFromSnapshot.keys.filter(_.name.matches(regex)).toSeq
+    val pattern = Pattern.compile(regex)
+    val matcher = pattern.matcher("")
+    getFromSnapshot.keys.filter(k ⇒ matcher.reset(k.name).matches()).toSeq
   }
 
   def searchInSnapshotByMetricName(metricName: String): Option[(Metric, (Timestamp, Boolean))] = {
-    getFromSnapshot.find { case (metric, (timestamp, active)) ⇒ metric.name.matches(metricName) }
+    val pattern = Pattern.compile(metricName)
+    val matcher = pattern.matcher("")
+    getFromSnapshot.find { case (metric, (timestamp, active)) ⇒ matcher.reset(metric.name).matches() }
   }
 
   def allMetrics(): Future[Seq[Metric]] = retrieveMetrics.map(_.keys.toSeq)
