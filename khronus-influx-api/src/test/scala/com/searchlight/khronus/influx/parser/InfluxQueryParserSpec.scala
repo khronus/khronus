@@ -17,7 +17,6 @@
 package com.searchlight.khronus.influx.parser
 
 import com.searchlight.khronus.model._
-import com.searchlight.khronus.util.BaseTest
 import org.scalatest.FunSuite
 import org.scalatest.Matchers
 import java.util.concurrent.TimeUnit
@@ -28,7 +27,7 @@ import com.searchlight.khronus.store.MetaStore
 import org.scalatest.mock.MockitoSugar
 import org.mockito.Mockito._
 
-class InfluxQueryParserSpec extends FunSuite with BaseTest with Matchers with MockitoSugar {
+class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
   // TODO - Where con soporte para expresiones regulares: =~ matches against, !~ doesn’t match against
 
   implicit val context = scala.concurrent.ExecutionContext.Implicits.global

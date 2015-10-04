@@ -39,9 +39,8 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
   var tickActorRef: Option[ActorRef] = _
   var idleWorkers = Set[ActorRef]()
   var busyWorkers = Set[ActorRef]()
-  var checkLeadershipScheduler: Option[ActorRef] = _
+  var checkLeadershipScheduler: Option[Cancellable] = _
 
-  //var pendingMetrics = Vector[Metric]()
   var pendingMetrics = 0
 
   val affinityConsistentHashRing = AffinityConsistentHashRing()
@@ -86,7 +85,9 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
       log.info(s"Initializing leader ${self.path}")
       hasLeadership = true
       checkLeadershipErrorCount.set(0)
-      checkLeadershipScheduler = scheduleCheckLeadership()
+      if (checkLeadershipScheduler == null || !checkLeadershipScheduler.isDefined){
+        checkLeadershipScheduler = scheduleCheckLeadership()
+      }
 
       router = Some(createRouter())
 
@@ -102,7 +103,10 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
     releaseResources()
 
-    checkLeadershipScheduler = scheduleCheckLeadership()
+    if (checkLeadershipScheduler == null || !checkLeadershipScheduler.isDefined){
+      checkLeadershipScheduler = scheduleCheckLeadership()
+    }
+
     become(backupLeader)
   }
 
@@ -115,17 +119,24 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
       LeaderElection.leaderElectionStore.acquireLock() onComplete {
         case Success(election) if (election) => log.info("backupLeader has succeed in leaderElection"); initializeLeader
+        case Success(election) if (!election) => log.info("backupLeader could not acquiere lock");
         case Failure(ex) => log.error("Error trying to check for leader")
       }
     }
+
+    case Terminated(child) => log.info(s"Receive terminated on Master from ${child.path}")
   }
+
 
 
   def leader(): Receive = {
 
     case CheckLeadership => {
       LeaderElection.leaderElectionStore.renewLock() onComplete {
-        case Success(election) if (!election) => log.error("Lost leadership!! Change to backupLeader"); initializeBackupLeader
+        case Success(election) if (!election) => {
+          log.error("Lost leadership!! Change to backupLeader")
+          initializeBackupLeader
+        }
         case Success(election) if (election) => log.info("Renew leadership successful")
         case Failure(ex) => {
           if (checkLeadershipErrorCount.incrementAndGet() > MAX_CHECKLEADER_ERROR_COUNT) {
@@ -146,14 +157,10 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
     case PendingMetrics(metrics) ⇒
       recordSystemMetrics(metrics)
 
-      //val sortedPendingMetrics = collection.SortedSet(pendingMetrics: _*)(Ordering[String].on[Metric] { _.name })
-
-      //pendingMetrics ++= metrics filterNot (metric ⇒ sortedPendingMetrics(metric))
-
       var metricsToProcess = metrics.toSet
 
       if (pendingMetrics > 0) {
-        log.warning(s"There are still ${pendingMetrics} from previous Tick. Merging previous with actuals metrics")
+        log.warning(s"There are still ${pendingMetrics} from previous Tick. Merging previous with current metrics")
         //recover pending metrics
         metricsToProcess ++= affinityConsistentHashRing.remainingMetrics()
       }
@@ -162,15 +169,16 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
       affinityConsistentHashRing.assignWorkers(metricsToProcess.toSeq)
 
-      if (busyWorkers.nonEmpty) log.warning(s"There are still ${busyWorkers.size} busy workers from previous Tick. This may mean that either workers are still processing metrics or Terminated message has not been received yet")
+      if (busyWorkers.nonEmpty) log.warning(s"There are still ${busyWorkers.size} busy workers from previous Tick. This may mean that either workers are still processing metrics or Terminated message has not been received yet. Workers $busyWorkers")
       else start = System.currentTimeMillis()
 
       while (pendingMetrics > 0 && idleWorkers.nonEmpty) {
         val worker = idleWorkers.head
 
-        dispatch(worker, "dispatch")
+        val metrics = dispatch(worker, "dispatch")
 
-        busyWorkers += worker
+        if (metrics.nonEmpty) busyWorkers += worker
+
         idleWorkers = idleWorkers.tail
       }
 
@@ -202,7 +210,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
   }
 
-  private def dispatch(worker: ActorRef, dispatchType: String) = {
+  private def dispatch(worker: ActorRef, dispatchType: String): Seq[Metric] = {
     val metrics = affinityConsistentHashRing.nextMetrics(worker)
 
     log.debug(s"$dispatchType ${metrics.mkString(",")} to ${worker.path}")
@@ -210,14 +218,23 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
     worker ! Work(metrics)
     pendingMetrics -= metrics.size
+
+    metrics
   }
 
   private def releaseResources(): Unit = {
     log.info("Releasing resources in Master Actor")
-    router.get ! Broadcast(PoisonPill)
+    this.idleWorkers map (w => stop(_))
+    this.idleWorkers = Set[ActorRef]()
+    this.busyWorkers map (stop(_))
+    this.busyWorkers = Set[ActorRef]()
+    router map(r => {
+      r ! Broadcast(PoisonPill)
+      stop(r)
+    })
     heartbeatScheduler.map { case scheduler: Cancellable ⇒ scheduler.cancel() }
     tickActorRef.map { case actor: ActorRef ⇒ stop(actor) }
-    checkLeadershipScheduler.map { case actor: ActorRef ⇒ stop(actor) }
+    //checkLeadershipScheduler.map { case actor: ActorRef ⇒ stop(actor) }
     checkLeadershipErrorCount.set(0)
 
     freeLeadership()
@@ -280,11 +297,12 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
     Some(tickScheduler)
   }
 
-    def scheduleCheckLeadership(): Option[ActorRef] = {
+    def scheduleCheckLeadership(): Option[Cancellable] = {
       log.info(s"Scheduling checkForLeadership message at ${settings.CheckLeaderCronExpression}")
-      val scheduler = actorOf(Props[QuartzActor])
-      scheduler ! AddCronSchedule(self, settings.CheckLeaderCronExpression, CheckLeadership, reply = true)
-      Some(scheduler)
+      //val scheduler = actorOf(Props[QuartzActor])
+      //scheduler ! AddCronSchedule(self, settings.CheckLeaderCronExpression, CheckLeadership, reply = true)
+      //Some(scheduler)
+      Some(system.scheduler.schedule(0 seconds, 10 seconds, self, CheckLeadership))
     }
 }
 
@@ -302,7 +320,7 @@ trait RouterProvider {
   this: Actor ⇒
 
   def createRouter(): ActorRef = {
-    context.actorOf(Props[Worker].withRouter(FromConfig().withSupervisorStrategy(RouterSupervisorStrategy.restartOnError)), "workerRouter")
+    context.actorOf(Props[Worker].withRouter(FromConfig().withSupervisorStrategy(RouterSupervisorStrategy.restartOnError)), "RandomPoolActor")
   }
 }
 

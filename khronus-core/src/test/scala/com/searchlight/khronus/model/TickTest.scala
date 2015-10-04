@@ -75,3 +75,7 @@ class TestClock(date: String) extends Clock {
 
   def now: Long = df.parse(date).getTime
 }
+
+object TestClock {
+  def apply(date: String) = new TestClock(date)
+}

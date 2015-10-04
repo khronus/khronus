@@ -34,6 +34,9 @@ class KhronusHandlerSpec extends TestKitBase with ImplicitSender with FunSpecLik
       |  loglevel = INFO
       |  stdout-loglevel = DEBUG
       |  event-handlers = ["akka.event.Logging$DefaultLogger"]
+      |  actor {
+      |    provider = "akka.actor.LocalActorRefProvider"
+      |  }
       |}
       |
       |khronus {

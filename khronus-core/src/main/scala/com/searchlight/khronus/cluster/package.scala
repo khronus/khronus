@@ -18,6 +18,7 @@ package com.searchlight.khronus
 
 import akka.actor.SupervisorStrategy.Restart
 import akka.actor._
+import com.searchlight.khronus.util.log.Logging
 import model.Metric
 
 package object cluster {
@@ -27,10 +28,13 @@ package object cluster {
   case class WorkError(worker: ActorRef)
   case object Heartbeat
 
-  object RouterSupervisorStrategy {
+  object RouterSupervisorStrategy extends Logging {
     final val restartOnError: SupervisorStrategy = {
       OneForOneStrategy() {
-        case _: Exception ⇒ Restart
+        case _: Exception ⇒ {
+          log.error("ERROR ON ROUTER")
+          Restart
+        }
       }
     }
   }

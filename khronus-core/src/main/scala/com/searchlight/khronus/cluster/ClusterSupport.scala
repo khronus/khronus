@@ -25,6 +25,6 @@ trait ClusterSupport {
 
   //  system.actorOf(ClusterDomainEventListener.props, "cluster-listener")
   //  system.actorOf(ClusterSingletonManager.props(Master.props, "master", PoisonPill, Some("master")), "singleton-manager")
-  system.actorOf(ClusterDomainEventListener.props, "cluster-listener")
+  //system.actorOf(ClusterDomainEventListener.props, "cluster-listener")
   system.actorOf(Master.props, "master")
 }

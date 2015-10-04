@@ -19,7 +19,7 @@ package com.searchlight.khronus.store
 import java.nio.ByteBuffer
 
 import com.datastax.driver.core.utils.Bytes
-import com.datastax.driver.core.{ BatchStatement, ResultSet, Session, SimpleStatement }
+import com.datastax.driver.core._
 import com.searchlight.khronus.model._
 import com.searchlight.khronus.util.log.Logging
 import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable, Settings }
@@ -30,6 +30,7 @@ import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.{ Failure, Success }
 
 trait BucketStoreSupport[T <: Bucket] {
+
   def bucketStore: BucketStore[T]
 }
 
@@ -64,11 +65,12 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
   windowDurations.foreach(window ⇒ {
     log.info(s"Initializing table ${tableName(window)}")
     retry(MaxRetries, s"Creating ${tableName(window)} table") {
-      session.execute(s"create table if not exists ${tableName(window)} (metric text, timestamp bigint, buckets list<blob>, primary key (metric, timestamp)) with gc_grace_seconds = 0 and compaction = {'class': 'LeveledCompactionStrategy' };")
+      session.execute(s"create table if not exists ${tableName(window)} (metric text, timestamp bigint, buckets ${getBucketsCollectionType(window)}<blob>, primary key (metric, timestamp)) with gc_grace_seconds = 0 and compaction = {'class': 'LeveledCompactionStrategy' };")
     }
   })
 
   val stmtPerWindow: Map[Duration, Statements] = windowDurations.map(windowDuration ⇒ {
+    log.info("creating prepared statements...")
     val insert = session.prepare(s"update ${tableName(windowDuration)} using ttl ${ttl(windowDuration)} set buckets = buckets + ? where metric = ? and timestamp = ? ; ")
 
     val simpleStmt = new SimpleStatement(s"select timestamp, buckets from ${tableName(windowDuration)} where metric = ? and timestamp >= ? and timestamp < ? limit ?;")
@@ -89,7 +91,7 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
         bucketsChunk.foreach(bucket ⇒ {
           val serializedBucket = serialize(metric, windowDuration, bucket)
           log.trace(s"${p(metric, windowDuration)} Storing a bucket of ${serializedBucket.limit()} bytes")
-          boundBatchStmt.add(stmt.bind(Seq(serializedBucket).asJava, metric.name, Long.box(bucket.timestamp.ms)))
+          boundBatchStmt.add(stmt.bind(bucketCollection(serializedBucket, windowDuration), metric.name, Long.box(bucket.timestamp.ms)))
         })
 
         val future: Future[Unit] = measureAndCheckForTimeOutliers("bucketBatchStoreCassandra", metric, windowDuration, getQueryAsString(stmt.getQueryString, bucketsChunk.length, metric.name)) {
@@ -103,19 +105,17 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
   def store(metrics: Seq[(Metric, () ⇒ T)], windowDuration: Duration): Future[Unit] = executeChunked(s"buckets of $windowDuration", metrics, Settings.CassandraBuckets.insertChunkSize) {
     bucketsChunk ⇒
       {
-        val boundBatchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
         val stmt = stmtPerWindow(windowDuration).insert
-        bucketsChunk.foreach {
+        val bounds = bucketsChunk.map {
           case (metric, fBucket) ⇒ {
             val bucket = fBucket()
             val serializedBucket = serialize(metric, windowDuration, bucket)
-            boundBatchStmt.add(stmt.bind(Seq(serializedBucket).asJava, metric.name, Long.box(bucket.timestamp.ms)))
+            val f: Future[Unit] = session.executeAsync(stmt.bind(Seq(serializedBucket).asJava, metric.name, Long.box(bucket.timestamp.ms)))
+            f
           }
         }
 
-        val future: Future[Unit] = {
-          session.executeAsync(boundBatchStmt)
-        }
+        val future = Future.sequence(bounds)
 
         future andThen {
           case Success(_) ⇒ incrementCounter("bucketStore.batch.ok")
@@ -125,7 +125,7 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
           }
         }
 
-        future
+        future.map(s ⇒ Unit)
       }
   }
 
@@ -139,8 +139,8 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
     future.map(resultSet ⇒ {
       BucketSlice(resultSet.asScala.flatMap(row ⇒ {
         val ts = row.getLong("timestamp")
-        val buckets = row.getList("buckets", classOf[java.nio.ByteBuffer])
-        buckets.asScala.map(serializedBucket ⇒ BucketResult(Timestamp(ts), new LazyBucket(deserialize(sourceWindow, ts, Bytes.getArray(serializedBucket)))))
+        val buckets = getBucketsFromRow(row, sourceWindow)
+        buckets.map(serializedBucket ⇒ BucketResult(Timestamp(ts), new LazyBucket(deserialize(sourceWindow, ts, Bytes.getArray(serializedBucket)))))
       }).toSeq)
     })
   }
@@ -157,4 +157,20 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
     s"Query statement: $stmt -> Binds $binds"
   }
 
+  private def getBucketsCollectionType(duration: Duration): String = duration match {
+    case Duration(1, millis) ⇒ "list"
+    case _                   ⇒ "set"
+  }
+
+  private def bucketCollection(bucket: ByteBuffer, duration: Duration) = duration match {
+    case Duration(1, millis) ⇒ Seq(bucket).asJava
+    case _                   ⇒ Set(bucket).asJava
+  }
+
+  private def getBucketsFromRow(row: Row, duration: Duration) = duration match {
+    case Duration(1, millis) ⇒ row.getList("buckets", classOf[java.nio.ByteBuffer]).asScala
+    case _                   ⇒ row.getSet("buckets", classOf[java.nio.ByteBuffer]).asScala
+  }
+
 }
+

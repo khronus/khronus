@@ -31,6 +31,10 @@ class VersionServiceSpec extends Specification with Specs2RouteTest with Version
       |  loggers = ["akka.event.slf4j.Slf4jLogger"]
       |  loglevel = INFO
       |  stdout-loglevel = DEBUG
+      |
+      |  actor {
+      |    provider = "akka.actor.LocalActorRefProvider"
+      |  }
       | }
     """.stripMargin))
   override def createActorSystem(): ActorSystem = actorRefFactory

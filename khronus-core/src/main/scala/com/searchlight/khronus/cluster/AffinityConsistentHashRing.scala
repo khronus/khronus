@@ -43,8 +43,8 @@ class AffinityConsistentHashRing extends Logging {
     }
   }
 
-  def nextMetrics(worker: ActorRef): Seq[Metric] = metricsByWorker(key(worker)).next
-  def hasPendingMetrics(worker: ActorRef) = metricsByWorker(key(worker)).hasNext
+  def nextMetrics(worker: ActorRef): Seq[Metric] = metricsByWorker.get(key(worker)).map(_.next).getOrElse(Seq())
+  def hasPendingMetrics(worker: ActorRef) = metricsByWorker.get(key(worker)).exists(_.hasNext)
 
   def remainingMetrics(): Seq[Metric] = {
     metricsByWorker.values flatMap (_.remaining) toSeq

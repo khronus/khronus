@@ -16,7 +16,7 @@
 
 package com.searchlight.khronus.cluster
 
-import akka.actor.{ Actor, ActorLogging, ActorRef, Props }
+import akka.actor._
 import com.searchlight.khronus.model.{ Metric, MonitoringSupport, TimeWindowChain }
 
 import scala.util.control.{ NoStackTrace, NonFatal }
@@ -40,6 +40,7 @@ class Worker extends Actor with ActorLogging with TimeWindowChainProvider with M
     case everythingElse ⇒ //ignore
   }
 
+
   def process(metrics: Seq[Metric], requestor: ActorRef): Unit = {
     log.debug(s"Worker ${self.path.name} starting to process ${metrics.size} metrics")
     log.debug(s"Starting to process: ${metrics.mkString(",")}")
@@ -62,6 +63,15 @@ class Worker extends Actor with ActorLogging with TimeWindowChainProvider with M
     super.postRestart(reason)
     incrementCounter("workerRestarts")
     log.info(s"Restarted because of ${reason.getMessage}")
+  }
+
+  override def postStop(): Unit = {
+    log.info(s"STOP WORKER ${this.self.path}")
+    super.postStop()
+  }
+
+  override def unhandled(message: Any): Unit = {
+    log.error(s"UNHANDLED MESSAGE ${this.self.path}")
   }
 }
 

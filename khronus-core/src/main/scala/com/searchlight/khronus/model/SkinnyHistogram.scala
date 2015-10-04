@@ -115,7 +115,7 @@ object SkinnyHistogram {
 
     val skinnyHistogram = HistogramBucket.newHistogram
     skinnyHistogram.setIntegerToDoubleValueConversionRatio(integerToDoubleValueConversionRatio)
-    skinnyHistogram.resetNormalizingIndexOffset(normalizingIndexOffset)
+    //skinnyHistogram.resetNormalizingIndexOffset(normalizingIndexOffset)
     var lastIdx = 0
     var lastFreq = 0L
     var minNonZeroIndex: Int = -1

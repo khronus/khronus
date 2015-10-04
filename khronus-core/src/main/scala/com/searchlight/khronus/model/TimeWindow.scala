@@ -26,7 +26,12 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.{ Failure, Success }
 
-abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[T] with SummaryStoreSupport[U] with MetaSupport with Logging with Measurable with BucketCacheSupport[T] {
+trait Window {
+  def process(implicit metric: Metric, tick: Tick): Future[Unit]
+  def duration: Duration
+}
+
+abstract class TimeWindow[T <: Bucket, U <: Summary] extends Window with BucketStoreSupport[T] with SummaryStoreSupport[U] with MetaSupport with Logging with Measurable with BucketCacheSupport[T] {
 
   import com.searchlight.khronus.model.TimeWindow._
 
@@ -35,10 +40,11 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
   def process(implicit metric: Metric, tick: Tick): Future[Unit] = measureAndCheckForTimeOutliers("processWindow", metric, duration) {
     implicit val context = Context(metric, durationText)
 
-    log.debug(s"$context - Processing time window for ${Tick(tick.bucketNumber ~ duration)}")
-
     //get the last bucket processed for this window
     withLastProcessedBucket { lastProcessedBucket ⇒
+
+      log.debug(s"$context - Processing time window for ${Tick(tick.bucketNumber ~ duration)}")
+
       //we align both bucket numbers (lastProcessedBucketNumber and Tick) to the previousWindowDuration
       val fromBucketNumber = lastProcessedBucket.endTimestamp().toBucketNumberOf(previousWindowDuration)
       //since the slices over bucketStore and bucketCache are exclusives at the end, we use the Tick's following bucket number as the end of the slices
@@ -106,8 +112,6 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends BucketStoreSupport[
 
   protected def aggregate(bucketNumber: BucketNumber, buckets: Seq[T]): T
 
-  def duration: Duration
-
   protected def previousWindowDuration: Duration
 
   protected def shouldStoreTemporalHistograms: Boolean
@@ -162,11 +166,11 @@ case class CounterTimeWindow(duration: Duration, previousWindowDuration: Duratio
 }
 
 case class HistogramTimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true)
-    extends TimeWindow[HistogramBucket, StatisticSummary] with HistogramBucketSupport with StatisticSummarySupport {
+    extends TimeWindow[HistogramBucket, HistogramSummary] with HistogramBucketSupport with HistogramSummarySupport {
 
   override def aggregate(bucketNumber: BucketNumber, buckets: Seq[HistogramBucket]): HistogramBucket = new HistogramBucket(bucketNumber, buckets)
 
-  override def calculateSummary(bucket: HistogramBucket): StatisticSummary = bucket.summary
+  override def calculateSummary(bucket: HistogramBucket): HistogramSummary = bucket.summary
 
   override val bucketCache: BucketCache[HistogramBucket] = InMemoryHistogramBucketCache
 }

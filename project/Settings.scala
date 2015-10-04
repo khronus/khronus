@@ -14,7 +14,7 @@ object Settings {
   lazy val basicSettings = Seq(
     scalaVersion  := ScalaVersion,
     organization := "com.searchlight",
-    version := "0.1-beta",
+    version := "0.2",
     exportJars := true,
     resolvers    ++= Dependencies.resolutionRepos,
     fork in (Test, run) := true,
@@ -29,7 +29,7 @@ object Settings {
       "-unchecked",
       "-optimise",
       "-deprecation",
-      "-target:jvm-1.6",
+      "-target:jvm-1.7",
       "-language:postfixOps",
       "-language:implicitConversions",
       "-language:reflectiveCalls",
@@ -41,7 +41,10 @@ object Settings {
     ScalariformKeys.preferences in Test    := formattingPreferences
   )
 
-  lazy val extraPackagerSettings = Seq(bashScriptExtraDefines += """addJava "-Dconfig.file=${app_home}/../conf/application.conf"""")
+  lazy val extraPackagerSettings = Seq(bashScriptExtraDefines += """addJava "-Dconfig.file=${app_home}/../conf/application.conf" """,
+    bashScriptExtraDefines += """addJava "-Dlogback.configurationFile=${app_home}/../conf/logback.xml" """,
+    mappings in (Compile, packageBin) ~= { _.filter(!_._1.getName.equals("logback.xml")) }
+  )
 
   def formattingPreferences =
     FormattingPreferences()

@@ -20,18 +20,18 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 
 import com.datastax.driver.core.Session
-import com.searchlight.khronus.model.StatisticSummary
+import com.searchlight.khronus.model.HistogramSummary
 import com.searchlight.khronus.util.log.Logging
 import com.searchlight.khronus.util.{ Measurable, Settings }
 import com.esotericsoftware.kryo.io.{ Input, Output }
 
 import scala.concurrent.duration._
 
-trait StatisticSummarySupport extends SummaryStoreSupport[StatisticSummary] {
-  override def summaryStore: SummaryStore[StatisticSummary] = Summaries.histogramSummaryStore
+trait HistogramSummarySupport extends SummaryStoreSupport[HistogramSummary] {
+  override def summaryStore: SummaryStore[HistogramSummary] = Summaries.histogramSummaryStore
 }
 
-class CassandraStatisticSummaryStore(session: Session) extends CassandraSummaryStore[StatisticSummary](session) with Logging with Measurable {
+class CassandraHistogramSummaryStore(session: Session) extends CassandraSummaryStore[HistogramSummary](session) with Logging with Measurable {
 
   override def limit = Settings.Histogram.SummaryLimit
 
@@ -41,33 +41,33 @@ class CassandraStatisticSummaryStore(session: Session) extends CassandraSummaryS
 
   override def ttl(windowDuration: Duration): Int = Settings.Histogram.SummaryRetentionPolicy
 
-  override def serializeSummary(summary: StatisticSummary): ByteBuffer = {
-    val byteArray = StatisticSummarySerializerV2.serialize(summary)
-    recordGauge("statisticSummarySerializedBytes", byteArray.length)
+  override def serializeSummary(summary: HistogramSummary): ByteBuffer = {
+    val byteArray = HistogramSummarySerializerV2.serialize(summary)
+    recordGauge("histogramSummarySerializedBytes", byteArray.length)
     ByteBuffer.wrap(byteArray)
   }
 
-  override def deserialize(timestamp: Long, buffer: Array[Byte]): StatisticSummary = {
+  override def deserialize(timestamp: Long, buffer: Array[Byte]): HistogramSummary = {
     val input = new Input(buffer)
     val version = input.readByte()
     version match {
-      case 1 ⇒ StatisticSummarySerializerV1.deserialize(input, timestamp)
-      case 2 ⇒ StatisticSummarySerializerV2.deserialize(input, timestamp)
-      case _ ⇒ throw new UnsupportedOperationException(s"Could not deserialize unknown statistic summary version $version")
+      case 1 ⇒ HistogramSummarySerializerV1.deserialize(input, timestamp)
+      case 2 ⇒ HistogramSummarySerializerV2.deserialize(input, timestamp)
+      case _ ⇒ throw new UnsupportedOperationException(s"Could not deserialize unknown histogram summary version $version")
     }
   }
 
 }
 
-trait StatisticSummarySerializer {
-  def serialize(summary: StatisticSummary): Array[Byte]
+trait HistogramSummarySerializer {
+  def serialize(summary: HistogramSummary): Array[Byte]
 
-  def deserialize(input: Input, timestamp: Long): StatisticSummary
+  def deserialize(input: Input, timestamp: Long): HistogramSummary
 
 }
 
-object StatisticSummarySerializerV1 extends StatisticSummarySerializer {
-  override def serialize(summary: StatisticSummary): Array[Byte] = {
+object HistogramSummarySerializerV1 extends HistogramSummarySerializer {
+  override def serialize(summary: HistogramSummary): Array[Byte] = {
     val baos = new ByteArrayOutputStream()
     val output = new Output(baos)
     output.writeByte(1) //version
@@ -86,7 +86,7 @@ object StatisticSummarySerializerV1 extends StatisticSummarySerializer {
     baos.toByteArray
   }
 
-  override def deserialize(input: Input, timestamp: Long): StatisticSummary = {
+  override def deserialize(input: Input, timestamp: Long): HistogramSummary = {
     val p50 = input.readVarLong(true)
     val p80 = input.readVarLong(true)
     val p90 = input.readVarLong(true)
@@ -97,13 +97,13 @@ object StatisticSummarySerializerV1 extends StatisticSummarySerializer {
     val max = input.readVarLong(true)
     val count = input.readVarLong(true)
     val mean = input.readVarLong(true)
-    StatisticSummary(timestamp, p50, p80, p90, p95, p99, p999, min, max, count, mean)
+    HistogramSummary(timestamp, p50, p80, p90, p95, p99, p999, min, max, count, mean)
   }
 }
 
-object StatisticSummarySerializerV2 extends StatisticSummarySerializer {
+object HistogramSummarySerializerV2 extends HistogramSummarySerializer {
 
-  override def serialize(summary: StatisticSummary): Array[Byte] = {
+  override def serialize(summary: HistogramSummary): Array[Byte] = {
     val baos = new ByteArrayOutputStream()
     val output = new Output(baos)
     output.writeByte(2) //version
@@ -133,7 +133,7 @@ object StatisticSummarySerializerV2 extends StatisticSummarySerializer {
     baos.toByteArray
   }
 
-  override def deserialize(input: Input, timestamp: Long): StatisticSummary = {
+  override def deserialize(input: Input, timestamp: Long): HistogramSummary = {
     val p50 = input.readVarLong(true)
     val p80 = input.readVarLong(true)
     val p90 = input.readVarLong(true)
@@ -145,7 +145,7 @@ object StatisticSummarySerializerV2 extends StatisticSummarySerializer {
     val count = input.readVarLong(true)
     val mean = input.readVarLong(true)
 
-    StatisticSummary(timestamp, min + p50, p50 + p80, p80 + p90, p90 + p95, p95 + p99, p99 + p999, min, p999 + max, count, min + mean)
+    HistogramSummary(timestamp, min + p50, p50 + p80, p80 + p90, p90 + p95, p95 + p99, p99 + p999, min, p999 + max, count, min + mean)
   }
 }
 
