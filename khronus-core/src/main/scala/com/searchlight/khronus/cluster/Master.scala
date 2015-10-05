@@ -35,11 +35,11 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
   import com.searchlight.khronus.cluster.Master._
   import context._
 
-  var heartbeatScheduler: Option[Cancellable] = _
-  var tickActorRef: Option[ActorRef] = _
+  var heartbeatScheduler: Option[Cancellable] = None
+  var tickActorRef: Option[ActorRef] = None
   var idleWorkers = Set[ActorRef]()
   var busyWorkers = Set[ActorRef]()
-  var checkLeadershipScheduler: Option[Cancellable] = _
+  var checkLeadershipScheduler: Option[Cancellable] = None
 
   var pendingMetrics = 0
 
@@ -53,7 +53,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
   var checkLeadershipErrorCount = new AtomicInteger(0)
   val MAX_CHECKLEADER_ERROR_COUNT = 2
 
-  var router: Option[ActorRef] = _
+  var router: Option[ActorRef] = None
 
   self ! Initialize
 
@@ -94,6 +94,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
       heartbeatScheduler = scheduleHeartbeat()
       tickActorRef = scheduleTick()
 
+      incrementCounter("leader")
       become(leader())
     }
 
@@ -107,6 +108,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
       checkLeadershipScheduler = scheduleCheckLeadership()
     }
 
+    incrementCounter("buckupLeader")
     become(backupLeader)
   }
 
@@ -118,9 +120,19 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
       }
 
       LeaderElection.leaderElectionStore.acquireLock() onComplete {
-        case Success(election) if (election) => log.info("backupLeader has succeed in leaderElection"); initializeLeader
-        case Success(election) if (!election) => log.info("backupLeader could not acquiere lock");
-        case Failure(ex) => log.error("Error trying to check for leader")
+        case Success(election) if (election) => {
+          log.info("backupLeader has succeed in leaderElection")
+          incrementCounter("buckupLeaderElectionSucess")
+          initializeLeader
+        }
+        case Success(election) if (!election) => {
+          log.info("backupLeader could not acquiere lock")
+          incrementCounter("backupLeaderLostElection")
+        }
+        case Failure(ex) => {
+          log.error("Error trying to check for leader")
+          incrementCounter("buckupLeaderErrorElection")
+        }
       }
     }
 
@@ -135,12 +147,17 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
       LeaderElection.leaderElectionStore.renewLock() onComplete {
         case Success(election) if (!election) => {
           log.error("Lost leadership!! Change to backupLeader")
+          incrementCounter("leaderLostRenew")
           initializeBackupLeader
         }
-        case Success(election) if (election) => log.info("Renew leadership successful")
+        case Success(election) if (election) => {
+          log.info("Renew leadership successful")
+          incrementCounter("leaderSuccessRenew")
+        }
         case Failure(ex) => {
           if (checkLeadershipErrorCount.incrementAndGet() > MAX_CHECKLEADER_ERROR_COUNT) {
             log.error("Exceed maximum number of errors in update leadership. Change to backupLeader")
+            incrementCounter("leaderChangeToBuckupOnError")
             initializeBackupLeader
           } else {
             log.error("Error trying to check for leader")

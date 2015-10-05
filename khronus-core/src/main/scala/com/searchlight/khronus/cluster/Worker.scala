@@ -66,12 +66,12 @@ class Worker extends Actor with ActorLogging with TimeWindowChainProvider with M
   }
 
   override def postStop(): Unit = {
-    log.info(s"STOP WORKER ${this.self.path}")
+    log.info(s"Stop worker ${this.self.path}")
     super.postStop()
   }
 
   override def unhandled(message: Any): Unit = {
-    log.error(s"UNHANDLED MESSAGE ${this.self.path}")
+    log.warning(s"Unhandled message ${this.self.path}")
   }
 }
 
