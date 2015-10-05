@@ -48,7 +48,7 @@ trait CassandraClusterConfiguration {
 
   def clusterBuilder = Cluster.builder().
     withClusterName(settingsCassandra.ClusterName).
-    addContactPoints("127.0.0.1","127.0.0.2","127.0.0.3").
+    addContactPoints(settingsCassandra.Seeds: _*).
     withPort(settingsCassandra.Port).
     withPoolingOptions(poolingOptions).
     withSocketOptions(socketOptions).
