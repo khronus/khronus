@@ -1,7 +1,7 @@
 package com.searchlight.khronus.store
 
 import com.datastax.driver.core.exceptions.WriteTimeoutException
-import com.datastax.driver.core.{ConsistencyLevel, WriteType, ResultSet, Session}
+import com.datastax.driver.core.{ ConsistencyLevel, WriteType, ResultSet, Session }
 import com.searchlight.khronus.util.ConcurrencySupport
 
 import scala.concurrent.Future
@@ -39,7 +39,7 @@ class LeaderElectionStore(session: Session) extends CassandraUtils with Concurre
     val f: Future[ResultSet] = session.executeAsync(insert.bind())
 
     f.recoverWith {
-      case e: WriteTimeoutException => if (e.getWriteType.equals(WriteType.CAS)) {
+      case e: WriteTimeoutException ⇒ if (e.getWriteType.equals(WriteType.CAS)) {
         //paxos phase fails
         if (retry < 3) {
           log.error(s"Error in adquireLock($uuid). Fail CAS operation. Retrying...")
@@ -54,7 +54,7 @@ class LeaderElectionStore(session: Session) extends CassandraUtils with Concurre
       }
     }
 
-    f.map (validateResult(_))
+    f.map(validateResult(_))
   }
 
   def validateResult(resultSet: ResultSet): Boolean = {
@@ -70,16 +70,17 @@ class LeaderElectionStore(session: Session) extends CassandraUtils with Concurre
   def renewLock(): Future[Boolean] = {
     val f: Future[ResultSet] = session.executeAsync(update.bind())
 
-    f.map (validateResult(_))
+    f.map(validateResult(_))
   }
 
   def softLockCheck(): Future[Boolean] = {
     val f: Future[ResultSet] = session.executeAsync(select.bind().setConsistencyLevel(ConsistencyLevel.QUORUM)) //TODO serial read?
 
-    f map { _.asScala.headOption.exists(row ⇒ {
-          val hasLock = row.getUUID("owner").toString.equals(uuid)
-          log.info(s"softLockCheck for $uuid: $hasLock")
-          hasLock
+    f map {
+      _.asScala.headOption.exists(row ⇒ {
+        val hasLock = row.getUUID("owner").toString.equals(uuid)
+        log.info(s"softLockCheck for $uuid: $hasLock")
+        hasLock
       })
     }
   }
@@ -88,7 +89,7 @@ class LeaderElectionStore(session: Session) extends CassandraUtils with Concurre
     val f: Future[ResultSet] = session.executeAsync(delete.bind())
 
     f.recoverWith {
-      case e: WriteTimeoutException => if (e.getWriteType.equals(WriteType.CAS)) {
+      case e: WriteTimeoutException ⇒ if (e.getWriteType.equals(WriteType.CAS)) {
         //paxos phase fails
         if (retry < 3) {
           log.error(s"Error in releaseLock($uuid). Fail CAS operation. Retrying...")
@@ -107,9 +108,9 @@ class LeaderElectionStore(session: Session) extends CassandraUtils with Concurre
     f.map { resultSet ⇒
       resultSet.asScala.headOption.map(row ⇒ row.getBool("[applied]")).getOrElse(false)
     } andThen {
-      case Success(applied) => {
+      case Success(applied) ⇒ {
         log.info(s"End releaseLock for $uuid and retries $retry -> $applied")
-        if (!applied && retry != 0) softLockCheck() map (x => Future.successful(!x))
+        if (!applied && retry != 0) softLockCheck() map (x ⇒ Future.successful(!x))
       }
     }
   }

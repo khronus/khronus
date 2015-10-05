@@ -20,8 +20,8 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor._
 import akka.routing.{ Broadcast, FromConfig }
-import com.searchlight.khronus.model.{Tick, MonitoringSupport, Metric}
-import com.searchlight.khronus.store.{LeaderElection, MetaSupport}
+import com.searchlight.khronus.model.{ Tick, MonitoringSupport, Metric }
+import com.searchlight.khronus.store.{ LeaderElection, MetaSupport }
 import com.searchlight.khronus.util.Settings
 import us.theatr.akka.quartz.{ AddCronScheduleFailure, _ }
 
@@ -61,14 +61,14 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
   def uninitialized: Receive = {
     case Initialize ⇒ LeaderElection.leaderElectionStore.acquireLock() onComplete {
-      case Success(acquire) => {
+      case Success(acquire) ⇒ {
         if (acquire) {
           initializeLeader
         } else {
           initializeBackupLeader
         }
       }
-      case Failure(ex) => {
+      case Failure(ex) ⇒ {
         log.error("Error trying to check for leader. Schedule to re initialize in 10 seconds")
         system.scheduler.scheduleOnce(10 seconds, self, Initialize)
       }
@@ -82,21 +82,21 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
   }
 
   private def initializeLeader: Unit = {
-      log.info(s"Initializing leader ${self.path}")
-      hasLeadership = true
-      checkLeadershipErrorCount.set(0)
-      if (checkLeadershipScheduler == null || !checkLeadershipScheduler.isDefined){
-        checkLeadershipScheduler = scheduleCheckLeadership()
-      }
-
-      router = Some(createRouter())
-
-      heartbeatScheduler = scheduleHeartbeat()
-      tickActorRef = scheduleTick()
-
-      incrementCounter("leader")
-      become(leader())
+    log.info(s"Initializing leader ${self.path}")
+    hasLeadership = true
+    checkLeadershipErrorCount.set(0)
+    if (checkLeadershipScheduler == null || !checkLeadershipScheduler.isDefined) {
+      checkLeadershipScheduler = scheduleCheckLeadership()
     }
+
+    router = Some(createRouter())
+
+    heartbeatScheduler = scheduleHeartbeat()
+    tickActorRef = scheduleTick()
+
+    incrementCounter("leader")
+    become(leader())
+  }
 
   private def initializeBackupLeader: Unit = {
     log.info(s"Initializing backup leader ${self.path}")
@@ -104,7 +104,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
     releaseResources()
 
-    if (checkLeadershipScheduler == null || !checkLeadershipScheduler.isDefined){
+    if (checkLeadershipScheduler == null || !checkLeadershipScheduler.isDefined) {
       checkLeadershipScheduler = scheduleCheckLeadership()
     }
 
@@ -113,48 +113,46 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
   }
 
   def backupLeader(): Receive = {
-    case CheckLeadership => {
+    case CheckLeadership ⇒ {
       if (hasLeadership) {
         log.error("A backup leader could not have the leader mark as true. Marked as false and continue")
         hasLeadership = false
       }
 
       LeaderElection.leaderElectionStore.acquireLock() onComplete {
-        case Success(election) if (election) => {
+        case Success(election) if (election) ⇒ {
           log.info("backupLeader has succeed in leaderElection")
           incrementCounter("buckupLeaderElectionSucess")
           initializeLeader
         }
-        case Success(election) if (!election) => {
+        case Success(election) if (!election) ⇒ {
           log.info("backupLeader could not acquiere lock")
           incrementCounter("backupLeaderLostElection")
         }
-        case Failure(ex) => {
+        case Failure(ex) ⇒ {
           log.error("Error trying to check for leader")
           incrementCounter("buckupLeaderErrorElection")
         }
       }
     }
 
-    case Terminated(child) => log.info(s"Receive terminated on Master from ${child.path}")
+    case Terminated(child) ⇒ log.info(s"Receive terminated on Master from ${child.path}")
   }
-
-
 
   def leader(): Receive = {
 
-    case CheckLeadership => {
+    case CheckLeadership ⇒ {
       LeaderElection.leaderElectionStore.renewLock() onComplete {
-        case Success(election) if (!election) => {
+        case Success(election) if (!election) ⇒ {
           log.error("Lost leadership!! Change to backupLeader")
           incrementCounter("leaderLostRenew")
           initializeBackupLeader
         }
-        case Success(election) if (election) => {
+        case Success(election) if (election) ⇒ {
           log.info("Renew leadership successful")
           incrementCounter("leaderSuccessRenew")
         }
-        case Failure(ex) => {
+        case Failure(ex) ⇒ {
           if (checkLeadershipErrorCount.incrementAndGet() > MAX_CHECKLEADER_ERROR_COUNT) {
             log.error("Exceed maximum number of errors in update leadership. Change to backupLeader")
             incrementCounter("leaderChangeToBuckupOnError")
@@ -241,11 +239,11 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
   private def releaseResources(): Unit = {
     log.info("Releasing resources in Master Actor")
-    this.idleWorkers map (w => stop(_))
+    this.idleWorkers map (w ⇒ stop(_))
     this.idleWorkers = Set[ActorRef]()
     this.busyWorkers map (stop(_))
     this.busyWorkers = Set[ActorRef]()
-    router map(r => {
+    router map (r ⇒ {
       r ! Broadcast(PoisonPill)
       stop(r)
     })
@@ -261,8 +259,8 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
     val f = LeaderElection.leaderElectionStore.releaseLock()
 
     f onComplete {
-      case Success(freeLock) => log.info(s"Release lock result: $freeLock")
-      case Failure(ex) => log.error("Error releasing the lock", ex)
+      case Success(freeLock) ⇒ log.info(s"Release lock result: $freeLock")
+      case Failure(ex)       ⇒ log.error("Error releasing the lock", ex)
     }
 
     f
@@ -314,13 +312,13 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
     Some(tickScheduler)
   }
 
-    def scheduleCheckLeadership(): Option[Cancellable] = {
-      log.info(s"Scheduling checkForLeadership message at ${settings.CheckLeaderCronExpression}")
-      //val scheduler = actorOf(Props[QuartzActor])
-      //scheduler ! AddCronSchedule(self, settings.CheckLeaderCronExpression, CheckLeadership, reply = true)
-      //Some(scheduler)
-      Some(system.scheduler.schedule(0 seconds, 10 seconds, self, CheckLeadership))
-    }
+  def scheduleCheckLeadership(): Option[Cancellable] = {
+    log.info(s"Scheduling checkForLeadership message at ${settings.CheckLeaderCronExpression}")
+    //val scheduler = actorOf(Props[QuartzActor])
+    //scheduler ! AddCronSchedule(self, settings.CheckLeaderCronExpression, CheckLeadership, reply = true)
+    //Some(scheduler)
+    Some(system.scheduler.schedule(0 seconds, 10 seconds, self, CheckLeadership))
+  }
 }
 
 object Master {
