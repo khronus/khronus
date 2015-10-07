@@ -13,7 +13,8 @@ Khronus does not have its own dashboard to graph its metrics. It is focused on a
 
 ## Status
 
-Khronus is being actively developed. It is currently being used in production at [Despegar.com]
+Khronus is being actively developed. It is currently being used in production at [Despegar.com].
+Currently working hard to have a stable release and provide a docker container to getting started.
 
 ## Features
 
