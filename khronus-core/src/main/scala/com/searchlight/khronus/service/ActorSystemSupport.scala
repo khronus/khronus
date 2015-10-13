@@ -29,7 +29,7 @@ object ActorSystemSupport extends Logging {
 
   sys.addShutdownHook({
     log.info("Shutting down khronus actor system")
-    system.shutdown()
+    system.terminate()
   })
 
 }

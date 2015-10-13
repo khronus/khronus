@@ -8,7 +8,7 @@ object Dependencies {
     "theatr.us"     at "http://repo.theatr.us"
   )
 
-  val akkaV               =       "2.3.6"
+  val akkaV               =       "2.4.0"
   val sprayV              =       "1.3.1"
 
   val sprayCan            =       "io.spray"                        %%  "spray-can"                   % sprayV

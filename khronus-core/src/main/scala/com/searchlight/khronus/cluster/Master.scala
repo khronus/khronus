@@ -69,7 +69,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
         }
       }
       case Failure(ex) ⇒ {
-        log.error("Error trying to check for leader. Schedule to re initialize in 10 seconds")
+        log.error(ex, "Error trying to check for leader. Schedule to re initialize in 10 seconds")
         system.scheduler.scheduleOnce(10 seconds, self, Initialize)
       }
     }
@@ -108,7 +108,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
       checkLeadershipScheduler = scheduleCheckLeadership()
     }
 
-    incrementCounter("buckupLeader")
+    incrementCounter("backupLeader")
     become(backupLeader)
   }
 
@@ -122,16 +122,16 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
       LeaderElection.leaderElectionStore.acquireLock() onComplete {
         case Success(election) if (election) ⇒ {
           log.info("backupLeader has succeed in leaderElection")
-          incrementCounter("buckupLeaderElectionSucess")
+          incrementCounter("backupLeaderElectionSuccess")
           initializeLeader
         }
         case Success(election) if (!election) ⇒ {
-          log.info("backupLeader could not acquiere lock")
+          log.info("backupLeader could not acquire lock")
           incrementCounter("backupLeaderLostElection")
         }
         case Failure(ex) ⇒ {
-          log.error("Error trying to check for leader")
-          incrementCounter("buckupLeaderErrorElection")
+          log.error("Error trying to check for leader", ex)
+          incrementCounter("backupLeaderErrorElection")
         }
       }
     }
@@ -155,7 +155,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
         case Failure(ex) ⇒ {
           if (checkLeadershipErrorCount.incrementAndGet() > MAX_CHECKLEADER_ERROR_COUNT) {
             log.error("Exceed maximum number of errors in update leadership. Change to backupLeader")
-            incrementCounter("leaderChangeToBuckupOnError")
+            incrementCounter("leaderChangeToBackupOnError")
             initializeBackupLeader
           } else {
             log.error("Error trying to check for leader")
@@ -243,7 +243,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
     this.idleWorkers = Set[ActorRef]()
     this.busyWorkers map (stop(_))
     this.busyWorkers = Set[ActorRef]()
-    router map (r ⇒ {
+    router foreach (r ⇒ {
       r ! Broadcast(PoisonPill)
       stop(r)
     })
@@ -335,7 +335,7 @@ trait RouterProvider {
   this: Actor ⇒
 
   def createRouter(): ActorRef = {
-    context.actorOf(Props[Worker].withRouter(FromConfig().withSupervisorStrategy(RouterSupervisorStrategy.restartOnError)), "RandomPoolActor")
+    context.actorOf(Props[Worker].withRouter(FromConfig().withSupervisorStrategy(RouterSupervisorStrategy.restartOnError)), "workers")
   }
 }
 

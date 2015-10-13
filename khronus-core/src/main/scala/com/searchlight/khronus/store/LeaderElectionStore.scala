@@ -42,11 +42,11 @@ class LeaderElectionStore(session: Session) extends CassandraUtils with Concurre
       case e: WriteTimeoutException ⇒ if (e.getWriteType.equals(WriteType.CAS)) {
         //paxos phase fails
         if (retry < 3) {
-          log.error(s"Error in adquireLock($uuid). Fail CAS operation. Retrying...")
+          log.error(s"Error in acquireLock($uuid). Fail CAS operation. Retrying...")
           acquireLock(retry + 1)
         } else {
-          log.error(s"Fail to recover from adquiereLock(retry = $retry)", e)
-          throw e;
+          log.error(s"Fail to recover from acquireLock(retry = $retry)", e)
+          throw e
         }
       } else {
         //commit phase fails. reading the row in serial will force Cassandra to commit any remaining uncommitted Paxos state before proceeding with the read
@@ -54,7 +54,7 @@ class LeaderElectionStore(session: Session) extends CassandraUtils with Concurre
       }
     }
 
-    f.map(validateResult(_))
+    f.map(validateResult)
   }
 
   def validateResult(resultSet: ResultSet): Boolean = {
@@ -70,7 +70,7 @@ class LeaderElectionStore(session: Session) extends CassandraUtils with Concurre
   def renewLock(): Future[Boolean] = {
     val f: Future[ResultSet] = session.executeAsync(update.bind())
 
-    f.map(validateResult(_))
+    f.map(validateResult)
   }
 
   def softLockCheck(): Future[Boolean] = {
