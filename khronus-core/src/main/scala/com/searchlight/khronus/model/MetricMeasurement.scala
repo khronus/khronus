@@ -49,4 +49,4 @@ case class MetricMeasurement(name: String, mtype: String, measurements: List[Mea
 
 }
 
-case class Measurement(ts: Long, @JsonDeserialize(contentAs = classOf[java.lang.Long]) values: Seq[Long])
+case class Measurement(@JsonDeserialize(contentAs = classOf[java.lang.Long]) ts: Option[Long], @JsonDeserialize(contentAs = classOf[java.lang.Long]) values: Seq[Long])
