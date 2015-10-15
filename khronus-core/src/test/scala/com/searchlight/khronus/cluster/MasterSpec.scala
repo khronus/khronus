@@ -118,19 +118,19 @@ class MasterSpec extends TestKitBase with ImplicitSender
       assert(idleWorkers.contains(worker2))
     }
 
-    "unregister worker when it is terminated" in new MasterWithoutSchedulersRealWorkerFixture {
+    "unregister worker" in new MasterWithoutSchedulersRealWorkerFixture {
       master ! Register(worker1)
       master ! Register(worker2)
       assert(idleWorkers.size == 2)
 
-      worker1 ! PoisonPill
+      master ! Unregister(worker1)
       assert(idleWorkers.size == 1)
       assert(!idleWorkers.contains(worker1))
 
-      worker1 ! PoisonPill
+      master ! Unregister(worker1)
       assert(idleWorkers.size == 1) // unregistering the same
 
-      worker2 ! PoisonPill
+      master ! Unregister(worker2)
       assert(idleWorkers.isEmpty)
     }
 
@@ -211,9 +211,14 @@ class MasterSpec extends TestKitBase with ImplicitSender
 
   trait ScheduledMasterProbeWorkerFixture {
 
-    class ScheduledMaster extends Master with WorkerProbeRouterProvider with DummyMetricFinder
+    class ScheduledMaster extends Master with WorkerProbeRouterProvider with DummyMetricFinder {
 
-    val master = TestActorRef(Props(new ScheduledMaster()))
+    }
+
+    val master = TestActorRef(Props(new ScheduledMaster() {
+      super.initializeLeader()
+      override def scheduleCheckLeadership() = None
+    }))
 
     val underlyingMaster = master.underlyingActor.asInstanceOf[ScheduledMaster]
 
@@ -236,7 +241,9 @@ class MasterSpec extends TestKitBase with ImplicitSender
 
     class TestMasterWithoutSchedulers extends NoScheduledMaster with RealWorkerRouterProvider with DummyMetricFinder
 
-    val master = TestActorRef(Props(new TestMasterWithoutSchedulers()).withDispatcher(CallingThreadDispatcher.Id))
+    val master = TestActorRef(Props(new TestMasterWithoutSchedulers() {
+      router = Some(createRouter())
+    }).withDispatcher(CallingThreadDispatcher.Id))
 
     val underlyingMaster = master.underlyingActor.asInstanceOf[TestMasterWithoutSchedulers]
 
@@ -252,7 +259,9 @@ class MasterSpec extends TestKitBase with ImplicitSender
 
     class TestMasterWithoutSchedulers extends NoScheduledMaster with WorkerProbeRouterProvider with DummyMetricFinder
 
-    val master = TestActorRef(Props(new TestMasterWithoutSchedulers()).withDispatcher(CallingThreadDispatcher.Id))
+    val master = TestActorRef(Props(new TestMasterWithoutSchedulers() {
+      router = Some(createRouter())
+    }).withDispatcher(CallingThreadDispatcher.Id))
 
     val underlyingMaster = master.underlyingActor.asInstanceOf[TestMasterWithoutSchedulers]
 
@@ -311,6 +320,8 @@ class MasterSpec extends TestKitBase with ImplicitSender
     override def scheduleTick(): Option[ActorRef] = None
 
     override def scheduleHeartbeat() = None
+
+    override def receive = leader()
   }
 
 }

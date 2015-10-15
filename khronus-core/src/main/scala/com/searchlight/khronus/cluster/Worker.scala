@@ -46,7 +46,7 @@ class Worker extends Actor with ActorLogging with TimeWindowChainProvider with M
 
     timeWindowChain.process(metrics).onComplete {
       case Success(_) ⇒
-        log.info(s"Worker ${self.path.name} has processed ${metrics.size} metrics successfully")
+        log.debug(s"Worker ${self.path.name} has processed ${metrics.size} metrics successfully")
         log.debug(s"Worker ${self.path} has processed ${metrics.mkString(",")} successfully")
         incrementCounter("workerDone")
         requestor ! WorkDone(self)
