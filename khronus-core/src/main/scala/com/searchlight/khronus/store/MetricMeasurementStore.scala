@@ -96,7 +96,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
     }
   }
   private def track(metric: Metric) = measureTime("measurementStore.track", "track metric") {
-    metaStore.getFromSnapshot.get(metric) map { case (timestamp, active) ⇒ metaStore.notifyMetricMeasurement(metric, active) } getOrElse {
+    metaStore.snapshot.get(metric) collect { case (timestamp, active) ⇒ metaStore.notifyMetricMeasurement(metric, active) } getOrElse {
       log.debug(s"Got a new metric: $metric. Will store metadata for it")
       storeMetadata(metric)
     }

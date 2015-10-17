@@ -192,7 +192,7 @@ trait CassandraUtils extends Logging {
   }
 
   final def executeChunked[T](msg: String, items: Seq[T], chunkSize: Int)(block: Seq[T] ⇒ Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
-    if (!items.isEmpty) {
+    if (items.nonEmpty) {
       val futures = items.grouped(chunkSize).map(chunk ⇒ block(chunk))
       Future.sequence(futures).andThen {
         case Failure(reason) ⇒ log.error(s"Failed to execute chunk operation: $msg", reason)
