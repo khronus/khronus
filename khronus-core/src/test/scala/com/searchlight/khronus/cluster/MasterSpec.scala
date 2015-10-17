@@ -17,7 +17,7 @@
 package com.searchlight.khronus.cluster
 
 import akka.actor._
-import akka.routing.RoundRobinGroup
+import akka.routing.{ ActorRefRoutee, Routees, RoundRobinGroup }
 import akka.testkit._
 import com.searchlight.khronus.cluster.Master.PendingMetrics
 import com.searchlight.khronus.model.Metric
@@ -212,7 +212,12 @@ class MasterSpec extends TestKitBase with ImplicitSender
   trait ScheduledMasterProbeWorkerFixture {
 
     class ScheduledMaster extends Master with WorkerProbeRouterProvider with DummyMetricFinder {
+      override def leader: Receive = noRoutees orElse super.leader
 
+      private def noRoutees: Receive = {
+        case Routees(routees) ⇒ {
+        }
+      }
     }
 
     val master = TestActorRef(Props(new ScheduledMaster() {
