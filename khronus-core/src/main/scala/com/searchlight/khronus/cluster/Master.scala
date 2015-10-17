@@ -139,8 +139,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
     case Routees(routees) ⇒ {
       val workersReachable = routees.collect { case routee: ActorRefRoutee ⇒ routee.ref }.toSet
-      val workersUnreachable = workers -- workersReachable
-      workers = workersReachable
+      val workersUnreachable = idleWorkers ++ busyWorkers -- workersReachable
       workersUnreachable.foreach { worker ⇒ self ! Unregister(worker) }
     }
 
