@@ -19,17 +19,20 @@ package com.searchlight.khronus.store
 import java.nio.ByteBuffer
 
 import com.datastax.driver.core.utils.Bytes
-import com.datastax.driver.core.{ ResultSet, BatchStatement, Session, SimpleStatement }
+import com.datastax.driver.core.{ BatchStatement, ResultSet, Session, SimpleStatement }
 import com.searchlight.khronus.model.{ Metric, Summary }
 import com.searchlight.khronus.util.log.Logging
-import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable }
-import com.searchlight.khronus.util.{ Settings, ConcurrencySupport, Measurable }
+import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable, Settings }
+
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
-import scala.util.{ Success, Failure }
 
 case class Slice(from: Long = -1L, to: Long)
+
+object CassandraSummaryStore extends ConcurrencySupport {
+  implicit val asyncExecutionContext = executionContext("summary-store-worker")
+}
 
 trait SummaryStoreSupport[T <: Summary] {
   def summaryStore: SummaryStore[T]
@@ -45,6 +48,8 @@ trait SummaryStore[T <: Summary] {
 
 abstract class CassandraSummaryStore[T <: Summary](session: Session) extends SummaryStore[T] with Logging with Measurable with ConcurrencySupport with CassandraUtils {
 
+  import CassandraSummaryStore.asyncExecutionContext
+
   protected def tableName(duration: Duration): String
 
   protected def windowDurations: Seq[Duration] = Settings.Window.WindowDurations
@@ -58,8 +63,6 @@ abstract class CassandraSummaryStore[T <: Summary](session: Session) extends Sum
   protected def deserialize(timestamp: Long, buffer: Array[Byte]): T
 
   protected def serializeSummary(summary: T): ByteBuffer
-
-  implicit val asyncExecutionContext = executionContext("summary-store-worker")
 
   val QueryAsc = "queryAsc"
   val QueryDesc = "queryDesc"
@@ -116,3 +119,4 @@ abstract class CassandraSummaryStore[T <: Summary](session: Session) extends Sum
   private def now = System.currentTimeMillis()
 
 }
+
