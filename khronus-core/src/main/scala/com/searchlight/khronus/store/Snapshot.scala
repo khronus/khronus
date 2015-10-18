@@ -34,7 +34,7 @@ trait Snapshot[T] extends Logging with ConcurrencySupport {
 
   private def reload() = {
     try {
-      snapshot = Await.result(getFreshData(), 5 seconds)
+      snapshot = Await.result(getFreshData(), 10 seconds)
     } catch {
       case reason: Throwable ⇒ log.error("Error reloading snapshot", reason)
     }

@@ -108,7 +108,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
 
   private def skipNegativeValues(metric: Metric, values: Seq[Long]): Seq[Long] = {
     val (invalidValues, okValues) = values.partition(value ⇒ value < 0)
-    if (!invalidValues.isEmpty)
+    if (invalidValues.nonEmpty)
       log.warn(s"Skipping invalid values for metric $metric: $invalidValues")
     okValues
   }

@@ -20,10 +20,10 @@ import java.lang
 import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 
-import com.datastax.driver.core.{ ResultSet, Session }
-import com.searchlight.khronus.model.{ Metric, MonitoringSupport, Tick, Timestamp }
+import com.datastax.driver.core.{ BatchStatement, ResultSet, Session }
+import com.searchlight.khronus.model.{ Tick, Metric, MonitoringSupport, Timestamp }
 import com.searchlight.khronus.util.log.Logging
-import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable, Settings }
+import com.searchlight.khronus.util.{ Measurable, ConcurrencySupport, Settings }
 
 import scala.collection.JavaConverters._
 import scala.collection.concurrent.TrieMap
@@ -66,7 +66,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
     session.execute(CreateTableStmt)
   }
   private val InsertStmt = session.prepare(s"insert into meta (key, metric, timestamp, active) values (?, ?, ?, ?);")
-  private val GetAllStmt = session.prepare(s"select metric, timestamp, active from meta;")
+  private val GetByKeyStmt = session.prepare(s"select metric, timestamp, active from meta where key = ?;")
   private val GetLastProcessedTimeStmt = session.prepare(s"select timestamp from meta where key = ? and metric = ?;")
   private val UpdateActiveStatus = session.prepare(s"update meta set active = ? where key = ? and metric = ?;")
 
@@ -92,15 +92,18 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
     update(Seq(metric), (Tick().bucketNumber - 1).startTimestamp(), active)
   }
 
-  def update(metrics: Seq[Metric], lastProcessedTimestamp: Timestamp, active: Boolean = true): Future[Unit] = {
-    val ts: lang.Long = Long.box(lastProcessedTimestamp.ms)
-    val ac: lang.Boolean = lang.Boolean.valueOf(active)
-    val futures = metrics.map { metric ⇒
-      val name: String = asString(metric)
-      val future: Future[Unit] = session.executeAsync(InsertStmt.bind(name, name, ts, ac))
-      future
-    }
-    Future.sequence(futures).map(units ⇒ Unit)
+  def update(metrics: Seq[Metric], lastProcessedTimestamp: Timestamp, active: Boolean = true): Future[Unit] = executeChunked("meta", metrics, Settings.CassandraMeta.insertChunkSize) {
+    metricsChunk ⇒
+      val ts: lang.Long = Long.box(lastProcessedTimestamp.ms)
+      val ac: lang.Boolean = lang.Boolean.valueOf(active)
+      val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
+      metricsChunk.foreach { metric ⇒
+        val name: String = asString(metric)
+        batchStmt.add(InsertStmt.bind(MetricsKey, name, ts, ac))
+      }
+
+      val future: Future[ResultSet] = session.executeAsync(batchStmt)
+      future.map(_ ⇒ log.trace(s"Stored meta chunk successfully"))
   }
 
   def searchInSnapshotByRegex(regex: String): Seq[Metric] = {
@@ -120,7 +123,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
   def allActiveMetrics: Future[Seq[Metric]] = retrieveMetrics.map(_.filter { case (metric, (timestamp, active)) ⇒ active }.keys.toSeq)
 
   private def retrieveMetrics(implicit executor: ExecutionContext): Future[Map[Metric, (Timestamp, Boolean)]] = {
-    val future: Future[ResultSet] = session.executeAsync(GetAllStmt.bind())
+    val future: Future[ResultSet] = session.executeAsync(GetByKeyStmt.bind(MetricsKey))
     future.
       map(resultSet ⇒ {
         val metrics = resultSet.all().asScala.map(row ⇒ (toMetric(row.getString("metric")), (Timestamp(row.getLong("timestamp")), row.getBool("active")))).toMap
@@ -140,7 +143,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
   }
 
   def getLastProcessedTimestampFromCassandra(metric: Metric): Future[Timestamp] = {
-    val future: Future[ResultSet] = session.executeAsync(GetLastProcessedTimeStmt.bind(asString(metric), asString(metric)))
+    val future: Future[ResultSet] = session.executeAsync(GetLastProcessedTimeStmt.bind(MetricsKey, asString(metric)))
     future.
       map(resultSet ⇒ Timestamp(resultSet.one().getLong("timestamp"))).
       andThen {
@@ -155,11 +158,14 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
         activeStatusBuffer = TrieMap.empty[String, Boolean]
 
         older.grouped(Settings.CassandraMeta.insertChunkSize).foreach(chunk ⇒ {
+          val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
           chunk.foreach {
             case (metric, active) ⇒ {
-              session.execute(UpdateActiveStatus.bind(java.lang.Boolean.valueOf(active), metric, metric))
+              batchStmt.add(UpdateActiveStatus.bind(java.lang.Boolean.valueOf(active), MetricsKey, metric))
             }
           }
+
+          session.execute(batchStmt)
         })
       } catch {
         case e: Throwable ⇒ log.error("Error changing meta active status", e)
