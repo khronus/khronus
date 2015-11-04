@@ -20,15 +20,15 @@ import java.lang
 import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 
-import com.datastax.driver.core.{ BatchStatement, ResultSet, Session }
-import com.searchlight.khronus.model.{ Tick, Metric, MonitoringSupport, Timestamp }
+import com.datastax.driver.core.{BatchStatement, ResultSet, Session}
+import com.searchlight.khronus.model.{Metric, MonitoringSupport, Tick, Timestamp}
 import com.searchlight.khronus.util.log.Logging
-import com.searchlight.khronus.util.{ Measurable, ConcurrencySupport, Settings }
+import com.searchlight.khronus.util.{ConcurrencySupport, Measurable, Settings}
 
 import scala.collection.JavaConverters._
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._
-import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Failure
 
 case class MetricMetadata(metric: Metric, timestamp: Timestamp)
@@ -123,22 +123,25 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
   def allActiveMetrics: Future[Seq[Metric]] = retrieveMetrics.map(_.filter { case (metric, (timestamp, active)) ⇒ active }.keys.toSeq)
 
   private def retrieveMetrics(implicit executor: ExecutionContext): Future[Map[Metric, (Timestamp, Boolean)]] = {
-    val future: Future[ResultSet] = session.executeAsync(GetByKeyStmt.bind(MetricsKey))
+    log.debug("Retrieving meta...")
+    val future: Future[ResultSet] = session.executeAsync(GetByKeyStmt.bind(MetricsKey).setFetchSize(10000))
     future.
       map(resultSet ⇒ {
-        val metrics = resultSet.all().asScala.map(row ⇒ (toMetric(row.getString("metric")), (Timestamp(row.getLong("timestamp")), row.getBool("active")))).toMap
-        log.info(s"Found ${metrics.size} metrics in meta")
-        metrics
-      })(executor).
+      val metrics = resultSet.all().asScala.map { row ⇒
+        (toMetric(row.getString("metric")), (Timestamp(row.getLong("timestamp")), row.getBool("active")))
+      }.toMap
+      log.debug(s"Found ${metrics.size} metrics in meta")
+      metrics
+    })(executor).
       andThen {
-        case Failure(reason) ⇒ log.error(s"Failed to retrieve metrics from meta", reason)
-      }(executor)
+      case Failure(reason) ⇒ log.error(s"Failed to retrieve metrics from meta", reason)
+    }(executor)
   }
 
   def getLastProcessedTimestamp(metric: Metric): Future[Timestamp] = {
     snapshot.get(metric) match {
-      case Some((timestamp, active)) ⇒ Future.successful(timestamp)
-      case None                      ⇒ getLastProcessedTimestampFromCassandra(metric)
+      case Some((timestamp, active))  ⇒ Future.successful(timestamp)
+      case None                       ⇒ getLastProcessedTimestampFromCassandra(metric)
     }
   }
 
@@ -147,8 +150,8 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
     future.
       map(resultSet ⇒ Timestamp(resultSet.one().getLong("timestamp"))).
       andThen {
-        case Failure(reason) ⇒ log.error(s"$metric - Failed to retrieve last processed timestamp from meta", reason)
-      }
+      case Failure(reason) ⇒ log.error(s"$metric - Failed to retrieve last processed timestamp from meta", reason)
+    }
   }
 
   private def changeActiveStatus(): Unit =
@@ -164,7 +167,6 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
               batchStmt.add(UpdateActiveStatus.bind(java.lang.Boolean.valueOf(active), MetricsKey, metric))
             }
           }
-
           session.execute(batchStmt)
         })
       } catch {
