@@ -11,7 +11,7 @@ trait Measurable extends Logging with SlowMetricsRecorder {
 
   private def now = System.currentTimeMillis()
 
-  def measureTime[T](label: String, text: String, doLog: Boolean = true)(block: ⇒ T): T = {
+  def measureTime[T](label: String, text: ⇒ String, doLog: Boolean = true)(block: ⇒ T): T = {
     val start = now
     val blockReturn = block
     val elapsed = now - start
@@ -36,7 +36,7 @@ trait Measurable extends Logging with SlowMetricsRecorder {
     }
   }
 
-  def measureFutureTime[T](label: String, text: String)(block: ⇒ Future[T])(implicit ec: ExecutionContext): Future[T] = {
+  def measureFutureTime[T](label: String, text: ⇒ String)(block: ⇒ Future[T])(implicit ec: ExecutionContext): Future[T] = {
     val start = now
     block andThen {
       case Success(_) ⇒ {
