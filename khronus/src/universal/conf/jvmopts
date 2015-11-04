@@ -1,12 +1,11 @@
--J-Xms6g
--J-Xmx6g
--J-XX:NewSize=4g
+-J-Xms2g
+-J-Xmx2g
+-J-XX:NewSize=1g
 -J-XX:+UseConcMarkSweepGC
 -J-XX:PermSize=256m
 -J-verbose:gc
 -J-XX:+PrintGCDetails
 -J-XX:+PrintGCDateStamps
--J-Xloggc:logs/gc.log
 -J-XX:+DisableExplicitGC
 -J-XX:+TieredCompilation
 -J-XX:ReservedCodeCacheSize=128m
