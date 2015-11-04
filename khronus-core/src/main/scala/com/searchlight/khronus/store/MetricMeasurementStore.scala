@@ -74,7 +74,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
 
   private def maxValue(measurements: List[Measurement]) = {
     var maxValue = 0L
-    measurements.foreach { measurement =>
+    measurements.foreach { measurement ⇒
       if (measurement.values.nonEmpty) {
         val value = measurement.values.max
         if (value > maxValue) {

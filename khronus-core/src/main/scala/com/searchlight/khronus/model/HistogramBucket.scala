@@ -15,13 +15,13 @@
  */
 package com.searchlight.khronus.model
 
-import java.io.{ByteArrayOutputStream, PrintStream}
+import java.io.{ ByteArrayOutputStream, PrintStream }
 
 import com.searchlight.khronus.util.Measurable
 import com.searchlight.khronus.util.log.Logging
 import org.HdrHistogram.Histogram
 
-import scala.util.{Failure, Try}
+import scala.util.{ Failure, Try }
 
 class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Histogram) extends Bucket(bucketNumber) with Logging {
 
@@ -65,7 +65,7 @@ object HistogramBucket extends Measurable {
 
   private def biggerHistogramOf(histograms: Seq[Histogram]): Histogram = {
     var biggerHistogram = histograms.head
-    histograms.tail.foreach { histogram =>
+    histograms.tail.foreach { histogram ⇒
       if (histogram.getMaxValue > biggerHistogram.getMaxValue) {
         biggerHistogram = histogram
       }
