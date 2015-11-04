@@ -122,7 +122,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
           initializeLeader()
         }
         case Success(acquired) if !acquired ⇒ {
-          log.info("backupLeader waiting for lock...")
+          log.debug("backupLeader waiting for lock...")
           incrementCounter("backupLeaderLostElection")
         }
         case Failure(ex) ⇒ {
@@ -151,7 +151,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
           initializeBackupLeader()
         }
         case Success(acquired) if acquired ⇒ {
-          log.info("Still being Leader...")
+          log.debug("Still being Leader...")
           incrementCounter("leaderSuccessRenew")
         }
         case Failure(ex) ⇒ {
