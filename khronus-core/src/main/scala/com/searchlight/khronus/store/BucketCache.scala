@@ -68,7 +68,7 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
       log.debug(s"Caching ${buckets.length} buckets of ${fromBucketNumber.duration} for $metric")
       metricCacheOf(metric).foreach { cache ⇒
         buckets.foreach { bucket ⇒
-          cache.putIfAbsent(bucket.bucketNumber, bucket)
+          cache.put(bucket.bucketNumber, bucket)
         }
         fillEmptyBucketsIfNecessary(metric, cache, fromBucketNumber, toBucketNumber)
       }
@@ -140,10 +140,7 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
   @tailrec
   private def fillEmptyBucketsIfNecessary(metric: Metric, cache: MetricBucketCache[T], bucketNumber: BucketNumber, until: BucketNumber): Unit = {
     if (bucketNumber < until) {
-      val previous = cache.putIfAbsent(bucketNumber, cache.buildEmptyBucket())
-      if (previous.isEmpty) {
-        log.debug(s"Filling empty bucket $bucketNumber of metric $metric")
-      }
+      if (cache.notContains(bucketNumber)) cache.put(bucketNumber, cache.buildEmptyBucket())
       fillEmptyBucketsIfNecessary(metric, cache, bucketNumber + 1, until)
     }
   }
@@ -219,11 +216,13 @@ trait MetricBucketCache[T <: Bucket] {
 
   def deserialize(bytes: Array[Byte], bucketNumber: BucketNumber): T
 
-  def putIfAbsent(bucketNumber: BucketNumber, bucket: T): Option[Bucket] = {
+  def notContains(bucketNumber: BucketNumber) = !cache.contains(bucketNumber)
+
+  def put(bucketNumber: BucketNumber, bucket: T) = {
     if (bucket.isInstanceOf[EmptyBucket]) {
-      cache.putIfAbsent(bucketNumber, emptyArray) map (older ⇒ checkEmptyBucket(older, bucketNumber))
+      cache.put(bucketNumber, emptyArray)
     } else {
-      cache.putIfAbsent(bucketNumber, serialize(bucket)) map (older ⇒ deserialize(older, bucketNumber))
+      cache.put(bucketNumber, serialize(bucket))
     }
   }
 
