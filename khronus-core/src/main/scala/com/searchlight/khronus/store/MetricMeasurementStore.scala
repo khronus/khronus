@@ -64,12 +64,25 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
     groupedMeasurements.toList.map {
       case (timestamp, measures) ⇒
         (metric, () ⇒ {
-          val histogram = HistogramBucket.newHistogram
+          val histogram = HistogramBucket.newHistogram(maxValue(measures))
           val bucketNumber = timestamp.toBucketNumberOf(rawDuration)
           measures.foreach(measure ⇒ record(metric, measure, histogram))
           new HistogramBucket(bucketNumber, histogram)
         })
     }
+  }
+
+  private def maxValue(measurements: List[Measurement]) = {
+    var maxValue = 0L
+    measurements.foreach { measurement =>
+      if (measurement.values.nonEmpty) {
+        val value = measurement.values.max
+        if (value > maxValue) {
+          maxValue = value
+        }
+      }
+    }
+    maxValue
   }
 
   def record(metric: Metric, measure: Measurement, histogram: Histogram): Unit = {

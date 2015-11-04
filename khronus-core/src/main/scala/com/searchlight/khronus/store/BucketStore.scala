@@ -20,6 +20,7 @@ import java.nio.ByteBuffer
 
 import com.datastax.driver.core.utils.Bytes
 import com.datastax.driver.core._
+import com.google.common.collect.{ Lists, Sets }
 import com.searchlight.khronus.model._
 import com.searchlight.khronus.util.log.Logging
 import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable, Settings }
@@ -94,9 +95,7 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
           boundBatchStmt.add(stmt.bind(bucketCollection(serializedBucket, windowDuration), metric.name, Long.box(bucket.timestamp.ms)))
         })
 
-        val future: Future[Unit] = measureAndCheckForTimeOutliers("bucketBatchStoreCassandra", metric, windowDuration, getQueryAsString(stmt.getQueryString, bucketsChunk.length, metric.name)) {
-          session.executeAsync(boundBatchStmt)
-        }
+        val future: Future[Unit] = session.executeAsync(boundBatchStmt)
 
         future
       }
@@ -162,9 +161,9 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
     case _                   ⇒ "set"
   }
 
-  private def bucketCollection(bucket: ByteBuffer, duration: Duration) = duration match {
-    case Duration(1, millis) ⇒ Seq(bucket).asJava
-    case _                   ⇒ Set(bucket).asJava
+  private def bucketCollection(bucket: ByteBuffer, duration: Duration): java.util.Collection[ByteBuffer] = duration match {
+    case Duration(1, millis) ⇒ Lists.newArrayList(bucket)
+    case _                   ⇒ Sets.newHashSet(bucket)
   }
 
   private def getBucketsFromRow(row: Row, duration: Duration) = duration match {
