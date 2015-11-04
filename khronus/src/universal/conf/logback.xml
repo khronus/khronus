@@ -2,18 +2,18 @@
 <configuration>
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <layout>
-            <Pattern>%d %-5level %msg%n</Pattern>
-        </layout>
+        <encoder>
+            <pattern>%d %-5level %msg%n</pattern>
+        </encoder>
     </appender>
 
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/khronus.log</file>
+        <file>${khronus.logdir}/khronus.log</file>
         <append>true</append>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <FileNamePattern>logFile.%d{yyyy-MM-dd}.log</FileNamePattern>
+            <FileNamePattern>${khronus.logdir}/khronus.%d{yyyy-MM-dd}.log</FileNamePattern>
+            <maxHistory>10</maxHistory>
         </rollingPolicy>
-        <maxHistory>2</maxHistory>
         <encoder>
             <pattern>%d %-5level %msg%n</pattern>
         </encoder>
@@ -23,10 +23,12 @@
         <appender-ref ref="FILE"/>
     </appender>
 
+    <logger name="com.searchlight.khronus.store" level="info"/>
     <logger name="com.searchlight.khronus" level="info"/>
-    <logger name="com.searchlight.khronus.cluster" level="debug"/>
+    <logger name="com.searchlight.khronus.cluster.ClusterDomainEventListener" level="debug"/>
 
-    <root level="info">
+    <root level="warn">
         <appender-ref ref="ASYNC"/>
     </root>
+
 </configuration>

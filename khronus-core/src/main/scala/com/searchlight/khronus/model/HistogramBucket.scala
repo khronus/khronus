@@ -50,12 +50,40 @@ class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Hi
 
 object HistogramBucket extends Measurable {
 
+  private val DEFAULT_PRECISION = 3
+
   implicit def sumHistograms(buckets: Seq[HistogramBucket]): Histogram = measureTime("sumHistograms", "sumHistograms", false) {
-    val histogram = newHistogram
-    buckets.foreach(bucket ⇒ histogram.add(bucket.histogram))
-    histogram
+    if (buckets.size == 1) buckets.head.histogram
+    else {
+      val histograms = collection.mutable.Buffer[Histogram]()
+      buckets.foreach { bucket ⇒ histograms += bucket.histogram }
+      val biggerHistogram = biggerHistogramOf(histograms)
+      histograms.filterNot(_.equals(biggerHistogram)).foreach(histogram ⇒ biggerHistogram.add(histogram))
+      biggerHistogram
+    }
+  }
+
+  private def biggerHistogramOf(histograms: Seq[Histogram]): Histogram = {
+    var biggerHistogram = histograms.head
+    histograms.tail.foreach { histogram ⇒
+      if (histogram.getMaxValue > biggerHistogram.getMaxValue) {
+        biggerHistogram = histogram
+      }
+    }
+    biggerHistogram
   }
 
   //1 hour in milliseconds
   def newHistogram = new Histogram(36000000L, 3)
+
+  def newHistogram(value: Long) = new Histogram(closestPowerOfTwo(value), DEFAULT_PRECISION)
+
+  private def closestPowerOfTwo(value: Long) = {
+    if (value == 1) 2L
+    else {
+      val powerOfTwo = java.lang.Long.highestOneBit(value)
+      if (powerOfTwo >= value) powerOfTwo else powerOfTwo * 2
+    }
+  }
+
 }

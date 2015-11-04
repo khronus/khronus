@@ -55,21 +55,15 @@ class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport w
   }
 
   private def windowsToBeProcessed(metric: Metric, currentTick: Tick): Future[Seq[Window]] = {
-    val futures = Future.sequence(windows(metric.mtype).map(window ⇒ mustExecuteInThisTickFuture(window, metric, currentTick)))
-    futures.map(windows ⇒ windows.collect { case (window, hasToBeProcessed) if hasToBeProcessed ⇒ window })
+    metaStore.getLastProcessedTimestamp(metric).map { lastProcessed ⇒
+      windows(metric.mtype).filter { window ⇒ mustExecuteInThisTick(window, lastProcessed, currentTick) }
+    }
   }
 
-  private def mustExecuteInThisTickFuture(timeWindow: Window, metric: Metric, tick: Tick): Future[(Window, Boolean)] = {
-    metaStore.getLastProcessedTimestamp(metric).map { lastProcessed ⇒
-      val lastProcessedBucket = lastProcessed.fromEndTimestampToBucketNumberOf(timeWindow.duration)
-      val currentBucket = tick.endTimestamp.fromEndTimestampToBucketNumberOf(timeWindow.duration)
-      if (currentBucket > lastProcessedBucket) {
-        (timeWindow, true)
-      } else {
-        log.trace(s"${p(metric, timeWindow.duration)} Excluded to run")
-        (timeWindow, false)
-      }
-    }
+  private def mustExecuteInThisTick(window: Window, lastProcessed: Timestamp, tick: Tick): Boolean = {
+    val lastProcessedBucket = lastProcessed.fromEndTimestampToBucketNumberOf(window.duration)
+    val currentBucket = tick.endTimestamp.fromEndTimestampToBucketNumberOf(window.duration)
+    currentBucket > lastProcessedBucket
   }
 
 }

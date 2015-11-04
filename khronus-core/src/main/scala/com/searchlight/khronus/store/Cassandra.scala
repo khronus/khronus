@@ -114,6 +114,16 @@ object Buckets extends CassandraKeyspace {
   override def getRF: Int = Settings.CassandraBuckets.ReplicationFactor
 }
 
+object LeaderElection extends CassandraKeyspace {
+  initialize()
+
+  val leaderElectionStore = new LeaderElectionStore(session)
+
+  override def keyspace = "leaderElection"
+
+  override def getRF: Int = Settings.CassandraLeaderElection.ReplicationFactor
+}
+
 object Summaries extends CassandraKeyspace {
 
   initialize()
@@ -181,8 +191,8 @@ trait CassandraUtils extends Logging {
     }
   }
 
-  final def executeChunked[T](msg: String, items: Seq[T], chunkSize: Int)(block: Seq[T] ⇒ Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
-    if (!items.isEmpty) {
+  final def executeChunked[T](msg: ⇒ String, items: Seq[T], chunkSize: Int)(block: Seq[T] ⇒ Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
+    if (items.nonEmpty) {
       val futures = items.grouped(chunkSize).map(chunk ⇒ block(chunk))
       Future.sequence(futures).andThen {
         case Failure(reason) ⇒ log.error(s"Failed to execute chunk operation: $msg", reason)

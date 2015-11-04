@@ -28,13 +28,17 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
 
   def markProcessedTick(tick: Tick, metric: Metric): Unit = if (enabled) {
     mark(tick, metric)
-
     val previousKnownTick = lastKnownTick.getAndSet(tick)
     if (previousKnownTick != null && previousKnownTick != tick) {
       analyzeAffinity(previousKnownTick, tick)
+      removeOrphanTicks(tick, previousKnownTick)
       reportCacheSizes()
     }
 
+  }
+
+  private def removeOrphanTicks(tick: Tick, previousKnownTick: Tick): Unit = {
+    metricsByTick.keys.filterNot(cachedTick ⇒ cachedTick.equals(tick) || cachedTick.equals(previousKnownTick)).foreach(metricsByTick.remove)
   }
 
   private def analyzeAffinity(previousKnownTick: Tick, tick: Tick) {
@@ -62,12 +66,9 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
   def multiSet(metric: Metric, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber, buckets: Seq[T]): Unit = {
     if (isEnabledFor(metric) && (toBucketNumber.number - fromBucketNumber.number - 1) <= Settings.BucketCache.MaxStore) {
       log.debug(s"Caching ${buckets.length} buckets of ${fromBucketNumber.duration} for $metric")
-      metricCacheOf(metric).map { cache ⇒
+      metricCacheOf(metric).foreach { cache ⇒
         buckets.foreach { bucket ⇒
-          cache.putIfAbsent(bucket.bucketNumber, bucket) map { _ ⇒
-            incrementCounter("bucketCache.overrideWarning")
-            log.warn("More than one cached Bucket per BucketNumber. Overriding it to leave just one of them.")
-          }
+          cache.put(bucket.bucketNumber, bucket)
         }
         fillEmptyBucketsIfNecessary(metric, cache, fromBucketNumber, toBucketNumber)
       }
@@ -93,6 +94,7 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
     val expectedBuckets = toBucketNumber.number - fromBucketNumber.number
     val slice: Option[BucketSlice[T]] = metricCacheOf(metric).flatMap { cache ⇒
       val buckets = takeRecursive(cache, fromBucketNumber, toBucketNumber)
+      cache.removeAll(fromBucketNumber.duration)
       if (buckets.size == expectedBuckets) {
         cacheHit(metric, buckets, fromBucketNumber, toBucketNumber)
       } else {
@@ -107,8 +109,8 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
 
   private def cleanCache(metric: Metric) = {
     log.debug(s"Lose $metric affinity. Cleaning its bucket cache")
-    cachesByMetric.remove(metric)
-    nCachedMetrics(metric.mtype).decrementAndGet()
+    cachesByMetric.remove(metric).foreach(_ ⇒
+      nCachedMetrics(metric.mtype).decrementAndGet())
   }
 
   private def metricCacheOf(metric: Metric): Option[MetricBucketCache[T]] = {
@@ -138,10 +140,7 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
   @tailrec
   private def fillEmptyBucketsIfNecessary(metric: Metric, cache: MetricBucketCache[T], bucketNumber: BucketNumber, until: BucketNumber): Unit = {
     if (bucketNumber < until) {
-      val previous = cache.putIfAbsent(bucketNumber, cache.buildEmptyBucket())
-      if (previous.isEmpty) {
-        log.debug(s"Filling empty bucket $bucketNumber of metric $metric")
-      }
+      if (cache.notContains(bucketNumber)) cache.put(bucketNumber, cache.buildEmptyBucket())
       fillEmptyBucketsIfNecessary(metric, cache, bucketNumber + 1, until)
     }
   }
@@ -202,9 +201,14 @@ object InMemoryHistogramBucketCache extends BucketCache[HistogramBucket] {
 }
 
 trait MetricBucketCache[T <: Bucket] {
+  def removeAll(duration: Duration) = {
+    cache.keys.filter(_.duration.equals(duration)).foreach(cache.remove)
+  }
+
   def buildEmptyBucket(): T
 
   protected val cache = new TrieMap[BucketNumber, Array[Byte]]()
+  private val emptyArray = Array.empty[Byte]
 
   val lastKnownTick: AtomicReference[Tick] = new AtomicReference[Tick]()
 
@@ -212,11 +216,13 @@ trait MetricBucketCache[T <: Bucket] {
 
   def deserialize(bytes: Array[Byte], bucketNumber: BucketNumber): T
 
-  def putIfAbsent(bucketNumber: BucketNumber, bucket: T): Option[Bucket] = {
+  def notContains(bucketNumber: BucketNumber) = !cache.contains(bucketNumber)
+
+  def put(bucketNumber: BucketNumber, bucket: T) = {
     if (bucket.isInstanceOf[EmptyBucket]) {
-      cache.putIfAbsent(bucketNumber, Array.empty[Byte]) map (older ⇒ checkEmptyBucket(older, bucketNumber))
+      cache.put(bucketNumber, emptyArray)
     } else {
-      cache.putIfAbsent(bucketNumber, serialize(bucket)) map (older ⇒ deserialize(older, bucketNumber))
+      cache.put(bucketNumber, serialize(bucket))
     }
   }
 

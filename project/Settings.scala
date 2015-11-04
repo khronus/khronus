@@ -9,7 +9,7 @@ import NativePackagerKeys._
 
 object Settings {
 
-  val ScalaVersion = "2.11.2"
+  val ScalaVersion = "2.11.7"
 
   lazy val basicSettings = Seq(
     scalaVersion  := ScalaVersion,
@@ -19,7 +19,7 @@ object Settings {
     resolvers    ++= Dependencies.resolutionRepos,
     fork in (Test, run) := true,
     javacOptions  := Seq(
-      "-source", "1.7", "-target", "1.7"
+      "-source", "1.8", "-target", "1.8"
     ),
     scalacOptions := Seq(
       "-encoding",
@@ -29,7 +29,7 @@ object Settings {
       "-unchecked",
       "-optimise",
       "-deprecation",
-      "-target:jvm-1.7",
+      "-target:jvm-1.8",
       "-language:postfixOps",
       "-language:implicitConversions",
       "-language:reflectiveCalls",
@@ -43,6 +43,8 @@ object Settings {
 
   lazy val extraPackagerSettings = Seq(bashScriptExtraDefines += """addJava "-Dconfig.file=${app_home}/../conf/application.conf" """,
     bashScriptExtraDefines += """addJava "-Dlogback.configurationFile=${app_home}/../conf/logback.xml" """,
+    bashScriptExtraDefines += """addJava "-Xloggc:${app_home}/../logs/gc.log" """,
+    bashScriptExtraDefines += """addJava "-Dkhronus.logdir=${app_home}/../logs" """,
     mappings in (Compile, packageBin) ~= { _.filter(!_._1.getName.equals("logback.xml")) }
   )
 

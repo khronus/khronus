@@ -97,7 +97,7 @@ object StressTest extends App with JacksonJsonSupport {
     }
 
     def getMeasurements(): List[Measurement] = {
-      List(Measurement(System.currentTimeMillis(), getMeasurementValues()))
+      List(Measurement(Some(System.currentTimeMillis()), getMeasurementValues()))
     }
 
     def getMeasurementValues(): Seq[Long] = {
@@ -106,6 +106,6 @@ object StressTest extends App with JacksonJsonSupport {
 
     println("Ending...")
     executor.shutdown()
-    system.shutdown()
+    system.terminate()
   }
 }

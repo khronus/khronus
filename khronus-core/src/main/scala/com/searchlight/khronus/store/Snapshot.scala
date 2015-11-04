@@ -21,29 +21,24 @@ trait Snapshot[T] extends Logging with ConcurrencySupport {
   private val scheduledPool = scheduledThreadPool(s"snapshot-reload-scheduled-worker")
 
   //use the scheduledPool only to start the main thread. the remain operations like getFreshData() will run on this one
-  implicit val context: ExecutionContext = executionContext("snapshot-reload-worker")
+  implicit val context: ExecutionContext = executionContext("snapshot-reload-worker", 1)
 
   def startSnapshotReloads() = {
-    Try {
-      snapshot = Await.result(getFreshData()(context), 5 seconds)
-    }
-    scheduledPool.scheduleAtFixedRate(reload(), 5, 5, TimeUnit.SECONDS)
+    reload()
+    scheduleReloads()
   }
 
-  private def reload() = new Runnable {
-    override def run(): Unit = {
-      try {
-        getFreshData().onComplete {
-          case Success(data) ⇒ snapshot = data
-          case Failure(t)    ⇒ log.error("Error reloading data", t)
-        }
-      } catch {
-        case reason: Throwable ⇒ log.error("Unexpected error reloading data", reason)
-      }
-    }
+  private def scheduleReloads() = {
+    scheduledPool.scheduleAtFixedRate(new Runnable() { override def run() = reload() }, 5, 5, TimeUnit.SECONDS)
   }
 
-  def getFromSnapshot: T = snapshot
+  private def reload() = {
+    try {
+      snapshot = Await.result(getFreshData(), 10 seconds)
+    } catch {
+      case reason: Throwable ⇒ log.error("Error reloading snapshot", reason)
+    }
+  }
 
   def getFreshData()(implicit executor: ExecutionContext): Future[T]
 

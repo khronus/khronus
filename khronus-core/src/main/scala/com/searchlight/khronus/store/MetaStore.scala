@@ -21,9 +21,9 @@ import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 
 import com.datastax.driver.core.{ BatchStatement, ResultSet, Session }
-import com.searchlight.khronus.model.{ Tick, Metric, MonitoringSupport, Timestamp }
+import com.searchlight.khronus.model.{ Metric, MonitoringSupport, Tick, Timestamp }
 import com.searchlight.khronus.util.log.Logging
-import com.searchlight.khronus.util.{ Measurable, ConcurrencySupport, Settings }
+import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable, Settings }
 
 import scala.collection.JavaConverters._
 import scala.collection.concurrent.TrieMap
@@ -94,12 +94,11 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
 
   def update(metrics: Seq[Metric], lastProcessedTimestamp: Timestamp, active: Boolean = true): Future[Unit] = executeChunked("meta", metrics, Settings.CassandraMeta.insertChunkSize) {
     metricsChunk ⇒
+      val ts: lang.Long = Long.box(lastProcessedTimestamp.ms)
+      val ac: lang.Boolean = lang.Boolean.valueOf(active)
       val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
       metricsChunk.foreach { metric ⇒
-        val ts: lang.Long = Long.box(lastProcessedTimestamp.ms)
-        val ac: lang.Boolean = new lang.Boolean(active)
         val name: String = asString(metric)
-        session.executeAsync(InsertStmt.bind(name, name, ts, ac))
         batchStmt.add(InsertStmt.bind(MetricsKey, name, ts, ac))
       }
 
@@ -110,25 +109,28 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
   def searchInSnapshotByRegex(regex: String): Seq[Metric] = {
     val pattern = Pattern.compile(regex)
     val matcher = pattern.matcher("")
-    getFromSnapshot.keys.filter(k ⇒ matcher.reset(k.name).matches()).toSeq
+    snapshot.keys.filter(k ⇒ matcher.reset(k.name).matches()).toSeq
   }
 
   def searchInSnapshotByMetricName(metricName: String): Option[(Metric, (Timestamp, Boolean))] = {
     val pattern = Pattern.compile(metricName)
     val matcher = pattern.matcher("")
-    getFromSnapshot.find { case (metric, (timestamp, active)) ⇒ matcher.reset(metric.name).matches() }
+    snapshot.find { case (metric, (timestamp, active)) ⇒ matcher.reset(metric.name).matches() }
   }
 
-  def allMetrics(): Future[Seq[Metric]] = retrieveMetrics.map(_.keys.toSeq)
+  def allMetrics: Future[Seq[Metric]] = retrieveMetrics.map(_.keys.toSeq)
 
-  def allActiveMetrics(): Future[Seq[Metric]] = retrieveMetrics.map(_.filter { case (metric, (timestamp, active)) ⇒ active }.keys.toSeq)
+  def allActiveMetrics: Future[Seq[Metric]] = retrieveMetrics.map(_.filter { case (metric, (timestamp, active)) ⇒ active }.keys.toSeq)
 
   private def retrieveMetrics(implicit executor: ExecutionContext): Future[Map[Metric, (Timestamp, Boolean)]] = {
-    val future: Future[ResultSet] = session.executeAsync(GetByKeyStmt.bind(MetricsKey))
+    log.debug("Retrieving meta...")
+    val future: Future[ResultSet] = session.executeAsync(GetByKeyStmt.bind(MetricsKey).setFetchSize(10000))
     future.
       map(resultSet ⇒ {
-        val metrics = resultSet.all().asScala.map(row ⇒ (toMetric(row.getString("metric")), (Timestamp(row.getLong("timestamp")), row.getBool("active")))).toMap
-        log.info(s"Found ${metrics.size} metrics in meta")
+        val metrics = resultSet.all().asScala.map { row ⇒
+          (toMetric(row.getString("metric")), (Timestamp(row.getLong("timestamp")), row.getBool("active")))
+        }.toMap
+        log.debug(s"Found ${metrics.size} metrics in meta")
         metrics
       })(executor).
       andThen {
@@ -137,7 +139,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
   }
 
   def getLastProcessedTimestamp(metric: Metric): Future[Timestamp] = {
-    getFromSnapshot.get(metric) match {
+    snapshot.get(metric) match {
       case Some((timestamp, active)) ⇒ Future.successful(timestamp)
       case None                      ⇒ getLastProcessedTimestampFromCassandra(metric)
     }
@@ -153,7 +155,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
   }
 
   private def changeActiveStatus(): Unit =
-    if (!activeStatusBuffer.isEmpty) {
+    if (activeStatusBuffer.nonEmpty) {
       try {
         val older = activeStatusBuffer
         activeStatusBuffer = TrieMap.empty[String, Boolean]
@@ -162,11 +164,9 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
           val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
           chunk.foreach {
             case (metric, active) ⇒ {
-              session.execute(UpdateActiveStatus.bind(new java.lang.Boolean(active), metric, metric))
-              batchStmt.add(UpdateActiveStatus.bind(new java.lang.Boolean(active), MetricsKey, metric))
+              batchStmt.add(UpdateActiveStatus.bind(java.lang.Boolean.valueOf(active), MetricsKey, metric))
             }
           }
-
           session.execute(batchStmt)
         })
       } catch {
@@ -191,7 +191,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
   }
 
   def notifyEmptySlice(metric: Metric, duration: Duration) = {
-    if (Settings.Window.WindowDurations.last.equals(duration) && getFromSnapshot.get(metric).get._2) {
+    if (Settings.Window.WindowDurations.last.equals(duration) && snapshot.get(metric).get._2) {
       deactivate(metric)
     }
   }
@@ -206,7 +206,5 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
       Metric(tokens(0), tokens(1))
     }
   }
-
-  //  override def context = asyncExecutionContext
 
 }

@@ -37,20 +37,20 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
     val histos = mutable.Buffer[(Metric, () ⇒ HistogramBucket)]()
     val counters = mutable.Buffer[(Metric, () ⇒ CounterBucket)]()
 
+    val now = System.currentTimeMillis()
+
     metrics foreach (metricMeasurement ⇒ {
       val metric = metricMeasurement.asMetric
-      val groupedMeasurements = metricMeasurement.measurements.groupBy(measurement ⇒ Timestamp(measurement.ts).alignedTo(storeGroupDuration))
+      val groupedMeasurements = metricMeasurement.measurements.groupBy(measurement ⇒ Timestamp(measurement.ts.getOrElse(now)).alignedTo(storeGroupDuration))
 
       metric.mtype match {
         case MetricType.Timer | MetricType.Gauge ⇒ histos ++= buildHistogramBuckets(metric, groupedMeasurements)
         case MetricType.Counter                  ⇒ counters ++= buildCounterBuckets(metric, groupedMeasurements)
         case _ ⇒ {
-          val msg = s"Discarding $metric. Unknown metric type: ${metric.mtype}"
+          val msg = s"Discarding samples of $metric. Unknown metric type: ${metric.mtype}"
           log.warn(msg)
         }
       }
-
-      track(metric)
     })
 
     val histogramsFuture = histogramBucketStore.store(histos, rawDuration)
@@ -60,15 +60,29 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
   }
 
   private def buildHistogramBuckets(metric: Metric, groupedMeasurements: Map[Timestamp, List[Measurement]]): List[(Metric, () ⇒ HistogramBucket)] = {
+    track(metric)
     groupedMeasurements.toList.map {
       case (timestamp, measures) ⇒
         (metric, () ⇒ {
-          val histogram = HistogramBucket.newHistogram
+          val histogram = HistogramBucket.newHistogram(maxValue(measures))
           val bucketNumber = timestamp.toBucketNumberOf(rawDuration)
           measures.foreach(measure ⇒ record(metric, measure, histogram))
           new HistogramBucket(bucketNumber, histogram)
         })
     }
+  }
+
+  private def maxValue(measurements: List[Measurement]) = {
+    var maxValue = 0L
+    measurements.foreach { measurement ⇒
+      if (measurement.values.nonEmpty) {
+        val value = measurement.values.max
+        if (value > maxValue) {
+          maxValue = value
+        }
+      }
+    }
+    maxValue
   }
 
   def record(metric: Metric, measure: Measurement, histogram: Histogram): Unit = {
@@ -84,6 +98,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
   }
 
   private def buildCounterBuckets(metric: Metric, groupedMeasurements: Map[Timestamp, List[Measurement]]): List[(Metric, () ⇒ CounterBucket)] = {
+    track(metric)
     groupedMeasurements.toList.map {
       case (timestamp, measures) ⇒
         (metric, () ⇒ {
@@ -94,7 +109,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
     }
   }
   private def track(metric: Metric) = measureTime("measurementStore.track", "track metric") {
-    metaStore.getFromSnapshot.get(metric) map { case (timestamp, active) ⇒ metaStore.notifyMetricMeasurement(metric, active) } getOrElse {
+    metaStore.snapshot.get(metric) collect { case (timestamp, active) ⇒ metaStore.notifyMetricMeasurement(metric, active) } getOrElse {
       log.debug(s"Got a new metric: $metric. Will store metadata for it")
       storeMetadata(metric)
     }
@@ -106,7 +121,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
 
   private def skipNegativeValues(metric: Metric, values: Seq[Long]): Seq[Long] = {
     val (invalidValues, okValues) = values.partition(value ⇒ value < 0)
-    if (!invalidValues.isEmpty)
+    if (invalidValues.nonEmpty)
       log.warn(s"Skipping invalid values for metric $metric: $invalidValues")
     okValues
   }

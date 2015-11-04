@@ -16,13 +16,10 @@
 
 package com.searchlight.khronus.cluster
 
-import akka.actor.PoisonPill
-import akka.contrib.pattern.ClusterSingletonManager
 import com.searchlight.khronus.service.ActorSystemSupport
 
 trait ClusterSupport {
   this: ActorSystemSupport ⇒
-
   system.actorOf(ClusterDomainEventListener.props, "cluster-listener")
-  system.actorOf(ClusterSingletonManager.props(Master.props, "master", PoisonPill, Some("master")), "singleton-manager")
+  system.actorOf(Master.props, "master")
 }

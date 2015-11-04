@@ -88,11 +88,11 @@ object Monitoring extends MetricMeasurementStoreSupport with Logging with Concur
   }
 
   private def collectCounterValues(metricName: String, counts: AtomicLong): MetricMeasurement = {
-    MetricMeasurement(system(metricName), "counter", List(Measurement(System.currentTimeMillis(), Seq(counts.getAndSet(0)))))
+    MetricMeasurement(system(metricName), "counter", List(Measurement(Some(System.currentTimeMillis()), Seq(counts.getAndSet(0)))))
   }
 
   private def collectHistogramValues(metricName: String, values: ConcurrentLinkedQueue[java.lang.Long], mtype: String): MetricMeasurement = {
-    MetricMeasurement(system(metricName), mtype, List(Measurement(System.currentTimeMillis(), drain(values))))
+    MetricMeasurement(system(metricName), mtype, List(Measurement(Some(System.currentTimeMillis()), drain(values))))
   }
 
   private def system(metricName: String) = s"~system.$metricName"
