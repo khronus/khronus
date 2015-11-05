@@ -1,4 +1,4 @@
-Khronus - A reactive time series database [![Build Status](https://api.travis-ci.org/despegar/khronus.png)](https://travis-ci.org/despegar/khronus)[![Stories in Ready](https://badge.waffle.io/despegar/khronus.png?label=ready&title=Ready)](http://waffle.io/despegar/khronus)
+Khronus - A reactive time series database [![Build Status](https://api.travis-ci.org/Searchlight/khronus.png)](https://travis-ci.org/Searchlight/khronus)
 ======
 
 ## Overview
