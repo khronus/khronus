@@ -50,6 +50,7 @@ class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Hi
 
 object HistogramBucket extends Measurable {
 
+  private val DEFAULT_MIN_HISTOGRAM_SIZE = 2L
   private val DEFAULT_PRECISION = 3
 
   implicit def sumHistograms(buckets: Seq[HistogramBucket]): Histogram = measureTime("sumHistograms", "sumHistograms", false) {
@@ -79,10 +80,11 @@ object HistogramBucket extends Measurable {
   def newHistogram(value: Long) = new Histogram(closestPowerOfTwo(value), DEFAULT_PRECISION)
 
   private def closestPowerOfTwo(value: Long) = {
-    if (value == 1) 2L
-    else {
-      val powerOfTwo = java.lang.Long.highestOneBit(value)
+    val powerOfTwo = java.lang.Long.highestOneBit(value)
+    if (powerOfTwo >= DEFAULT_MIN_HISTOGRAM_SIZE) {
       if (powerOfTwo >= value) powerOfTwo else powerOfTwo * 2
+    } else {
+      DEFAULT_MIN_HISTOGRAM_SIZE
     }
   }
 
