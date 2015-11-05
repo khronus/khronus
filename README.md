@@ -3,29 +3,28 @@ Khronus - A reactive time series database [![Build Status](https://api.travis-ci
 
 ## Overview
 
-Khronus is a open source distributed reactive time series database. It is designed to store, analyze and process a huge amount of metrics.
+Khronus is an open source, distributed and reactive time series database designed to store, retrieve, analyze and process a large amount of custom metrics.
 
-It measures well. It correctly and precisely analyzes and processes timers and gauges using the great [HdrHistogram] by Gil Tene. It is space-efficient and has data tunable retention policies. It relies on both `Akka Cluster` and `Cassandra` to scale and be resilient.
+Written in Scala, it is based on the great [HdrHistogram] by Gil Tene and relies on both `Akka Cluster` and `Cassandra` to scale and be resilient.
 
-It is very fast to query `percentiles, counts, min, max` and other forms of metrics, even if they have a lot of samples.
+It is intended to be fast to query metrics and perform aggregations without losing precision even in the presence of a lot of samples.
 
-Khronus does not have its own dashboard to graph its metrics. It is focused on analyzing and retrieving time series data. It can be integrated with `Grafana` through the `InfluxDB api` though.
 
 ## Status
 
-Khronus is being actively developed. It is currently being used in production at [Despegar.com].
-Currently working hard to have a stable release and provide a docker container to getting started.
+Khronus is being actively developed. It is being used in production at [Despegar.com].
+We are currently finishing details for the first stable and public Khronus release.
 
 ## Features
 
+* Fast queries and aggregations.
+* Grafana integration.
 * Support for `timers, gauges and counters`.
+* Percentiles done right. No more percentiles average or average of averages.
 * Configurable series resolution (30 seconds, 1 minute, 10 minutes, etc).
-* Percentiles done right. No more average of averages.
-* Fast, very fast retrieval of metrics.
-* Highly scalable.
-* Highly available.
-* REST Api for pushing data.
-* Grafana integration through the InfluxDB api.
+* Tunable retention policies.
+* Highly scalable & available.
+* REST API for pushing data.
 
 ## Installation
 
@@ -125,10 +124,10 @@ khronus {
 ## Implementation details
 
   * Scala
-  * Akka cluster
-  * Spray.io
   * HdrHistogram
   * Cassandra
+  * Akka cluster
+  * Spray.io
 
 
 ## Screenshots
