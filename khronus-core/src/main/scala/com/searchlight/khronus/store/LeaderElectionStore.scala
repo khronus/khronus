@@ -79,7 +79,7 @@ class LeaderElectionStore(session: Session) extends CassandraUtils with Concurre
     f map {
       _.asScala.headOption.exists(row ⇒ {
         val hasLock = row.getUUID("owner").toString.equals(uuid)
-        log.info(s"softLockCheck for $uuid: $hasLock")
+        log.debug(s"softLockCheck for $uuid: $hasLock")
         hasLock
       })
     }
@@ -109,7 +109,7 @@ class LeaderElectionStore(session: Session) extends CassandraUtils with Concurre
       resultSet.asScala.headOption.map(row ⇒ row.getBool("[applied]")).getOrElse(false)
     } andThen {
       case Success(applied) ⇒ {
-        log.info(s"End releaseLock for $uuid and retries $retry -> $applied")
+        log.debug(s"End releaseLock for $uuid and retries $retry -> $applied")
         if (!applied && retry != 0) softLockCheck() map (x ⇒ Future.successful(!x))
       }
     }

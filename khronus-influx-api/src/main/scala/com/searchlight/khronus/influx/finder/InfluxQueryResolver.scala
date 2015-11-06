@@ -212,7 +212,7 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
   }
 
   private def toInfluxSeries(timeSeriesValues: Map[Long, Double], projectionName: String, ascendingOrder: Boolean, scale: Option[Double], metricName: String = ""): InfluxSeries = {
-    log.info(s"Building Influx serie for projection [$projectionName] - Metric [$metricName]")
+    log.debug(s"Building Influx serie for projection [$projectionName] - Metric [$metricName]")
 
     val sortedTimeSeriesValues = if (ascendingOrder) timeSeriesValues.toSeq.sortBy(_._1) else timeSeriesValues.toSeq.sortBy(-_._1)
 

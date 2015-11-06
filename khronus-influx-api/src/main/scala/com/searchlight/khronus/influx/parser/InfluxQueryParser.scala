@@ -45,7 +45,7 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with InfluxCri
   lexical.delimiters ++= MathOperators.allSymbols
 
   def parse(influxQuery: String): Future[InfluxCriteria] = {
-    log.info(s"Parsing influx query [$influxQuery]")
+    log.debug(s"Parsing influx query [$influxQuery]")
 
     // TODO - Hack because of conflict: group by time & time as identifier
     val queryToParse = influxQuery.replace("group by time", "group_by_time")
