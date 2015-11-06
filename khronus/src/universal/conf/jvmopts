@@ -1,8 +1,8 @@
 -J-Xms2g
 -J-Xmx2g
 -J-XX:NewSize=1g
+-J-XX:+UseParNewGC
 -J-XX:+UseConcMarkSweepGC
--J-XX:PermSize=256m
 -J-verbose:gc
 -J-XX:+PrintGCDetails
 -J-XX:+PrintGCDateStamps
@@ -12,3 +12,15 @@
 -J-XX:InitialCodeCacheSize=128m
 -J-XX:+HeapDumpOnOutOfMemoryError
 -J-XX:-OmitStackTraceInFastThrow
+-J-XX:+CMSClassUnloadingEnabled
+-J-XX:+CMSParallelRemarkEnabled
+-J-XX:+UseTLAB
+-J-XX:+CMSParallelInitialMarkEnabled
+-J-XX:+CMSEdenChunksRecordAlways
+-J-XX:+UseCondCardMark
+-J-XX:-UseBiasedLocking
+-Djava.net.preferIPv4Stack=true
+-Dcom.sun.management.jmxremote.port=9000
+-Dcom.sun.management.jmxremote.rmi.port=9000
+-Dcom.sun.management.jmxremote.ssl=false
+-Dcom.sun.management.jmxremote.authenticate=false
