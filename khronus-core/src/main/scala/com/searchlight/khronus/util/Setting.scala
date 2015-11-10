@@ -16,8 +16,10 @@
 
 package com.searchlight.khronus.util
 
+import java.util.Map.Entry
+
 import com.searchlight.khronus.model.{ CounterTimeWindow, HistogramTimeWindow, MetricType }
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{ ConfigValue, ConfigObject, ConfigFactory }
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.{ FiniteDuration, _ }
@@ -94,12 +96,24 @@ object Settings {
   object Histogram {
     private val histogramConfig = config.getConfig("khronus.histogram")
     val BucketRetentionPolicy = histogramConfig.getDuration("bucket-retention-policy", SECONDS).toInt
-    val SummaryRetentionPolicy = histogramConfig.getDuration("summary-retention-policy", SECONDS).toInt
     val TimeWindows = Window.WindowDurations.sliding(2).map { dp ⇒
       val previous = dp.head
       val duration = dp.last
       HistogramTimeWindow(duration, previous, Window.WindowDurations.last != duration)
     }.toSeq
+
+    val SummaryRetentionPolicyDefault = Duration(histogramConfig.getString("summary-retention-policy.default"))
+    val SummaryRetentionPolicyOverrides: Map[Duration, Duration] = {
+      val list: Iterable[ConfigObject] = histogramConfig.getObjectList("summary-retention-policy.overrides").asScala
+      (for {
+        item: ConfigObject ← list
+        entry: Entry[String, ConfigValue] ← item.entrySet().asScala
+        resolution = Duration(entry.getKey)
+        ttl = Duration(entry.getValue.unwrapped().toString)
+      } yield (resolution, ttl)).toMap
+    }
+
+    val SummaryRetentionPolicies = getRetentionPolicies(SummaryRetentionPolicyDefault, SummaryRetentionPolicyOverrides, Window.WindowDurations)
 
     val BucketLimit = histogramConfig.getInt("bucket-limit")
     val BucketFetchSize = histogramConfig.getInt("bucket-fetch-size")
@@ -111,12 +125,23 @@ object Settings {
   object Counter {
     private val counterConfig = config.getConfig("khronus.counter")
     val BucketRetentionPolicy = counterConfig.getDuration("bucket-retention-policy", SECONDS).toInt
-    val SummaryRetentionPolicy = counterConfig.getDuration("summary-retention-policy", SECONDS).toInt
+    val SummaryRetentionPolicyDefault = Duration(counterConfig.getString("summary-retention-policy.default"))
+    val SummaryRetentionPolicyOverrides: Map[Duration, Duration] = {
+      val list: Iterable[ConfigObject] = counterConfig.getObjectList("summary-retention-policy.overrides").asScala
+      (for {
+        item: ConfigObject ← list
+        entry: Entry[String, ConfigValue] ← item.entrySet().asScala
+        resolution = Duration(entry.getKey)
+        ttl = Duration(entry.getValue.unwrapped().toString)
+      } yield (resolution, ttl)).toMap
+    }
     val TimeWindows = Window.WindowDurations.sliding(2).map { dp ⇒
       val previous = dp.head
       val duration = dp.last
       CounterTimeWindow(duration, previous, Window.WindowDurations.last != duration)
     }.toSeq
+
+    val SummaryRetentionPolicies = getRetentionPolicies(SummaryRetentionPolicyDefault, SummaryRetentionPolicyOverrides, Window.WindowDurations)
 
     val BucketLimit = counterConfig.getInt("bucket-limit")
     val BucketFetchSize = counterConfig.getInt("bucket-fetch-size")
@@ -144,6 +169,16 @@ object Settings {
       case durationInMillis if durationInMillis < 3600000 ⇒ (durationInMillis millis).toMinutes minutes
       case _ ⇒ (durationInMillis millis).toHours hours
     }
+  }
+
+  private def getRetentionPolicies(default: Duration, overrides: Map[Duration, Duration], windows: Seq[Duration]): Map[Duration, Duration] = {
+    windows.map(window ⇒ {
+      if (overrides.contains(window)) {
+        (window -> overrides(window))
+      } else {
+        (window -> default)
+      }
+    }).toMap
   }
 
 }

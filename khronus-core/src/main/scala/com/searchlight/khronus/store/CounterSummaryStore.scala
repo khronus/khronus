@@ -38,7 +38,7 @@ class CassandraCounterSummaryStore(session: Session) extends CassandraSummarySto
 
   override def tableName(duration: Duration) = s"counterSummary${duration.length}${duration.unit}"
 
-  override def ttl(windowDuration: Duration): Int = Settings.Counter.SummaryRetentionPolicy
+  override def ttl(windowDuration: Duration): Int = Settings.Counter.SummaryRetentionPolicies(windowDuration).toSeconds.toInt
 
   override def serializeSummary(summary: CounterSummary): ByteBuffer = {
     val baos = new ByteArrayOutputStream()

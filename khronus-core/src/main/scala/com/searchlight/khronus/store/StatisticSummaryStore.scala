@@ -39,7 +39,7 @@ class CassandraHistogramSummaryStore(session: Session) extends CassandraSummaryS
 
   override def tableName(duration: Duration) = s"statisticSummary${duration.length}${duration.unit}"
 
-  override def ttl(windowDuration: Duration): Int = Settings.Histogram.SummaryRetentionPolicy
+  override def ttl(windowDuration: Duration): Int = Settings.Histogram.SummaryRetentionPolicies(windowDuration).toSeconds.toInt
 
   override def serializeSummary(summary: HistogramSummary): ByteBuffer = {
     val byteArray = HistogramSummarySerializerV2.serialize(summary)
