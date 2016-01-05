@@ -27,6 +27,7 @@ import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable, Settings }
 
 import scala.collection.JavaConverters._
 import scala.collection.concurrent.TrieMap
+import scala.collection.mutable
 import scala.concurrent.duration._
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Failure
@@ -156,11 +157,9 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
 
   private def changeActiveStatus(): Unit =
     if (activeStatusBuffer.nonEmpty) {
+      val keys = mutable.Buffer[String]()
       try {
-        val older = activeStatusBuffer
-        activeStatusBuffer = TrieMap.empty[String, Boolean]
-
-        older.grouped(Settings.CassandraMeta.insertChunkSize).foreach(chunk ⇒ {
+        activeStatusBuffer.grouped(Settings.CassandraMeta.insertChunkSize).foreach(chunk ⇒ {
           val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
           chunk.foreach {
             case (metric, active) ⇒ {
@@ -168,10 +167,14 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
             }
           }
           session.execute(batchStmt)
+          keys ++= chunk.keySet
         })
+
       } catch {
         case e: Throwable ⇒ log.error("Error changing meta active status", e)
       }
+
+      keys foreach (activeStatusBuffer.remove(_))
     }
 
   private def deactivate(metric: Metric): Unit = {
