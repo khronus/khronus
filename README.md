@@ -42,79 +42,21 @@ The main config file for overriding properties is located at `../conf/applicatio
 
 ```javascript
 khronus {
-  // bind host
-  endpoint = "127.0.0.1"
-  port = 9290
-  
-  windows {
-    // Delay the current time to avoid losing measures pushed after the current tick
-    // It must be less than the minor window
-    execution-delay = 20 seconds
-  }
+  # http port where Khronus will be listening for queries, posting & other stuff
+  # port = 8400
 
-  internal-metrics {
-    // all internal metrics has the preffix ~system
-    enabled = true
-  }
-
-  histogram {
-    // resolutions to be pre calculated
-    windows = [30 seconds, 1 minute, 5 minutes, 10 minutes, 30 minutes, 1 hour]
-    // expiration ttl
-    bucket-retention-policy = 6 hours
-    // expiration ttl
-    summary-retention-policy = 90 days
-  }
-
-  counter {
-    // resolutions to be pre calculated
-    windows = [30 seconds, 1 minute, 5 minutes, 10 minutes, 30 minutes, 1 hour]
-    // expiration ttl
-    bucket-retention-policy = 6 hours
-    // expiration ttl
-    summary-retention-policy = 90 days
-  }
-  
-  dashboards {
-    // nroOfPoints = period / resolution
-    // if the number of points is less than the minor, scale up in resolution
-    min-resolution-points = 700
-    // if the number of points is greater than the max, scale down in resolution
-    max-resolution-points = 1500
-  }
-
-  master {
-    // tick to process all the metrics
-    tick-expression = "0/30 * * * * ?"
-    // delay to send discovery (for new workers) message
-    discovery-start-delay = 1 second
-    discovery-interval = 5 seconds
-  }
-
-  cassandra {
-    cluster {
-      seeds = "127.0.0.1"
-      port = 9042
-      // useful is you are using an existing cluster
-      keyspace-name-suffix = ""
-    }
-
-    meta {
-      // replication factor
-      rf = 3
-    }
-
-    buckets {
-      // replication factor
-      rf = 1
-    }
-
-    summaries {
-      // replication factor
-      rf = 1
-    }
-  }
+  # comma-delimited list of Cassandra seeds
+  cassandra.cluster.seeds = "127.0.0.1"
 }
+
+akka {
+  # listen address for akka cluster
+  remote.netty.tcp.hostname = "127.0.0.1"
+
+  # list of Khronus seeds.
+  cluster.seed-nodes = ["akka.tcp://khronus-system@127.0.0.1:9400"]
+}
+
 ```
 
 ### Run
