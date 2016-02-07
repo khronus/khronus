@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 
 import com.datastax.driver.core.{ BatchStatement, ResultSet, Session }
-import com.searchlight.khronus.model.{ Metric, MonitoringSupport, Tick, Timestamp }
+import com.searchlight.khronus.model._
 import com.searchlight.khronus.util.log.Logging
 import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable, Settings }
 
@@ -52,6 +52,9 @@ trait MetaStore extends Snapshot[Map[Metric, (Timestamp, Boolean)]] {
   def notifyEmptySlice(metric: Metric, duration: Duration)
 
   def notifyMetricMeasurement(metric: Metric, active: Boolean)
+
+  def getMetricsMap: Map[Metric, Seq[SubMetric]]
+
 }
 
 trait MetaSupport {
@@ -72,7 +75,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
   private val UpdateActiveStatus = session.prepare(s"update meta set active = ? where key = ? and metric = ?;")
 
   //for buffering active status updates
-  private var activeStatusBuffer = TrieMap.empty[String, Boolean]
+  private val activeStatusBuffer = TrieMap.empty[String, Boolean]
   val scheduler = scheduledThreadPool("meta-flusher-worker")
   scheduler.scheduleAtFixedRate(new Runnable() {
     override def run() = changeActiveStatus()
@@ -210,4 +213,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
     }
   }
 
+  override def getMetricsMap: Map[Metric, Seq[SubMetric]] = {
+    snapshot.keys.map(metric ⇒ metric.asSubMetric()).toSeq.groupBy(_.asMetric())
+  }
 }

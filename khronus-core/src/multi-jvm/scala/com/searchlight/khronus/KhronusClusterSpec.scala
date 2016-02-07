@@ -23,7 +23,7 @@ import akka.actor.{ActorRef, Actor, PoisonPill, Props}
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent.{CurrentClusterState, MemberUp}
 import akka.cluster.routing.{ClusterRouterPoolSettings, ClusterRouterPool}
-import akka.contrib.pattern.ClusterSingletonManager
+import akka.cluster.singleton.ClusterSingletonManager
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec, MultiNodeSpecCallbacks}
 import akka.routing.RoundRobinPool
 import akka.testkit.ImplicitSender
@@ -74,7 +74,7 @@ class KhronusClusterSpec extends MultiNodeSpec(KhronusClusterSpecConfig) with ST
 
     "process a metric once the cluster is running" in within(30 seconds) {
       runOn(seed) {
-        system.actorOf(ClusterSingletonManager.props(Props(new TestMaster), "master", PoisonPill, Some("master")), "singleton-manager")
+        //system.actorOf(ClusterSingletonManager.props(Props(new TestMaster), "master", PoisonPill, Some("master")), "singleton-manager")
       }
       enterBarrier("work-done")
     }

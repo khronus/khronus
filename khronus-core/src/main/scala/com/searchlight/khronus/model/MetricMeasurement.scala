@@ -17,27 +17,6 @@
 package com.searchlight.khronus.model
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
-import org.apache.commons.lang.builder.{ EqualsBuilder, HashCodeBuilder }
-
-import scala.concurrent.duration._
-import org.HdrHistogram.Histogram
-
-object MetricType {
-  val Counter = "counter"
-  val Timer = "timer"
-  val Gauge = "gauge"
-}
-
-case class Metric(name: String, mtype: String) {
-  def isSystem = SystemMetric.isSystem(name)
-}
-
-object SystemMetric {
-  val systemSymbol = '~'
-  def isSystem(metricName: String) = {
-    metricName.charAt(0) == systemSymbol
-  }
-}
 
 case class MetricBatch(metrics: List[MetricMeasurement])
 

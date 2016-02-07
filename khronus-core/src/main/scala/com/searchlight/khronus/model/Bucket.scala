@@ -11,16 +11,21 @@ abstract case class Bucket(bucketNumber: BucketNumber) {
   def summary: Summary
 }
 
-class LazyBucket[T <: Bucket](bucket: ⇒ T) {
+class LazyBucket[+T <: Bucket](bucket: ⇒ T) {
   def apply() = {
     bucket
   }
 }
 
-case class BucketResult[T <: Bucket](timestamp: Timestamp, lazyBucket: LazyBucket[T])
+case class BucketResult[+T <: Bucket](timestamp: Timestamp, lazyBucket: LazyBucket[T])
 
-case class BucketSlice[T <: Bucket](results: Seq[BucketResult[T]])
+case class BucketSlice[+T <: Bucket](results: Seq[BucketResult[T]])
 
+object BucketSlice {
+  def apply(bucket: Bucket): BucketSlice[Bucket] = {
+    BucketSlice(Seq(BucketResult(bucket.timestamp, new LazyBucket(bucket))))
+  }
+}
 case class Timestamp(ms: Long) {
   /** Returns a BucketNumber of the given Duration using this Timestamp as it's startTimestamp */
   def toBucketNumberOf(duration: Duration): BucketNumber = toBucketNumber(duration, Math.floor _)

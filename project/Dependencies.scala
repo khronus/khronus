@@ -39,7 +39,7 @@ object Dependencies {
   val snappy              =       "org.xerial.snappy"               %   "snappy-java"                 % "1.1.1.6"
   val jacksonAfterBurner  =       "com.fasterxml.jackson.module"    %   "jackson-module-afterburner"  % "2.4.4"
   val jacksonScala        =       "com.fasterxml.jackson.module"    %%  "jackson-module-scala"        % "2.4.4"
-
+  val jsqlParser          =       "com.github.jsqlparser"           %   "jsqlparser"                  % "0.9.4"
 
   def compile(deps: ModuleID*): Seq[ModuleID]   = deps map (_ % "compile")
   def provided(deps: ModuleID*): Seq[ModuleID]  = deps map (_ % "provided")

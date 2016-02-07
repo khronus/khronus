@@ -19,11 +19,11 @@ import java.io.{ ByteArrayOutputStream, PrintStream }
 
 import com.searchlight.khronus.util.Measurable
 import com.searchlight.khronus.util.log.Logging
-import org.HdrHistogram.Histogram
+import org.HdrHistogram.{ Histogram ⇒ HdrHistogram }
 
 import scala.util.{ Failure, Try }
 
-class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: Histogram) extends Bucket(bucketNumber) with Logging {
+class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: HdrHistogram) extends Bucket(bucketNumber) with Logging {
 
   override def summary: HistogramSummary = Try {
     val p50 = histogram.getValueAtPercentile(50)
@@ -53,10 +53,10 @@ object HistogramBucket extends Measurable {
   private val DEFAULT_MIN_HISTOGRAM_SIZE = 2L
   private val DEFAULT_PRECISION = 3
 
-  implicit def sumHistograms(buckets: Seq[HistogramBucket]): Histogram = measureTime("sumHistograms", "sumHistograms", false) {
+  implicit def sumHistograms(buckets: Seq[HistogramBucket]): HdrHistogram = measureTime("sumHistograms", "sumHistograms", false) {
     if (buckets.size == 1) buckets.head.histogram
     else {
-      val histograms = collection.mutable.Buffer[Histogram]()
+      val histograms = collection.mutable.Buffer[HdrHistogram]()
       buckets.foreach { bucket ⇒ histograms += bucket.histogram }
       val biggerHistogram = biggerHistogramOf(histograms)
       histograms.filterNot(_.equals(biggerHistogram)).foreach(histogram ⇒ biggerHistogram.add(histogram))
@@ -64,7 +64,7 @@ object HistogramBucket extends Measurable {
     }
   }
 
-  private def biggerHistogramOf(histograms: Seq[Histogram]): Histogram = {
+  private def biggerHistogramOf(histograms: Seq[HdrHistogram]): HdrHistogram = {
     var biggerHistogram = histograms.head
     histograms.tail.foreach { histogram ⇒
       if (histogram.getMaxValue > biggerHistogram.getMaxValue) {
@@ -75,9 +75,9 @@ object HistogramBucket extends Measurable {
   }
 
   //1 hour in milliseconds
-  def newHistogram = new Histogram(36000000L, 3)
+  def newHistogram = new HdrHistogram(36000000L, 3)
 
-  def newHistogram(value: Long) = new Histogram(closestPowerOfTwo(value), DEFAULT_PRECISION)
+  def newHistogram(value: Long) = new HdrHistogram(closestPowerOfTwo(value), DEFAULT_PRECISION)
 
   private def closestPowerOfTwo(value: Long) = {
     val powerOfTwo = java.lang.Long.highestOneBit(value)
