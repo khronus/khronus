@@ -41,7 +41,7 @@ class DynamicQueryExecutorTest extends FunSuite with Matchers with MockitoSugar 
     val series = Await.result(future, 3 seconds)
 
     series should have size 1
-    series.head.name should equal("some_event")
+    series.head.name should equal("e")
     series.head.points should equal(Seq(Point(Timestamp(60000), 2d)))
 
   }
