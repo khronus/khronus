@@ -16,6 +16,18 @@ case class Equals(alias: String, tag: String, value: String) extends Predicate {
   }
 }
 
+case class GreaterThan(alias: String, tag: String, value: Long) extends Predicate {
+  def matches(metrics: Map[QMetric, SubMetric]) = ???
+}
+
+case class MinorThan(alias: String, tag: String, value: Long) extends Predicate {
+  def matches(metrics: Map[QMetric, SubMetric]) = ???
+}
+
+case class In(alias: String, tag: String, values: List[String]) extends Predicate {
+  def matches(metrics: Map[QMetric, SubMetric]) = ???
+}
+
 case class And(a: Predicate, b: Predicate) extends Predicate {
   def matches(metrics: Map[QMetric, SubMetric]) = a.matches(metrics) && b.matches(metrics)
 }
