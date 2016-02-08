@@ -4,8 +4,8 @@ import java.util
 
 import net.sf.jsqlparser.expression._
 import net.sf.jsqlparser.expression.operators.arithmetic._
-import net.sf.jsqlparser.expression.operators.conditional.{AndExpression, OrExpression}
-import net.sf.jsqlparser.expression.operators.relational.{GreaterThan => GreaterThanExpression, MinorThan => MinorThanExpression, _}
+import net.sf.jsqlparser.expression.operators.conditional.{ AndExpression, OrExpression }
+import net.sf.jsqlparser.expression.operators.relational.{ GreaterThan ⇒ GreaterThanExpression, MinorThan ⇒ MinorThanExpression, _ }
 import net.sf.jsqlparser.schema.Column
 import net.sf.jsqlparser.statement.select.SubSelect
 
@@ -21,7 +21,7 @@ class ListVisitor extends ItemsListVisitor {
   override def visit(subSelect: SubSelect): Unit = ???
 
   override def visit(expressionList: ExpressionList): Unit = {
-    if (expressionList.getExpressions.isInstanceOf[util.List[StringValue]]){
+    if (expressionList.getExpressions.isInstanceOf[util.List[StringValue]]) {
       values ++= expressionList.getExpressions.asInstanceOf[util.List[StringValue]].asScala map (_.getValue)
     }
   }
@@ -34,7 +34,7 @@ class PredicateVisitor extends AbstractExpressionVisitor {
 
   override def visit(equalsTo: EqualsTo): Unit = {
     val bin = binaryOperator(equalsTo)
-    predicates +=  Equals(bin.alias, bin.tag, bin.value)
+    predicates += Equals(bin.alias, bin.tag, bin.value)
   }
 
   override def visit(andExpression: AndExpression): Unit = {
@@ -44,12 +44,12 @@ class PredicateVisitor extends AbstractExpressionVisitor {
 
   override def visit(minorThan: MinorThanExpression): Unit = {
     val bin = binaryOperator(minorThan)
-    predicates +=  MinorThan(bin.alias, bin.tag, bin.value.toLong)
+    predicates += MinorThan(bin.alias, bin.tag, bin.value.toLong)
   }
 
   override def visit(greaterThan: GreaterThanExpression): Unit = {
-     val bin = binaryOperator(greaterThan)
-     predicates +=  GreaterThan(bin.alias, bin.tag, bin.value.toLong)
+    val bin = binaryOperator(greaterThan)
+    predicates += GreaterThan(bin.alias, bin.tag, bin.value.toLong)
   }
 
   override def visit(inExpression: InExpression): Unit = {
@@ -57,17 +57,17 @@ class PredicateVisitor extends AbstractExpressionVisitor {
     inExpression.getRightItemsList.accept(listVisitor)
 
     inExpression.getLeftExpression match {
-      case e: Column => predicates += In(e.getTable.getName, e.getColumnName.toString, listVisitor.values.toList)
+      case e: Column ⇒ predicates += In(e.getTable.getName, e.getColumnName.toString, listVisitor.values.toList)
     }
   }
 
   private def binaryOperator(expression: BinaryExpression): BinaryOperation = {
     val value = expression.getRightExpression match {
-      case e: LongValue => e.getValue.toString
+      case e: LongValue ⇒ e.getValue.toString
     }
 
     expression.getLeftExpression match {
-      case e: Column => BinaryOperation(e.getTable.getName, e.getColumnName.toString, value)
+      case e: Column ⇒ BinaryOperation(e.getTable.getName, e.getColumnName.toString, value)
     }
   }
 }
