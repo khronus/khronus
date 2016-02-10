@@ -38,8 +38,11 @@ class PredicateVisitor extends AbstractExpressionVisitor {
   }
 
   override def visit(andExpression: AndExpression): Unit = {
-    andExpression.getLeftExpression.accept(this)
-    andExpression.getRightExpression.accept(this)
+    val left = new PredicateVisitor
+    val right = new PredicateVisitor
+    andExpression.getLeftExpression.accept(left)
+    andExpression.getRightExpression.accept(right)
+    predicates += And(left.predicates.head, right.predicates.head)
   }
 
   override def visit(minorThan: MinorThanExpression): Unit = {
@@ -63,7 +66,8 @@ class PredicateVisitor extends AbstractExpressionVisitor {
 
   private def binaryOperator(expression: BinaryExpression): BinaryOperation = {
     val value = expression.getRightExpression match {
-      case e: LongValue ⇒ e.getValue.toString
+      case l: LongValue ⇒ l.getValue.toString
+      case s: StringValue => s.getValue
     }
 
     expression.getLeftExpression match {

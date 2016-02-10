@@ -43,7 +43,7 @@ class DefaultDynamicQueryExecutor() extends DynamicQueryExecutor with BucketQuer
 
 }
 
-case class DynamicQuery(projections: Seq[Projection], metrics: Seq[QMetric], predicate: Predicate, range: TimeRange)
+case class DynamicQuery(projections: Seq[Projection], metrics: Seq[QMetric], predicate: Option[Predicate], range: TimeRange)
 
 case class QMetric(name: String, alias: String)
 

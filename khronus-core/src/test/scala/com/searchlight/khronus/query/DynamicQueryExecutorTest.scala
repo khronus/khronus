@@ -22,7 +22,7 @@ class DynamicQueryExecutorTest extends FunSuite with Matchers with MockitoSugar 
 
   test("select count(e) from some_event e where e.tag1 = 'someValue' ") {
     val query: DynamicQuery = DynamicQuery(Seq(Count("e")),
-      Seq(someEvent_qmetric), Equals("e", "tag1", "someValue"), TimeRange(Timestamp(1), Timestamp(2)))
+      Seq(someEvent_qmetric), Some(Equals("e", "tag1", "someValue")), TimeRange(Timestamp(1), Timestamp(2)))
 
     val metricSelectorMock: QueryPlanner = mock[QueryPlanner]
     when(metricSelectorMock.getQueryPlan(query)).thenReturn(
@@ -49,7 +49,7 @@ class DynamicQueryExecutorTest extends FunSuite with Matchers with MockitoSugar 
 
   test("select percentiles(t, 20, 50, 95, 99.9) from some_timer t where e.tag1 = 'someValue' ") {
     val query: DynamicQuery = DynamicQuery(Seq(Percentiles("t", Seq(20, 50, 95, 99.9))),
-      Seq(someTimer_qmetric), Equals("t", "tag1", "someValue"), TimeRange(Timestamp(1), Timestamp(2)))
+      Seq(someTimer_qmetric), Some(Equals("t", "tag1", "someValue")), TimeRange(Timestamp(1), Timestamp(2)))
 
     val metricSelectorMock: QueryPlanner = mock[QueryPlanner]
     when(metricSelectorMock.getQueryPlan(query)).thenReturn(

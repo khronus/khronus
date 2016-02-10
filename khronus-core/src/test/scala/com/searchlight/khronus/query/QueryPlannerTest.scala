@@ -22,7 +22,7 @@ class QueryPlannerTest extends FunSuite with Matchers with MockitoSugar {
   test("select one metric query") {
     val cpu: QMetric = QMetric("cpu", "c")
 
-    val query = DynamicQuery(Seq(Count("c")), Seq(cpu), Equals("c", "node", "node1"), someTimeRange)
+    val query = DynamicQuery(Seq(Count("c")), Seq(cpu), Some(Equals("c", "node", "node1")), someTimeRange)
 
     val result = queryPlanner.getQueryPlan(query)
 
@@ -35,7 +35,7 @@ class QueryPlannerTest extends FunSuite with Matchers with MockitoSugar {
     val c = QMetric("cpu", "c")
     val d = QMetric("cpu", "d")
 
-    val query = DynamicQuery(Seq(Count("c"), Count("d")), Seq(c, d), And(Equals("c", "node", "node1"), Equals("d", "node", "node2")), someTimeRange)
+    val query = DynamicQuery(Seq(Count("c"), Count("d")), Seq(c, d), Some(And(Equals("c", "node", "node1"), Equals("d", "node", "node2"))), someTimeRange)
 
     val result = queryPlanner.getQueryPlan(query)
 
