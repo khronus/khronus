@@ -1,5 +1,6 @@
 package com.searchlight.khronus.store
 
+import com.searchlight.khronus.api.MetricBatch
 import com.searchlight.khronus.model._
 import com.searchlight.khronus.util.log.Logging
 import com.searchlight.khronus.util.{Settings, JacksonJsonSupport, BaseIntegrationTest}
@@ -18,7 +19,7 @@ class CassandraMetricMeasurementStoreTest extends FunSuite with BaseIntegrationT
 
     Thread.sleep(500)
 
-    val fslice = Buckets.histogramBucketStore.slice(Metric("ultimo15",MetricType.Timer), 1, System.currentTimeMillis(), 1 millis)
+    val fslice = Buckets.histogramBucketStore.slice(Metric("ultimo15",Histogram), 1, System.currentTimeMillis(), 1 millis)
     val slice = Await.result(fslice, 1 second)
 
     slice.results.size should be (1)
@@ -36,7 +37,7 @@ class CassandraMetricMeasurementStoreTest extends FunSuite with BaseIntegrationT
 
     Thread.sleep(500)
 
-    val fslice = Buckets.histogramBucketStore.slice(Metric("ultimo15",MetricType.Timer), 0, System.currentTimeMillis(), 1 millis)
+    val fslice = Buckets.histogramBucketStore.slice(Metric("ultimo15",Histogram), 0, System.currentTimeMillis(), 1 millis)
     val slice = Await.result(fslice, 1 second)
 
     slice.results.size should be (2)
@@ -56,7 +57,7 @@ class CassandraMetricMeasurementStoreTest extends FunSuite with BaseIntegrationT
 
     Thread.sleep(500)
 
-    val fslice = Buckets.histogramBucketStore.slice(Metric("ultimo19",MetricType.Timer), 0, System.currentTimeMillis(), 1 millis)
+    val fslice = Buckets.histogramBucketStore.slice(Metric("ultimo19",Histogram), 0, System.currentTimeMillis(), 1 millis)
     val slice = Await.result(fslice, 1 second)
 
     slice.results.size should be (1)
@@ -74,7 +75,7 @@ class CassandraMetricMeasurementStoreTest extends FunSuite with BaseIntegrationT
 
     Thread.sleep(500)
 
-    val fslice = Buckets.histogramBucketStore.slice(Metric("ultimo15",MetricType.Timer), 1, System.currentTimeMillis(), 1 millis)
+    val fslice = Buckets.histogramBucketStore.slice(Metric("ultimo15",Histogram), 1, System.currentTimeMillis(), 1 millis)
     val slice = Await.result(fslice, 1 second)
 
     slice.results.size should be (1)

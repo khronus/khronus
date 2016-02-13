@@ -1,8 +1,7 @@
 package com.searchlight.khronus.store
 
-import com.searchlight.khronus.model.{CounterSummary, Metric, MetricType}
+import com.searchlight.khronus.model._
 import com.searchlight.khronus.util.BaseIntegrationTest
-import com.searchlight.khronus.model.{MetricType, CounterSummary, Metric, HistogramSummary}
 import com.searchlight.khronus.util.{Settings, BaseIntegrationTest}
 import org.scalatest.{FunSuite, Matchers}
 
@@ -16,11 +15,11 @@ class CassandraCounterSummaryStoreTest extends FunSuite with BaseIntegrationTest
     val secondSummary = new CounterSummary(30L, 3000L)
     val summaries = Seq(summary, secondSummary)
     await {
-      Summaries.counterSummaryStore.store(Metric("testMetric", MetricType.Counter), 30 seconds, summaries)
+      Summaries.counterSummaryStore.store(Metric("testMetric", Counter), 30 seconds, summaries)
     }
 
     val bucketsFromCassandra = await {
-      Summaries.counterSummaryStore.sliceUntilNow(Metric("testMetric", MetricType.Counter), 30 seconds)
+      Summaries.counterSummaryStore.sliceUntilNow(Metric("testMetric", Counter), 30 seconds)
     }
 
     bucketsFromCassandra(0) shouldEqual summary
@@ -29,7 +28,7 @@ class CassandraCounterSummaryStoreTest extends FunSuite with BaseIntegrationTest
 
   test("Slice without results") {
     val bucketsFromCassandra = await {
-      Summaries.counterSummaryStore.sliceUntilNow(Metric("inexistent metric", MetricType.Counter), 30 seconds)
+      Summaries.counterSummaryStore.sliceUntilNow(Metric("inexistent metric", Counter), 30 seconds)
     }
 
     bucketsFromCassandra.isEmpty shouldBe true

@@ -1,6 +1,6 @@
 package com.searchlight.khronus.util
 
-import com.searchlight.khronus.model.{ Metric, MonitoringSupport }
+import com.searchlight.khronus.model.Metric
 import com.searchlight.khronus.util.log.Logging
 
 import scala.concurrent.duration.Duration

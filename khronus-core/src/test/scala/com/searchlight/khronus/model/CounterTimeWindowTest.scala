@@ -19,7 +19,7 @@ import scala.util.control.NoStackTrace
 
 class CounterTimeWindowTest extends FunSuite with MockitoSugar with TimeWindowTest[CounterBucket] {
 
-  val metric = Metric("metrickA", MetricType.Counter)
+  val metric = Metric("metrickA", Counter)
 
   test("with previous buckets should store its buckets and summaries and remove previous buckets") {
 

@@ -13,23 +13,20 @@
  * and limitations under the License.
  * =========================================================================================
  */
+package com.searchlight.khronus.api
 
-package com.searchlight.khronus.service
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize
+import com.searchlight.khronus.model.{ SubMetric, Metric }
 
-import akka.actor.ActorSystem
-import com.searchlight.khronus.util.log.Logging
+case class MetricBatch(metrics: List[MetricMeasurement])
 
-trait ActorSystemSupport {
-  implicit def system = ActorSystemSupport.system
+case class MetricMeasurement(name: String, mtype: String, measurements: List[Measurement], tags: Map[String, String] = Map()) {
 
-}
+  override def toString = s"Metric($name,$mtype)"
 
-object ActorSystemSupport extends Logging {
-  val system = ActorSystem("khronus-system")
-
-  sys.addShutdownHook({
-    log.info("Shutting down khronus actor system")
-    system.terminate()
-  })
+  def asMetric = SubMetric(Metric(name, mtype), tags).asMetric()
 
 }
+
+case class Measurement(@JsonDeserialize(contentAs = classOf[java.lang.Long]) ts: Option[Long],
+  @JsonDeserialize(contentAs = classOf[java.lang.Long]) values: Seq[Long])

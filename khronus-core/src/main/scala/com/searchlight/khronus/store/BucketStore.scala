@@ -35,10 +35,10 @@ trait BucketStoreSupport[T <: Bucket] {
   def bucketStore: BucketStore[T]
 }
 
-trait BucketStore[T <: Bucket] {
-  def store(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit]
+trait BucketStore[+T <: Bucket] {
+  def store(metric: Metric, windowDuration: Duration, buckets: Seq[Bucket]): Future[Unit]
 
-  def store(metrics: Seq[(Metric, () ⇒ T)], windowDuration: Duration): Future[Unit]
+  def store(metrics: Seq[(Metric, () ⇒ Bucket)], windowDuration: Duration): Future[Unit]
 
   def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[BucketSlice[T]]
 }
@@ -59,7 +59,7 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
 
   protected def deserialize(windowDuration: Duration, timestamp: Long, bytes: Array[Byte]): T
 
-  protected def serialize(metric: Metric, windowDuration: Duration, bucket: T): ByteBuffer
+  protected def serialize(metric: Metric, windowDuration: Duration, bucket: Bucket): ByteBuffer
 
   val SliceQuery = "sliceQuery"
 
@@ -82,7 +82,7 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
     (windowDuration, Statements(insert, Map(SliceQuery -> select), Some(delete)))
   }).toMap
 
-  def store(metric: Metric, windowDuration: Duration, buckets: Seq[T]): Future[Unit] = executeChunked(s"bucket of $metric-$windowDuration", buckets, Settings.CassandraBuckets.insertChunkSize) {
+  def store(metric: Metric, windowDuration: Duration, buckets: Seq[Bucket]): Future[Unit] = executeChunked(s"bucket of $metric-$windowDuration", buckets, Settings.CassandraBuckets.insertChunkSize) {
     bucketsChunk ⇒
       {
         log.trace(s"${p(metric, windowDuration)} - Storing chunk of ${bucketsChunk.length} buckets")
@@ -101,7 +101,7 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
       }
   }
 
-  def store(metrics: Seq[(Metric, () ⇒ T)], windowDuration: Duration): Future[Unit] = executeChunked(s"buckets of $windowDuration", metrics, Settings.CassandraBuckets.insertChunkSize) {
+  def store(metrics: Seq[(Metric, () ⇒ Bucket)], windowDuration: Duration): Future[Unit] = executeChunked(s"buckets of $windowDuration", metrics, Settings.CassandraBuckets.insertChunkSize) {
     bucketsChunk ⇒
       {
         val stmt = stmtPerWindow(windowDuration).insert

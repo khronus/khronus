@@ -20,7 +20,7 @@ trait BucketCacheSupport[T <: Bucket] {
 
 trait BucketCache[T <: Bucket] extends Logging with Measurable {
   val cachesByMetric: TrieMap[Metric, MetricBucketCache[T]]
-  val nCachedMetrics: Map[String, AtomicLong]
+  val nCachedMetrics: Map[MetricType, AtomicLong]
   private val enabled = Settings.BucketCache.Enabled
 
   private[store] val lastKnownTick: AtomicReference[Tick] = new AtomicReference[Tick]()
@@ -187,7 +187,7 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
 
 object InMemoryCounterBucketCache extends BucketCache[CounterBucket] {
   override val cachesByMetric: TrieMap[Metric, MetricBucketCache[CounterBucket]] = new TrieMap[Metric, MetricBucketCache[CounterBucket]]()
-  override val nCachedMetrics: Map[String, AtomicLong] = Map(MetricType.Counter -> new AtomicLong(0))
+  override val nCachedMetrics: Map[MetricType, AtomicLong] = Map(Counter -> new AtomicLong(0))
 
   override def buildCache(): MetricBucketCache[CounterBucket] = new CounterMetricBucketCache()
 
@@ -195,7 +195,7 @@ object InMemoryCounterBucketCache extends BucketCache[CounterBucket] {
 
 object InMemoryHistogramBucketCache extends BucketCache[HistogramBucket] {
   override val cachesByMetric: TrieMap[Metric, MetricBucketCache[HistogramBucket]] = new TrieMap[Metric, MetricBucketCache[HistogramBucket]]()
-  override val nCachedMetrics: Map[String, AtomicLong] = Map(MetricType.Gauge -> new AtomicLong(0), MetricType.Timer -> new AtomicLong(0))
+  override val nCachedMetrics: Map[MetricType, AtomicLong] = Map(Histogram -> new AtomicLong(0))
 
   override def buildCache(): MetricBucketCache[HistogramBucket] = new HistogramMetricBucketCache()
 }

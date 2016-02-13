@@ -26,7 +26,7 @@ trait Logging {
 
   import com.searchlight.khronus.util.log.Logging._
 
-  def loggerName = this.getClass().getName()
+  def loggerName = this.getClass.getName
 
   val log = Logger(LoggerFactory.getLogger(loggerName))
 

@@ -8,7 +8,7 @@
     </appender>
 
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${khronus.logdir}/khronus.log</file>
+        <file>${khronus.logdir:-logs}/khronus.log</file>
         <append>true</append>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <FileNamePattern>${khronus.logdir}/khronus.%d{yyyy-MM-dd}.log</FileNamePattern>

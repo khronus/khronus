@@ -21,8 +21,8 @@ import akka.actor
 import akka.event.Logging
 import com.searchlight.khronus.influx.service.InfluxActor
 import com.searchlight.khronus.influx.store.CassandraDashboards
-import com.searchlight.khronus.service.ActorSystemSupport
 import com.searchlight.khronus.service.HandShakeProtocol.{ Register, KhronusStarted }
+import com.searchlight.khronus.service.KhronusActorSystem
 
 class Influx(system: ExtendedActorSystem) extends Extension {
   val log = Logging(system, classOf[Influx])
@@ -42,7 +42,7 @@ class Influx(system: ExtendedActorSystem) extends Extension {
 }
 
 object Influx extends ExtensionId[Influx] with ExtensionIdProvider {
-  def apply() = super.apply(ActorSystemSupport.system)
+  def apply() = super.apply(KhronusActorSystem.system)
 
   override def lookup: ExtensionId[_ <: actor.Extension] = Influx
   override def createExtension(system: ExtendedActorSystem): Influx = new Influx(system)

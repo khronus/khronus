@@ -1,7 +1,7 @@
 package com.searchlight.khronus.model
 
 import java.nio.ByteBuffer
-import org.HdrHistogram.{ SkinnyHistogram, Histogram }
+import org.HdrHistogram.{ SkinnyHistogram, Histogram ⇒ HdrHistogram }
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{ FunSuite, Matchers }
 import com.searchlight.khronus.util.log.Logging
@@ -61,7 +61,7 @@ class SkinnyHistogramTest extends FunSuite with MockitoSugar with Matchers with 
 
   test("should compress better than hdrhistogram") {
     val skinnyHistogram = new SkinnyHistogram(36000000L, 3)
-    val hdrHistogram = new Histogram(36000000L, 3)
+    val hdrHistogram = new HdrHistogram(36000000L, 3)
 
     (1 to 1000) foreach { value ⇒
       skinnyHistogram.recordValue(value)
@@ -78,7 +78,7 @@ class SkinnyHistogramTest extends FunSuite with MockitoSugar with Matchers with 
 
   test("should serialize better than hdrhistogram") {
     val skinnyHistogram = new SkinnyHistogram(36000000L, 3)
-    val hdrHistogram = new Histogram(36000000L, 3)
+    val hdrHistogram = new HdrHistogram(36000000L, 3)
 
     (1 to 1000) foreach { value ⇒
       skinnyHistogram.recordValue(value)
@@ -93,7 +93,7 @@ class SkinnyHistogramTest extends FunSuite with MockitoSugar with Matchers with 
   }
 
   test("should deserialize hdrHistograms to maintain backward compatibility") {
-    val hdrHistogram = new Histogram(36000000L, 3)
+    val hdrHistogram = new HdrHistogram(36000000L, 3)
 
     (1 to 1000) foreach { value ⇒
       hdrHistogram.recordValue(value)
@@ -221,7 +221,7 @@ class SkinnyHistogramTest extends FunSuite with MockitoSugar with Matchers with 
       1042, 3926, 2414, 158, 361, 278, 2074, 1204, 1812, 918, 441, 974, 1803)
 
     val skinnyHistogram = new SkinnyHistogram(36000000L, 3)
-    val hdrHistogram = new Histogram(36000000L, 3)
+    val hdrHistogram = new HdrHistogram(36000000L, 3)
 
     latencies foreach { latency ⇒
       skinnyHistogram.recordValue(latency)

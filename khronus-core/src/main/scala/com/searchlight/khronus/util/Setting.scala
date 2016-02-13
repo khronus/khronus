@@ -18,7 +18,7 @@ package com.searchlight.khronus.util
 
 import java.util.Map.Entry
 
-import com.searchlight.khronus.model.{ CounterTimeWindow, HistogramTimeWindow, MetricType }
+import com.searchlight.khronus.model._
 import com.typesafe.config.{ ConfigValue, ConfigObject, ConfigFactory }
 
 import scala.collection.JavaConverters._
@@ -93,7 +93,7 @@ object Settings {
     val ReplicationFactor = cassandraCfg.getInt("rf")
   }
 
-  object Histogram {
+  object Histograms {
     private val histogramConfig = config.getConfig("khronus.histogram")
     val BucketRetentionPolicy = histogramConfig.getDuration("bucket-retention-policy", SECONDS).toInt
     val TimeWindows = Window.WindowDurations.sliding(2).map { dp ⇒
@@ -122,7 +122,7 @@ object Settings {
 
   }
 
-  object Counter {
+  object Counters {
     private val counterConfig = config.getConfig("khronus.counter")
     val BucketRetentionPolicy = counterConfig.getDuration("bucket-retention-policy", SECONDS).toInt
     val SummaryRetentionPolicyDefault = Duration(counterConfig.getString("summary-retention-policy.default"))
@@ -156,18 +156,18 @@ object Settings {
 
     val MaxStore = bucketCacheConfig.getInt("max-store")
 
-    val MaxMetrics: Map[String, Int] = Map(MetricType.Timer -> bucketCacheConfig.getInt("max-metrics.timers"),
-      MetricType.Counter -> bucketCacheConfig.getInt("max-metrics.counters"), MetricType.Gauge -> bucketCacheConfig.getInt("max-metrics.gauges"))
+    val MaxMetrics: Map[MetricType, Int] = Map(Histogram -> bucketCacheConfig.getInt(s"max-metrics.$Histogram"),
+      Counter -> bucketCacheConfig.getInt(s"max-metrics.$Counter"))
 
-    def IsEnabledFor(metricType: String): Boolean = Option(bucketCacheConfig.getBoolean(metricType)).getOrElse(false)
+    def IsEnabledFor(metricType: MetricType): Boolean = Option(bucketCacheConfig.getBoolean(metricType.toString)).getOrElse(false)
   }
 
-  private def adjustDuration(durationInMillis: Long): FiniteDuration = {
-    durationInMillis match {
+  private def adjustDuration(durationMS: Long): FiniteDuration = {
+    durationMS match {
       case durationInMillis if durationInMillis < 1000 ⇒ durationInMillis millis
       case durationInMillis if durationInMillis < 60000 ⇒ (durationInMillis millis).toSeconds seconds
       case durationInMillis if durationInMillis < 3600000 ⇒ (durationInMillis millis).toMinutes minutes
-      case _ ⇒ (durationInMillis millis).toHours hours
+      case _ ⇒ (durationMS millis).toHours hours
     }
   }
 

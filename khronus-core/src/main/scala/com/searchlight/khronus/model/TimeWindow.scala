@@ -70,7 +70,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends Window with BucketS
     }
   }
 
-  private def withLastProcessedBucket[T](block: BucketNumber ⇒ Future[T])(implicit metric: Metric, tick: Tick, context: Context) = {
+  private def withLastProcessedBucket[B](block: BucketNumber ⇒ Future[B])(implicit metric: Metric, tick: Tick, context: Context) = {
     lastProcessedBucket(metric) flatMap block
   }
 
@@ -96,7 +96,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends Window with BucketS
   private def grouped(buckets: BucketSlice[T])(implicit metric: Metric, context: Context): Map[BucketNumber, Seq[T]] = {
     val groupedBuckets = buckets.results.groupBy(bucketResult ⇒ bucketResult.timestamp.toBucketNumberOf(duration)).mapValues(
       seq ⇒ seq.view.map(bucketResult ⇒ bucketResult.lazyBucket()))
-    if (!groupedBuckets.isEmpty) {
+    if (groupedBuckets.nonEmpty) {
       log.debug(s"$context - Grouped ${groupedBuckets.size} buckets ${groupedBuckets.keys}")
     }
     groupedBuckets

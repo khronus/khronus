@@ -17,8 +17,7 @@
 package com.searchlight.khronus
 
 import com.searchlight.khronus.cluster.ClusterSupport
-import com.searchlight.khronus.service.ActorSystemSupport
-import com.searchlight.khronus.service.KhronusService
+import com.searchlight.khronus.service.KhronusActorSystem
 import com.searchlight.khronus.store.CassandraSupport
 import com.searchlight.khronus.util.log.Logging
 
@@ -33,4 +32,4 @@ object Khronus extends App with Logging {
   KhronusApp
 }
 
-object KhronusApp extends ActorSystemSupport with CassandraSupport with KhronusService with ClusterSupport
+object KhronusApp extends KhronusActorSystem with CassandraSupport with ClusterSupport

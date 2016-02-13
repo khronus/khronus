@@ -17,7 +17,7 @@ class SimpleQueryPlanner extends QueryPlanner with MetaSupport {
 
   def getQueryPlan(query: DynamicQuery): QueryPlan = {
     val subMetrics = cartesianProduct(getQueriedSubMetrics(query)).map(_.toMap)
-    val matchedSubMetrics = query.predicate map (p => subMetrics.filter(p.matches)) getOrElse(Seq.empty) //FIXME if none predicate?
+    val matchedSubMetrics = query.predicate map (p ⇒ subMetrics.filter(p.matches)) getOrElse (Seq.empty) //FIXME if none predicate?
     QueryPlan(matchedSubMetrics.flatten.groupBy(kv ⇒ kv._1).mapValues(v ⇒ v.map(va ⇒ va._2)))
   }
 

@@ -3,7 +3,8 @@ package com.searchlight.khronus.util
 import java.util.concurrent.TimeUnit
 
 import com.searchlight.khronus.model.Functions.Percentile95
-import com.searchlight.khronus.model.{ Metric, MetricType, MonitoringSupport, Tick }
+import com.searchlight.khronus.model._
+import com.searchlight.khronus.service.MonitoringSupport
 import com.searchlight.khronus.store.{ MetaSupport, Slice, Summaries }
 import com.searchlight.khronus.util.log.Logging
 
@@ -103,10 +104,9 @@ object SlowMetricsRecorder extends ConcurrencySupport with MetaSupport {
     } getOrElse (Future.successful(Some(MAX_DEFAULT_OUTLIERS_LIMIT)))
   }
 
-  private def getStore(metricType: String) = metricType match {
-    case MetricType.Timer | MetricType.Gauge ⇒ Summaries.histogramSummaryStore
-    case MetricType.Counter                  ⇒ Summaries.counterSummaryStore
-    case _                                   ⇒ throw new UnsupportedOperationException(s"Unknown metric type: $metricType")
+  private def getStore(metricType: MetricType) = metricType match {
+    case Histogram ⇒ Summaries.histogramSummaryStore
+    case Counter   ⇒ Summaries.counterSummaryStore
   }
 
 }

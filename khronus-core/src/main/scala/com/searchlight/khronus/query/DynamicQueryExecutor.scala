@@ -6,14 +6,16 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 trait DynamicQuerySupport {
-  val dynamicQueryExecutor: DynamicQueryExecutor = new DefaultDynamicQueryExecutor()
+  def dynamicQueryExecutor: DynamicQueryExecutor = DynamicQueryExecutor
 }
 
 trait DynamicQueryExecutor {
   def execute(query: DynamicQuery): Future[Seq[Series]]
 }
 
-class DefaultDynamicQueryExecutor() extends DynamicQueryExecutor with BucketQuerySupport with QueryPlannerSupport {
+object DynamicQueryExecutor extends DefaultDynamicQueryExecutor
+
+trait DefaultDynamicQueryExecutor extends DynamicQueryExecutor with BucketQuerySupport with QueryPlannerSupport {
 
   def execute(query: DynamicQuery): Future[Seq[Series]] = {
     val subMetricBucketsByQMetric = performBucketSlices(query, queryPlanner.getQueryPlan(query))

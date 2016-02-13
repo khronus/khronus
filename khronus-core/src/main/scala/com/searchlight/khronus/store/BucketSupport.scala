@@ -16,9 +16,18 @@
 
 package com.searchlight.khronus.store
 
+import com.searchlight.khronus.model.{ Bucket, Histogram, Counter, MetricType }
+
 trait BucketSupport {
 
-  val histogramBucketStore = Buckets.histogramBucketStore
-  val counterBucketStore = Buckets.counterBucketStore
+  private val histogramBucketStore = Buckets.histogramBucketStore
+  private val counterBucketStore = Buckets.counterBucketStore
+
+  protected def getStore(metricType: MetricType): BucketStore[Bucket] = {
+    metricType match {
+      case Counter   ⇒ counterBucketStore
+      case Histogram ⇒ histogramBucketStore
+    }
+  }
 
 }

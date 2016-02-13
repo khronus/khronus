@@ -3,8 +3,8 @@ package com.searchlight.khronus.model
 import com.searchlight.khronus.util.Settings
 
 trait TimeWindowsSupport {
-  val histogramsWindows = Settings.Histogram.TimeWindows
-  val countersWindows = Settings.Counter.TimeWindows
-  val windows = Map[String, Seq[Window]](MetricType.Counter -> countersWindows, MetricType.Timer -> histogramsWindows, MetricType.Gauge -> histogramsWindows)
-  def smallestWindow = Settings.Histogram.TimeWindows(0)
+  val histogramsWindows = Settings.Histograms.TimeWindows
+  val countersWindows = Settings.Counters.TimeWindows
+  val windows = Map[MetricType, Seq[Window]](Counter -> countersWindows, Histogram -> histogramsWindows)
+  def smallestWindow = Settings.Histograms.TimeWindows.head
 }

@@ -32,9 +32,9 @@ trait HistogramBucketSupport extends BucketStoreSupport[HistogramBucket] {
 
 class CassandraHistogramBucketStore(session: Session) extends CassandraBucketStore[HistogramBucket](session) with Logging with Measurable {
 
-  override def limit: Int = Settings.Histogram.BucketLimit
+  override def limit: Int = Settings.Histograms.BucketLimit
 
-  override def fetchSize: Int = Settings.Histogram.BucketFetchSize
+  override def fetchSize: Int = Settings.Histograms.BucketFetchSize
 
   private val histogramSerializer: HistogramSerializer = DefaultHistogramSerializer
 
@@ -44,17 +44,18 @@ class CassandraHistogramBucketStore(session: Session) extends CassandraBucketSto
 
   override def tableName(duration: Duration) = s"histogramBucket${duration.length}${duration.unit}"
 
-  def serialize(metric: Metric, windowDuration: Duration, bucket: HistogramBucket): ByteBuffer = {
-    val buffer = histogramSerializer.serialize(bucket.histogram)
+  def serialize(metric: Metric, windowDuration: Duration, bucket: Bucket): ByteBuffer = {
+    val histogramBucket = bucket.asInstanceOf[HistogramBucket]
+    val buffer = histogramSerializer.serialize(histogramBucket.histogram)
     val bytesEncoded = buffer.limit()
-    log.trace(s"$metric- Histogram of $windowDuration with ${bucket.histogram.getTotalCount()} measures encoded and compressed into $bytesEncoded bytes")
+    log.trace(s"$metric- Histogram of $windowDuration with ${histogramBucket.histogram.getTotalCount()} measures encoded and compressed into $bytesEncoded bytes")
     recordGauge(formatLabel("serializedBucketBytes", metric, windowDuration), bytesEncoded)
     buffer
   }
 
   private def deserializeHistogram(bytes: Array[Byte]): Histogram = histogramSerializer.deserialize(ByteBuffer.wrap(bytes))
 
-  override def ttl(windowDuration: Duration): Int = Settings.Histogram.BucketRetentionPolicy
+  override def ttl(windowDuration: Duration): Int = Settings.Histograms.BucketRetentionPolicy
 
 }
 

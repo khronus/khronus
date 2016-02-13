@@ -17,7 +17,8 @@
 package com.searchlight.khronus.cluster
 
 import akka.actor._
-import com.searchlight.khronus.model.{ Metric, MonitoringSupport, TimeWindowChain }
+import com.searchlight.khronus.model.{ Metric, TimeWindowChain }
+import com.searchlight.khronus.service.MonitoringSupport
 
 import scala.util.control.{ NoStackTrace, NonFatal }
 import scala.util.{ Failure, Success }

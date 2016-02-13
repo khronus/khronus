@@ -74,7 +74,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     val from = duration.toMillis * 99
     val query = s"""select count(value) from "$metricName" where time >= $from and time <= $to force group by time (1h)"""
 
-    when(metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Counter)))
+    when(metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Counter)))
 
     val summary1 = CounterSummary(from, 100L)
     val summary2 = CounterSummary(to, 80L)
@@ -107,7 +107,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     val from = duration.toMillis * 100
     val query = s"""select * from "$metricName" where time >= $from and time <= $to force group by time (1h)"""
 
-    when(metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Counter)))
+    when(metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Counter)))
 
     val summary = CounterSummary(from, 100L)
     when(getCounterSummaryStore.readAll(metricName, FiniteDuration(1, TimeUnit.HOURS), Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq(summary) })
@@ -131,7 +131,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     val from = to - duration.toMillis
     val query = s"""select * from "$metricName" where time >= $from and time <= $to force group by time (5m) limit 10 order desc"""
 
-    when(metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     val summary = HistogramSummary(from, 50L, 80L, 90L, 95L, 99L, 999L, 3L, 1000L, 100L, 200L)
     when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), false, 10)).thenReturn(Future { Seq(summary) })
@@ -170,7 +170,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
 
     val timer1 = s"$commonName-1"
     val timer2 = s"$commonName-2"
-    when(metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(timer1, MetricType.Timer), Metric(timer2, MetricType.Timer)))
+    when(metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(timer1, Histogram), Metric(timer2, Histogram)))
 
     val query = s"""select max from "$regexCommon" where time >= $from and time <= $to force group by time (5m) limit 10 order desc"""
 
@@ -199,7 +199,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     val duration = 5 minutes
     val time = duration.toMillis * 100
 
-    when(metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     val query = s"""select max, min from "$metricName" where time >= $time and time <= $time force group by time (5m)"""
 
@@ -229,7 +229,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     val to = duration.toMillis * 100
     val from = duration.toMillis * 98
 
-    when(metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     val query = s"""select 5 as constant from "$metricName" where time >= $from and time <= $to force group by time (5m)"""
 
@@ -263,8 +263,8 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     val to = duration.toMillis * 100
     val from = duration.toMillis * 99
 
-    when(metaStore.searchInSnapshotByRegex(regexCounter)).thenReturn(Seq(Metric(counterName, MetricType.Counter)))
-    when(metaStore.searchInSnapshotByRegex(regexTimer)).thenReturn(Seq(Metric(timerName, MetricType.Timer)))
+    when(metaStore.searchInSnapshotByRegex(regexCounter)).thenReturn(Seq(Metric(counterName, Counter)))
+    when(metaStore.searchInSnapshotByRegex(regexTimer)).thenReturn(Seq(Metric(timerName, Histogram)))
 
     val query = s"""select ti.max * co.count as theOperation from "$counterName" as co, "$timerName" as ti where time >= $from and time <= $to force group by time (5m)"""
 
@@ -304,8 +304,8 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     val window99 = duration.toMillis * 99
     val window100 = duration.toMillis * 100
 
-    when(metaStore.searchInSnapshotByRegex(regexCounter)).thenReturn(Seq(Metric(counterName, MetricType.Counter)))
-    when(metaStore.searchInSnapshotByRegex(regexTimer)).thenReturn(Seq(Metric(timerName, MetricType.Timer)))
+    when(metaStore.searchInSnapshotByRegex(regexCounter)).thenReturn(Seq(Metric(counterName, Counter)))
+    when(metaStore.searchInSnapshotByRegex(regexTimer)).thenReturn(Seq(Metric(timerName, Histogram)))
 
     val query = s"""select ti.max + co.count as theOperation from "$counterName" as co, "$timerName" as ti where time >= $window96 and time <= $window100 force group by time (5m) fill(-1)"""
 
@@ -384,7 +384,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
     val to = System.currentTimeMillis()
     val query = s"""select * from "$metricName" where time <=  $to group by time (5m)"""
 
-    when(metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     intercept[UnsupportedOperationException] {
       await(search(query))
@@ -401,7 +401,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
 
     val query = s"""select * from "$metricName" where time >= $from and time <= $to $force group by time ($desiredGroupBy)"""
 
-    when(metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
     when(getStatisticSummaryStore.readAll(metricName, expectedDuration, Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq() })
 
     await(search(query))

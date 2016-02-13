@@ -46,10 +46,7 @@ trait Projection {
   }
 
   private def aggregate(metric: Metric, number: BucketNumber, buckets: Seq[BucketResult[Bucket]]): Bucket = {
-    metric.mtype match {
-      case "counter"                       ⇒ new CounterBucket(number, CounterBucket.sumCounters(buckets.map(_.lazyBucket().asInstanceOf[CounterBucket])))
-      case "timer" | "histogram" | "gauge" ⇒ new HistogramBucket(number, HistogramBucket.sumHistograms(buckets.map(_.lazyBucket().asInstanceOf[HistogramBucket])))
-    }
+    metric.mtype.aggregate(number, buckets)
   }
 
   private def targetQMetric(input: Map[QMetric, Map[SubMetric, Future[BucketSlice[Bucket]]]]) = {

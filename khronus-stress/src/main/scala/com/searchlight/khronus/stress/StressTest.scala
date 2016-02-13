@@ -18,6 +18,7 @@ package com.searchlight.khronus.stress
 
 import java.util.concurrent.Executors
 import akka.actor.{ Props, ActorSystem }
+import com.searchlight.khronus.api.{ MetricBatch, Measurement, MetricMeasurement }
 import com.searchlight.khronus.util.JacksonJsonSupport
 import com.typesafe.config.ConfigFactory
 import spray.http._
@@ -31,12 +32,9 @@ import spray.http._
 import spray.client.pipelining._
 
 import spray.http.HttpRequest
-import com.searchlight.khronus.model.Measurement
-import com.searchlight.khronus.model.MetricMeasurement
 import scala.util.Failure
 import spray.http.HttpResponse
 import scala.util.Success
-import com.searchlight.khronus.model.MetricBatch
 
 object StressTest extends App with JacksonJsonSupport {
   implicit val system = ActorSystem("StressActorSystem")
@@ -81,7 +79,7 @@ object StressTest extends App with JacksonJsonSupport {
     } while (j < n)
 
     def postToKhronusApi(call: Int, run: Int): Unit = {
-      val metricMeasurements = (for (i ← 1 to nMetrics) yield MetricMeasurement(s"cachorra$i", MetricType.Timer, getMeasurements())) toList
+      val metricMeasurements = (for (i ← 1 to nMetrics) yield MetricMeasurement(s"cachorra$i", Histogram, getMeasurements())) toList
 
       val metricBatch: MetricBatch = MetricBatch(metricMeasurements)
       println(s"calling Khronus #$call, run #$run")

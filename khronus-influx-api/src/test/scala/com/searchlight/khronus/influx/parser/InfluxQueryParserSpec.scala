@@ -42,7 +42,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val metricName = """metric:A\12:3"""
     val regex = parser.getCaseInsensitiveRegex(metricName)
 
-    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     val query = s"""select count(value) from "$metricName" as aliasTable group by time(2h)"""
     val influxCriteria = await(parser.parse(query))
@@ -66,7 +66,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val parser = buildParser
     val regex = parser.getCaseInsensitiveRegex(metricName)
 
-    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     val query = s"""select x.mean, x.max as maxValue, min(value) from "$metricName" as x group by time(2h)"""
     val influxCriteria = await(parser.parse(query))
@@ -92,7 +92,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val parser = buildParser
     val regex = parser.getCaseInsensitiveRegex(metricName)
 
-    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     val query = s"""select aliasTimer.* from "$metricName" as aliasTimer group by time (30s)"""
     val influxCriteria = await(parser.parse(query))
@@ -127,7 +127,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val parser = buildParser
     val regex = parser.getCaseInsensitiveRegex(metricName)
 
-    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Counter)))
+    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Counter)))
 
     val query = s"""select * from "$metricName" as aliasCounter group by time (30s)"""
     val influxCriteria = await(parser.parse(query))
@@ -150,7 +150,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val parser = buildParser
     val regex = parser.getCaseInsensitiveRegex(metricName)
 
-    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     val queryMax = s"""select max, min, mean, count, p50, p80, p90, p95, p99, p999 from "$metricName" group by time(1m)"""
 
@@ -174,7 +174,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val parser = buildParser
     val regex = parser.getCaseInsensitiveRegex(metricName)
 
-    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Counter)))
+    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Counter)))
 
     val queryCounter = s"""select count(value) from "$metricName" group by time(1m)"""
     val resultedFieldCounter = await(parser.parse(queryCounter)).projections(0)
@@ -188,7 +188,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val parser = buildParser
     val regex = parser.getCaseInsensitiveRegex(metricName)
 
-    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     val queryAllPercentiles = s"""select percentiles from "$metricName" group by time(30s)"""
     val projections = await(parser.parse(queryAllPercentiles)).projections.sortBy(_.asInstanceOf[Field].name)
@@ -209,7 +209,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val parser = buildParser
     val regex = parser.getCaseInsensitiveRegex(metricName)
 
-    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     val queryPercentiles = s"""select percentiles(80 99 50) from "$metricName" group by time(30s)"""
     val projections = await(parser.parse(queryPercentiles)).projections
@@ -227,7 +227,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val parser = buildParser
     val regex = parser.getCaseInsensitiveRegex(metricName)
 
-    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     val queryPercentiles = s"""select cpm from "$metricName" group by time(5m)"""
     val projections = await(parser.parse(queryPercentiles)).projections
@@ -243,7 +243,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val parser = buildParser
     val regex = parser.getCaseInsensitiveRegex(metricName)
 
-    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     val queryMax = s"""select x.p50 + 90 as op1, x.max - x.min as op2, 35 * x.mean as op3, 3 / 4 as op4 from "$metricName" as x group by time(1m)"""
 
@@ -283,8 +283,8 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val regexTimer1 = parser.getCaseInsensitiveRegex(timerMetric1)
     val regexTimer2 = parser.getCaseInsensitiveRegex(timerMetric2)
 
-    when(parser.metaStore.searchInSnapshotByRegex(regexTimer1)).thenReturn(Seq(Metric(timerMetric1, MetricType.Timer)))
-    when(parser.metaStore.searchInSnapshotByRegex(regexTimer2)).thenReturn(Seq(Metric(timerMetric2, MetricType.Timer)))
+    when(parser.metaStore.searchInSnapshotByRegex(regexTimer1)).thenReturn(Seq(Metric(timerMetric1, Histogram)))
+    when(parser.metaStore.searchInSnapshotByRegex(regexTimer2)).thenReturn(Seq(Metric(timerMetric2, Histogram)))
 
     val queryMax = s"""select x.max + y.min as operation from "$timerMetric1" as x, "$timerMetric2" as y group by time(1m)"""
 
@@ -305,7 +305,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val parser = buildParser
     val regex = parser.getCaseInsensitiveRegex(metricName)
 
-    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     val queryScalar = s"""select 1 as positiveValue, -3 as negativeValue, 12.56 as decimalValue from "$metricName" group by time(30s)"""
 
@@ -335,7 +335,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val regexCommon = s".*$counterCommonName.*"
     val regex = parser.getCaseInsensitiveRegex(regexCommon)
 
-    val metrics = Seq(Metric(counter1, MetricType.Counter), Metric(counter2, MetricType.Counter))
+    val metrics = Seq(Metric(counter1, Counter), Metric(counter2, Counter))
     when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(metrics)
 
     val queryRegex = s"""select * from "$regexCommon" group by time(30s)"""
@@ -369,10 +369,10 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val regexTimerCommon = s".*$timerCommonName.*"
     val regexTimer = parser.getCaseInsensitiveRegex(regexTimerCommon)
 
-    val counters = Seq(Metric(counter1, MetricType.Counter), Metric(counter2, MetricType.Counter))
+    val counters = Seq(Metric(counter1, Counter), Metric(counter2, Counter))
     when(parser.metaStore.searchInSnapshotByRegex(regexCounter)).thenReturn(counters)
 
-    val timers = Seq(Metric(timer1, MetricType.Timer), Metric(timer2, MetricType.Timer))
+    val timers = Seq(Metric(timer1, Histogram), Metric(timer2, Histogram))
     when(parser.metaStore.searchInSnapshotByRegex(regexTimer)).thenReturn(timers)
 
     val queryRegex = s"""select count from "$regexCounterCommon", "$regexTimerCommon" group by time(30s)"""
@@ -399,7 +399,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val parser = buildParser
     val regex = parser.getCaseInsensitiveRegex(metricName)
 
-    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     val query = s"""select count(value) from "$metricName" where host = 'aHost' group by time(5m)"""
     val influxCriteria = await(parser.parse(query))
@@ -425,7 +425,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val parser = buildParser
     val regex = parser.getCaseInsensitiveRegex(metricName)
 
-    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     val query = s"""select max(value) from "$metricName" where time >= 1414508614 and time < 1414509500 group by time(5m)"""
     val influxCriteria = await(parser.parse(query))
@@ -449,7 +449,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val parser = buildParser
     val regex = parser.getCaseInsensitiveRegex(metricName)
 
-    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     val query = s"""select min(value) from "$metricName" where time >= 1414508614s group by time(30s)"""
     val influxCriteria = await(parser.parse(query))
@@ -467,7 +467,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     }
     val regex = mockedParser.getCaseInsensitiveRegex(metricName)
 
-    when(mockedParser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(mockedParser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     val criteriaNow = await(mockedParser.parse(s"""select mean(value) from "$metricName" where time > now() group by time(5m)"""))
     verifyTimeFilter(criteriaNow.filters(0), "time", Operators.Gt, mockedNow)
@@ -495,7 +495,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val parser = buildParser
     val regex = parser.getCaseInsensitiveRegex(metricName)
 
-    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     val query = s"""select max(value) from "$metricName" where time between 1414508614 and 1414509500s group by time(2h)"""
     val influxCriteria = await(parser.parse(query))
@@ -519,7 +519,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val parser = buildParser
     val regex = parser.getCaseInsensitiveRegex(metricName)
 
-    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     // Configured windows should be parsed ok
     val influxCriteriaResult30s = await(parser.parse(s"""select count(value) as counter from "$metricName" force group by time(30s)"""))
@@ -543,7 +543,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val parser = buildParser
     val regex = parser.getCaseInsensitiveRegex(metricName)
 
-    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     val query = s"""select mean from "$metricName" group by time(1m) fill(999)"""
     val influxCriteria = await(parser.parse(query))
@@ -564,7 +564,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val parser = buildParser
     val regex = parser.getCaseInsensitiveRegex(metricName)
 
-    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     val query = s"""select p50(value) from "$metricName" group by time(1m) limit 10"""
     val influxCriteria = await(parser.parse(query))
@@ -586,7 +586,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val parser = buildParser
     val regex = parser.getCaseInsensitiveRegex(metricName)
 
-    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     val query = s"""select max(value) from "$metricName" group by time(1m) scale(-0.2)"""
     val influxCriteria = await(parser.parse(query))
@@ -608,7 +608,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val parser = buildParser
     val regex = parser.getCaseInsensitiveRegex(metricName)
 
-    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     val influxCriteriaAsc = await(parser.parse(s"""select p80(value) from "$metricName" group by time(1m) order asc"""))
     influxCriteriaAsc.orderAsc should be(true)
@@ -623,7 +623,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val parser = buildParser
     val regex = parser.getCaseInsensitiveRegex(metricName)
 
-    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(parser.metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, Histogram)))
 
     val query = s"""select count(value) as counter from "$metricName" where time > 1000 and time <= 5000 and host <> 'aHost' group by time(30s) limit 550 order desc;"""
     val influxCriteria = await(parser.parse(query))
@@ -697,15 +697,15 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
   }
 
   test("Select an invalid field for a counter should fail") {
-    verifyQueryFail(metricName, s"""select max(value) from "$metricName" group by time(30s)""", MetricType.Counter)
+    verifyQueryFail(metricName, s"""select max(value) from "$metricName" group by time(30s)""", Counter)
   }
 
   test("Select an invalid operator should fail") {
-    verifyQueryFail(metricName, s"""select max(value) & 3 from "$metricName" group by time(30s)""", MetricType.Timer)
+    verifyQueryFail(metricName, s"""select max(value) & 3 from "$metricName" group by time(30s)""", Histogram)
   }
 
   test("Select with operation without operator should fail") {
-    verifyQueryFail(metricName, s"""select max 3 from "$metricName" group by time(30s)""", MetricType.Timer)
+    verifyQueryFail(metricName, s"""select max 3 from "$metricName" group by time(30s)""", Histogram)
   }
 
   test("Select with unknown order should fail") {
@@ -729,7 +729,7 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     verifyQueryFail(metricName, s"""select x.count + y.max as operation from "$metricName" as x group by time(30s)""")
   }
 
-  private def verifyQueryFail(metric: String, query: String, metricType: String = MetricType.Timer) = {
+  private def verifyQueryFail(metric: String, query: String, metricType: MetricType = Histogram) = {
     val parser = buildParser
     val regex = parser.getCaseInsensitiveRegex(metric)
 

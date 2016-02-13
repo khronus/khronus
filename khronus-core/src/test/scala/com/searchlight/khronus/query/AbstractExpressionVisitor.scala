@@ -66,8 +66,8 @@ class PredicateVisitor extends AbstractExpressionVisitor {
 
   private def binaryOperator(expression: BinaryExpression): BinaryOperation = {
     val value = expression.getRightExpression match {
-      case l: LongValue ⇒ l.getValue.toString
-      case s: StringValue => s.getValue
+      case l: LongValue   ⇒ l.getValue.toString
+      case s: StringValue ⇒ s.getValue
     }
 
     expression.getLeftExpression match {

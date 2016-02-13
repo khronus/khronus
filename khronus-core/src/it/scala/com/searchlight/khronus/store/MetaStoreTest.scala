@@ -3,7 +3,7 @@ package com.searchlight.khronus.store
 import org.scalatest.Matchers
 import com.searchlight.khronus.util.BaseIntegrationTest
 import org.scalatest.FunSuite
-import com.searchlight.khronus.model.{Timestamp, MetricType, Metric}
+import com.searchlight.khronus.model.{Counter, Timestamp, MetricType, Metric}
 
 class CassandraMetaStoreTest extends FunSuite with BaseIntegrationTest with Matchers {
   override val tableNames: Seq[String] = Seq("meta")
@@ -23,7 +23,7 @@ class CassandraMetaStoreTest extends FunSuite with BaseIntegrationTest with Matc
   }
 
   test("should getLastProcessedTimestamp ok") {
-    val metric = Metric("test",MetricType.Counter)
+    val metric = Metric("test",Counter)
     await { Meta.metaStore.insert(metric) }
     val initialTimestamp = await { Meta.metaStore.getLastProcessedTimestampFromCassandra(metric)}
     initialTimestamp.ms should be(1)

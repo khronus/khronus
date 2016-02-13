@@ -20,7 +20,8 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor._
 import akka.routing._
-import com.searchlight.khronus.model.{ Metric, MonitoringSupport }
+import com.searchlight.khronus.model.Metric
+import com.searchlight.khronus.service.MonitoringSupport
 import com.searchlight.khronus.store.{ LeaderElection, MetaSupport }
 import com.searchlight.khronus.util.Settings
 import us.theatr.akka.quartz.{ AddCronScheduleFailure, _ }

@@ -25,9 +25,9 @@ object Tick extends Logging {
     (bucketNumber ~ smallestWindow()) <= currentTick.bucketNumber
   }
 
-  def smallestWindow() = Settings.Histogram.TimeWindows.head.duration
+  def smallestWindow() = Settings.Histograms.TimeWindows.head.duration
 
-  def highestWindow() = Settings.Histogram.TimeWindows.last.duration
+  def highestWindow() = Settings.Histograms.TimeWindows.last.duration
 }
 
 trait Clock {

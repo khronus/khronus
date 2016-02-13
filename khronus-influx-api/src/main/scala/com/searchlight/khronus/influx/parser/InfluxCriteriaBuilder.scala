@@ -1,7 +1,7 @@
 package com.searchlight.khronus.influx.parser
 
 import scala.concurrent.{ ExecutionContext, Future }
-import com.searchlight.khronus.model.{ Functions, MetricType }
+import com.searchlight.khronus.model.{ Counter, Histogram, Functions, MetricType }
 import com.searchlight.khronus.store.MetaSupport
 import com.searchlight.khronus.util.ConcurrencySupport
 
@@ -110,10 +110,9 @@ trait InfluxCriteriaBuilder extends MetaSupport with ConcurrencySupport {
     sources.filter(s ⇒ s.alias.isDefined && s.alias.get.equals(alias)).head
   }
 
-  private def allFunctionsByMetricType(metricType: String): Seq[String] = metricType match {
-    case MetricType.Timer | MetricType.Gauge ⇒ Functions.allHistogramFunctions
-    case MetricType.Counter                  ⇒ Functions.allCounterFunctions
-    case _                                   ⇒ throw new UnsupportedOperationException(s"Unknown metric type: $metricType")
+  private def allFunctionsByMetricType(metricType: MetricType): Seq[String] = metricType match {
+    case Histogram ⇒ Functions.allHistogramFunctions
+    case Counter   ⇒ Functions.allCounterFunctions
   }
 
 }

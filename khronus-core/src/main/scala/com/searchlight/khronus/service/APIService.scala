@@ -1,7 +1,7 @@
 package com.searchlight.khronus.service
 
 import akka.actor.Props
-import com.searchlight.khronus.model.MetricBatch
+import com.searchlight.khronus.api.MetricBatch
 import com.searchlight.khronus.store.CassandraMetricMeasurementStore._
 import com.searchlight.khronus.store.MetricMeasurementStoreSupport
 import com.searchlight.khronus.util.{ ConcurrencySupport, JacksonJsonSupport }
@@ -14,20 +14,20 @@ import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Failure
 import scala.util.control.NonFatal
 
-class KhronusActor extends HttpServiceActor with KhronusEnpoint with KhronusHandlerException {
+class APIActor extends HttpServiceActor with APIService with KhronusHandlerException {
   def receive = runRoute(metricsRoute)
 }
 
-object KhronusActor {
+object APIActor {
   val Name = "khronus-actor"
   val Path = "khronus/metrics"
 
-  def props = Props[KhronusActor]
+  def props = Props[APIActor]
 }
 
-trait KhronusEnpoint extends HttpService with MetricMeasurementStoreSupport with JacksonJsonSupport with Logging with ConcurrencySupport {
+trait APIService extends HttpService with MetricMeasurementStoreSupport with JacksonJsonSupport with Logging with ConcurrencySupport {
 
-  override def loggerName = classOf[KhronusEnpoint].getName
+  override def loggerName = classOf[APIService].getName
 
   implicit val executionContext: ExecutionContext = executionContext("metric-receiver-endpoint")
 

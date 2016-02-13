@@ -16,23 +16,35 @@
 
 package com.searchlight.khronus.service
 
+import akka.actor.ActorSystem
 import akka.io.IO
 import com.searchlight.khronus.service.HandShakeProtocol.{ KhronusStarted, Register }
 import com.searchlight.khronus.util.Settings
+import com.searchlight.khronus.util.log.Logging
 import spray.can.Http
 
-trait KhronusService {
-  this: ActorSystemSupport ⇒
+trait KhronusActorSystem {
+  implicit def system = KhronusActorSystem.system
 
   val handlerActor = system.actorOf(KhronusHandler.props, KhronusHandler.Name)
 
   IO(Http) ! Http.Bind(handlerActor, Settings.Http.Interface, Settings.Http.Port)
 
-  val khronusActor = system.actorOf(KhronusActor.props, KhronusActor.Name)
+  val khronusActor = system.actorOf(APIActor.props, APIActor.Name)
   val versionActor = system.actorOf(VersionActor.props, VersionActor.Name)
 
-  handlerActor ! Register(KhronusActor.Path, khronusActor)
+  handlerActor ! Register(APIActor.Path, khronusActor)
   handlerActor ! Register(VersionActor.Path, versionActor)
 
   system.eventStream.publish(KhronusStarted(handlerActor))
+}
+
+object KhronusActorSystem extends Logging {
+  val system = ActorSystem("khronus-system")
+
+  sys.addShutdownHook({
+    log.info("Shutting down khronus actor system")
+    system.terminate()
+  })
+
 }

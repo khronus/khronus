@@ -32,9 +32,9 @@ trait CounterBucketStoreSupport extends BucketStoreSupport[CounterBucket] {
 
 class CassandraCounterBucketStore(session: Session) extends CassandraBucketStore[CounterBucket](session) with Measurable {
 
-  override def limit: Int = Settings.Counter.BucketLimit
+  override def limit: Int = Settings.Counters.BucketLimit
 
-  override def fetchSize: Int = Settings.Counter.BucketFetchSize
+  override def fetchSize: Int = Settings.Counters.BucketFetchSize
 
   override def tableName(duration: Duration): String = s"counterBucket${duration.length}${duration.unit}"
 
@@ -44,15 +44,15 @@ class CassandraCounterBucketStore(session: Session) extends CassandraBucketStore
     new CounterBucket(Timestamp(timestamp).toBucketNumberOf(windowDuration), deserializeCounts(counts))
   }
 
-  override def serialize(metric: Metric, windowDuration: Duration, bucket: CounterBucket): ByteBuffer = {
-    val buffer = serializer.serialize(bucket)
+  override def serialize(metric: Metric, windowDuration: Duration, bucket: Bucket): ByteBuffer = {
+    val buffer = serializer.serialize(bucket.asInstanceOf[CounterBucket])
     recordGauge(formatLabel("serializedBucketBytes", metric, windowDuration), buffer.array().length)
     buffer
   }
 
   private def deserializeCounts(buffer: Array[Byte]): Long = serializer.deserializeCounts(buffer)
 
-  override def ttl(windowDuration: Duration): Int = Settings.Counter.BucketRetentionPolicy
+  override def ttl(windowDuration: Duration): Int = Settings.Counters.BucketRetentionPolicy
 }
 
 trait CounterBucketSerializer {

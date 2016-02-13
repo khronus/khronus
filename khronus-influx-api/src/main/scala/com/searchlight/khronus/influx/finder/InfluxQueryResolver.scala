@@ -141,10 +141,9 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
     })
   }
 
-  private def getStore(metricType: String) = metricType match {
-    case MetricType.Timer | MetricType.Gauge ⇒ getStatisticSummaryStore
-    case MetricType.Counter                  ⇒ getCounterSummaryStore
-    case _                                   ⇒ throw new UnsupportedOperationException(s"Unknown metric type: $metricType")
+  private def getStore(metricType: MetricType) = metricType match {
+    case Histogram ⇒ getStatisticSummaryStore
+    case Counter   ⇒ getCounterSummaryStore
   }
 
   protected def getStatisticSummaryStore: SummaryStore[HistogramSummary] = Summaries.histogramSummaryStore
@@ -212,7 +211,7 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
   }
 
   private def toInfluxSeries(timeSeriesValues: Map[Long, Double], projectionName: String, ascendingOrder: Boolean, scale: Option[Double], metricName: String = ""): InfluxSeries = {
-    log.debug(s"Building Influx serie for projection [$projectionName] - Metric [$metricName]")
+    log.debug(s"Building Influx series for projection [$projectionName] - Metric [$metricName]")
 
     val sortedTimeSeriesValues = if (ascendingOrder) timeSeriesValues.toSeq.sortBy(_._1) else timeSeriesValues.toSeq.sortBy(-_._1)
 

@@ -1,8 +1,7 @@
 package com.searchlight.khronus.util
 
 import java.util.concurrent._
-
-import com.searchlight.khronus.model.Monitoring
+import com.searchlight.khronus.service.MonitoringService
 import com.searchlight.khronus.util.log.Logging
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 

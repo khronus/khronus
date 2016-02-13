@@ -22,6 +22,7 @@ import java.util.regex.Pattern
 
 import com.datastax.driver.core.{ BatchStatement, ResultSet, Session }
 import com.searchlight.khronus.model._
+import com.searchlight.khronus.service.MonitoringSupport
 import com.searchlight.khronus.util.log.Logging
 import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable, Settings }
 

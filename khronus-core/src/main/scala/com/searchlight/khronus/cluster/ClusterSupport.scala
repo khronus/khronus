@@ -16,10 +16,10 @@
 
 package com.searchlight.khronus.cluster
 
-import com.searchlight.khronus.service.ActorSystemSupport
+import com.searchlight.khronus.service.KhronusActorSystem
 
 trait ClusterSupport {
-  this: ActorSystemSupport ⇒
+  this: KhronusActorSystem ⇒
   system.actorOf(ClusterDomainEventListener.props, "cluster-listener")
   system.actorOf(Master.props, "master")
 }

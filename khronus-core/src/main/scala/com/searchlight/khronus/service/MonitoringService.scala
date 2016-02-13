@@ -1,8 +1,9 @@
-package com.searchlight.khronus.model
+package com.searchlight.khronus.service
 
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.{ ConcurrentLinkedQueue, TimeUnit }
 
+import com.searchlight.khronus.api.{ Measurement, MetricMeasurement }
 import com.searchlight.khronus.store.MetricMeasurementStoreSupport
 import com.searchlight.khronus.util.log.Logging
 import com.searchlight.khronus.util.{ ConcurrencySupport, Settings }
@@ -11,18 +12,18 @@ import scala.collection.concurrent.TrieMap
 import scala.collection.mutable.Buffer
 
 trait MonitoringSupport {
-  def recordTime(metricName: String, time: Long): Unit = Monitoring.recordTime(metricName, time)
+  def recordTime(metricName: String, time: Long): Unit = MonitoringService.recordTime(metricName, time)
 
-  def recordGauge(metricName: String, value: Long): Unit = Monitoring.recordGauge(metricName, value)
+  def recordGauge(metricName: String, value: Long): Unit = MonitoringService.recordGauge(metricName, value)
 
   def incrementCounter(metricName: String): Unit = incrementCounter(metricName, 1)
 
   def incrementCounter(metricName: String, counts: Int): Unit = incrementCounter(metricName, counts.toLong)
 
-  def incrementCounter(metricName: String, counts: Long): Unit = Monitoring.incrementCounter(metricName, counts)
+  def incrementCounter(metricName: String, counts: Long): Unit = MonitoringService.incrementCounter(metricName, counts)
 }
 
-object Monitoring extends MetricMeasurementStoreSupport with Logging with ConcurrencySupport {
+object MonitoringService extends MetricMeasurementStoreSupport with Logging with ConcurrencySupport {
 
   private val timers = TrieMap[String, ConcurrentLinkedQueue[java.lang.Long]]()
   private val gauges = TrieMap[String, ConcurrentLinkedQueue[java.lang.Long]]()
@@ -60,12 +61,12 @@ object Monitoring extends MetricMeasurementStoreSupport with Logging with Concur
     try {
       write(measurements())
     } catch {
-      case e: Throwable ⇒ log.error(s"Error flushing monitoring metrics: ${e.getMessage()}", e)
+      case e: Throwable ⇒ log.error(s"Error flushing monitoring metrics: ${e.getMessage}", e)
     }
   }
 
   private def write(metricMeasurements: List[MetricMeasurement]) = {
-    if (!metricMeasurements.isEmpty) {
+    if (metricMeasurements.nonEmpty) {
       metricStore.storeMetricMeasurements(metricMeasurements)
     }
   }

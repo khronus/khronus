@@ -27,8 +27,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 class TimeWindowChainTest extends FunSuite with MockitoSugar with BeforeAndAfter {
 
-  val metric1 = Metric("someMetric1", MetricType.Timer)
-  val metric2 = Metric("someMetric2", MetricType.Timer)
+  val metric1 = Metric("someMetric1", Histogram)
+  val metric2 = Metric("someMetric2", Histogram)
 
   var window30s: HistogramTimeWindow = _
   var window1m: HistogramTimeWindow = _
@@ -48,7 +48,7 @@ class TimeWindowChainTest extends FunSuite with MockitoSugar with BeforeAndAfter
       override val histogramsWindows = mockedWindows
       override val metaStore = mock[MetaStore]
       override val countersWindows = Seq.empty[CounterTimeWindow]
-      override val windows = Map(MetricType.Counter -> countersWindows, MetricType.Timer -> histogramsWindows)
+      override val windows: Map[MetricType, Seq[Window]] = Map(Counter -> countersWindows, Histogram -> histogramsWindows)
     }
 
     when(chain.metaStore.update(any[Seq[Metric]], any[Long], any[Boolean])).thenReturn(Future {})

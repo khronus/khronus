@@ -4,7 +4,7 @@ import com.searchlight.khronus.model.BucketNumber._
 import com.searchlight.khronus.model.Timestamp._
 import com.searchlight.khronus.util.{Settings, BaseIntegrationTest}
 import org.scalatest.{FunSuite, Matchers}
-import com.searchlight.khronus.model.{Metric, MetricType, CounterBucket}
+import com.searchlight.khronus.model.{Counter, Metric, MetricType, CounterBucket}
 
 import scala.concurrent.duration._
 
@@ -12,7 +12,7 @@ import scala.concurrent.duration._
 class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest with Matchers {
   override val tableNames: Seq[String] = Settings.Window.WindowDurations.map(duration => Buckets.counterBucketStore.tableName(duration))
 
-  val testMetric = Metric("testMetric", MetricType.Counter)
+  val testMetric = Metric("testMetric", Counter)
 
   implicit val context = scala.concurrent.ExecutionContext.Implicits.global
 

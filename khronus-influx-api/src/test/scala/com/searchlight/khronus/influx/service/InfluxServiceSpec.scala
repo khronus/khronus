@@ -1,7 +1,7 @@
 package com.searchlight.khronus.influx.service
 
 import akka.actor.ActorSystem
-import com.searchlight.khronus.model.{ Metric, MetricType }
+import com.searchlight.khronus.model.{ Histogram, Counter, Metric, MetricType }
 import com.searchlight.khronus.store.MetaStore
 import com.searchlight.khronus.util.JacksonJsonSupport
 import com.typesafe.config.ConfigFactory
@@ -76,8 +76,8 @@ class InfluxServiceSpec extends Specification with MockitoSugar with HttpService
           {
             val instance = new MockedInfluxEndpoint()
 
-            val counter = Metric("counter1", MetricType.Counter)
-            val timer = Metric("timer1", MetricType.Timer)
+            val counter = Metric("counter1", Counter)
+            val timer = Metric("timer1", Histogram)
             val searchExpression: String = ".*counter.*"
 
             Mockito.when(instance.metaStore.searchInSnapshotByRegex(searchExpression)).thenReturn(Seq(counter))

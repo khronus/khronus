@@ -33,13 +33,13 @@ trait HistogramSummarySupport extends SummaryStoreSupport[HistogramSummary] {
 
 class CassandraHistogramSummaryStore(session: Session) extends CassandraSummaryStore[HistogramSummary](session) with Logging with Measurable {
 
-  override def limit = Settings.Histogram.SummaryLimit
+  override def limit = Settings.Histograms.SummaryLimit
 
-  override def fetchSize = Settings.Histogram.SummaryFetchSize
+  override def fetchSize = Settings.Histograms.SummaryFetchSize
 
   override def tableName(duration: Duration) = s"statisticSummary${duration.length}${duration.unit}"
 
-  override def ttl(windowDuration: Duration): Int = Settings.Histogram.SummaryRetentionPolicies(windowDuration).toSeconds.toInt
+  override def ttl(windowDuration: Duration): Int = Settings.Histograms.SummaryRetentionPolicies(windowDuration).toSeconds.toInt
 
   override def serializeSummary(summary: HistogramSummary): ByteBuffer = {
     val byteArray = HistogramSummarySerializerV2.serialize(summary)

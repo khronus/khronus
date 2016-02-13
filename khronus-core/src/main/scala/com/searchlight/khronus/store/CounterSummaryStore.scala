@@ -32,13 +32,13 @@ trait CounterSummaryStoreSupport extends SummaryStoreSupport[CounterSummary] {
 
 class CassandraCounterSummaryStore(session: Session) extends CassandraSummaryStore[CounterSummary](session) {
 
-  override def limit = Settings.Counter.SummaryLimit
+  override def limit = Settings.Counters.SummaryLimit
 
-  override def fetchSize = Settings.Counter.SummaryFetchSize
+  override def fetchSize = Settings.Counters.SummaryFetchSize
 
   override def tableName(duration: Duration) = s"counterSummary${duration.length}${duration.unit}"
 
-  override def ttl(windowDuration: Duration): Int = Settings.Counter.SummaryRetentionPolicies(windowDuration).toSeconds.toInt
+  override def ttl(windowDuration: Duration): Int = Settings.Counters.SummaryRetentionPolicies(windowDuration).toSeconds.toInt
 
   override def serializeSummary(summary: CounterSummary): ByteBuffer = {
     val baos = new ByteArrayOutputStream()

@@ -1,6 +1,6 @@
 package com.searchlight.khronus.util
 
-import com.searchlight.khronus.model.MonitoringSupport
+import com.searchlight.khronus.service.MonitoringSupport
 
 trait MonitoringSupportMock extends MonitoringSupport {
   override def recordTime(metricName: String, time: Long): Unit = {}
