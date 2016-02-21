@@ -9,9 +9,8 @@ import net.sf.jsqlparser.expression.operators.relational.{ GreaterThan ⇒ Great
 import net.sf.jsqlparser.schema.Column
 import net.sf.jsqlparser.statement.select.SubSelect
 
-import scala.collection.mutable
-
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 
 case class BinaryOperation(alias: String, tag: String, value: String)
 

@@ -5,6 +5,7 @@ import org.HdrHistogram.Histogram
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{ FunSuite, Matchers }
+
 import scala.concurrent.duration._
 import scala.concurrent.{ Await, Future }
 
@@ -22,21 +23,18 @@ class DynamicQueryExecutorTest extends FunSuite with Matchers with MockitoSugar 
 
   test("select count(e) from some_event e where e.tag1 = 'someValue' ") {
     val query: DynamicQuery = DynamicQuery(Seq(Count("e")),
-      Seq(someEvent_qmetric), Some(Equals("e", "tag1", "someValue")), TimeRange(Timestamp(1), Timestamp(2)))
+      Seq(someEvent_qmetric), Some(Equals("e", "tag1", "someValue")), TimeRange(Timestamp(1), Timestamp(2)), Some(1 minute))
 
-    val metricSelectorMock: QueryPlanner = mock[QueryPlanner]
-    when(metricSelectorMock.getQueryPlan(query)).thenReturn(
+    val queryPlannerMock = mock[QueryPlanner]
+    when(queryPlannerMock.getQueryPlan(query)).thenReturn(
       QueryPlan(Map(someEvent_qmetric -> Seq(someEvent_submetric1, someEvent_submetric2))))
 
-    val bucketQueryExecutorMock: BucketQueryExecutor = mock[BucketQueryExecutor]
+    val bucketServiceMock = mock[BucketService]
     val counterBucket: CounterBucket = new CounterBucket(BucketNumber(1L, 1 minute), 1L)
-    when(bucketQueryExecutorMock.retrieve(someEvent_submetric1, query.range)).thenReturn(Future.successful(BucketSlice(counterBucket)))
-    when(bucketQueryExecutorMock.retrieve(someEvent_submetric2, query.range)).thenReturn(Future.successful(BucketSlice(counterBucket)))
+    when(bucketServiceMock.retrieve(someEvent_submetric1, query.range, query.resolution)).thenReturn(Future.successful(BucketSlice(counterBucket)))
+    when(bucketServiceMock.retrieve(someEvent_submetric2, query.range, query.resolution)).thenReturn(Future.successful(BucketSlice(counterBucket)))
 
-    val dynamicQueryExecutor = new DefaultDynamicQueryExecutor {
-      override val queryPlanner = metricSelectorMock
-      override val bucketQueryExecutor = bucketQueryExecutorMock
-    }
+    val dynamicQueryExecutor = createDynamicQueryExecutor(queryPlannerMock, bucketServiceMock)
 
     val future = dynamicQueryExecutor.execute(query)
 
@@ -49,13 +47,13 @@ class DynamicQueryExecutorTest extends FunSuite with Matchers with MockitoSugar 
 
   test("select percentiles(t, 20, 50, 95, 99.9) from some_timer t where e.tag1 = 'someValue' ") {
     val query: DynamicQuery = DynamicQuery(Seq(Percentiles("t", Seq(20, 50, 95, 99.9))),
-      Seq(someTimer_qmetric), Some(Equals("t", "tag1", "someValue")), TimeRange(Timestamp(1), Timestamp(2)))
+      Seq(someTimer_qmetric), Some(Equals("t", "tag1", "someValue")), TimeRange(Timestamp(1), Timestamp(2)), Some(1 minute))
 
-    val metricSelectorMock: QueryPlanner = mock[QueryPlanner]
-    when(metricSelectorMock.getQueryPlan(query)).thenReturn(
+    val queryPlannerMock = mock[QueryPlanner]
+    when(queryPlannerMock.getQueryPlan(query)).thenReturn(
       QueryPlan(Map(someTimer_qmetric -> Seq(someTimer_submetric1, someTimer_submetric2))))
 
-    val bucketQueryExecutorMock: BucketQueryExecutor = mock[BucketQueryExecutor]
+    val bucketServiceMock = mock[BucketService]
     val histo1 = new Histogram(1000, 3)
     (1 to 500) foreach (n ⇒ histo1.recordValue(n))
     val histo2 = new Histogram(1000, 3)
@@ -63,13 +61,10 @@ class DynamicQueryExecutorTest extends FunSuite with Matchers with MockitoSugar 
     val bucket1: HistogramBucket = new HistogramBucket(BucketNumber(1L, 1 minute), histo1)
     val bucket2: HistogramBucket = new HistogramBucket(BucketNumber(1L, 1 minute), histo2)
 
-    when(bucketQueryExecutorMock.retrieve(someTimer_submetric1, query.range)).thenReturn(Future.successful(BucketSlice(bucket1)))
-    when(bucketQueryExecutorMock.retrieve(someTimer_submetric2, query.range)).thenReturn(Future.successful(BucketSlice(bucket2)))
+    when(bucketServiceMock.retrieve(someTimer_submetric1, query.range, query.resolution)).thenReturn(Future.successful(BucketSlice(bucket1)))
+    when(bucketServiceMock.retrieve(someTimer_submetric2, query.range, query.resolution)).thenReturn(Future.successful(BucketSlice(bucket2)))
 
-    val dynamicQueryExecutor = new DefaultDynamicQueryExecutor {
-      override val queryPlanner = metricSelectorMock
-      override val bucketQueryExecutor = bucketQueryExecutorMock
-    }
+    val dynamicQueryExecutor = createDynamicQueryExecutor(queryPlannerMock, bucketServiceMock)
 
     val future = dynamicQueryExecutor.execute(query)
 
@@ -80,6 +75,13 @@ class DynamicQueryExecutorTest extends FunSuite with Matchers with MockitoSugar 
     series should contain(Series("some_timer.p50.0", Seq(Point(Timestamp(60000), 500))))
     series should contain(Series("some_timer.p95.0", Seq(Point(Timestamp(60000), 950))))
     series should contain(Series("some_timer.p99.9", Seq(Point(Timestamp(60000), 999))))
+  }
+
+  private def createDynamicQueryExecutor(queryPlannerMock: QueryPlanner, bucketServiceMock: BucketService) = {
+    new DefaultDynamicQueryExecutor {
+      override val queryPlanner = queryPlannerMock
+      override val bucketService = bucketServiceMock
+    }
   }
 
 }

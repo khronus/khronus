@@ -4,18 +4,21 @@ import com.searchlight.khronus.model._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.concurrent.duration.Duration
 
-trait DynamicQuerySupport {
-  def dynamicQueryExecutor: DynamicQueryExecutor = DynamicQueryExecutor
+trait DynamicQueryExecutorSupport {
+  def dynamicQueryExecutor: DynamicQueryExecutor = DynamicQueryExecutor.instance
+}
+
+object DynamicQueryExecutor {
+  val instance = new DefaultDynamicQueryExecutor
 }
 
 trait DynamicQueryExecutor {
   def execute(query: DynamicQuery): Future[Seq[Series]]
 }
 
-object DynamicQueryExecutor extends DefaultDynamicQueryExecutor
-
-trait DefaultDynamicQueryExecutor extends DynamicQueryExecutor with BucketQuerySupport with QueryPlannerSupport {
+class DefaultDynamicQueryExecutor extends DynamicQueryExecutor with BucketServiceSupport with QueryPlannerSupport {
 
   def execute(query: DynamicQuery): Future[Seq[Series]] = {
     val subMetricBucketsByQMetric = performBucketSlices(query, queryPlanner.getQueryPlan(query))
@@ -36,16 +39,16 @@ trait DefaultDynamicQueryExecutor extends DynamicQueryExecutor with BucketQueryS
   }
 
   private def retrieveBuckets(query: DynamicQuery, selection: QueryPlan): Map[SubMetric, Future[BucketSlice[Bucket]]] = {
-    selection.subMetrics.values.flatten.map(subMetric ⇒ execute(subMetric, query.range)).toMap
+    selection.subMetrics.values.flatten.map(subMetric ⇒ execute(subMetric, query.range, query.resolution)).toMap
   }
 
-  private def execute(subMetric: SubMetric, range: TimeRange): (SubMetric, Future[BucketSlice[Bucket]]) = {
-    (subMetric, bucketQueryExecutor.retrieve(subMetric, range))
+  private def execute(subMetric: SubMetric, range: TimeRange, resolution: Option[Duration]): (SubMetric, Future[BucketSlice[Bucket]]) = {
+    (subMetric, bucketService.retrieve(subMetric, range, resolution))
   }
 
 }
 
-case class DynamicQuery(projections: Seq[Projection], metrics: Seq[QMetric], predicate: Option[Predicate], range: TimeRange)
+case class DynamicQuery(projections: Seq[Projection], metrics: Seq[QMetric], predicate: Option[Predicate], range: TimeRange, resolution: Option[Duration] = None)
 
 case class QMetric(name: String, alias: String)
 

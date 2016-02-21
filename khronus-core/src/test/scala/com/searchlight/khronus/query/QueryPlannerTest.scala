@@ -1,7 +1,7 @@
 package com.searchlight.khronus.query
 
 import com.searchlight.khronus.model.{ Metric, SubMetric, Timestamp }
-import com.searchlight.khronus.store.MetaStore
+import com.searchlight.khronus.store.{ MetaSupport, MetaStore }
 import org.mockito.Mockito
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{ FunSuite, Matchers }
@@ -15,7 +15,8 @@ class QueryPlannerTest extends FunSuite with Matchers with MockitoSugar {
   val metrics = Map(cpuHistogram -> Seq(cpuNode1, cpuNode2))
   val metaMock = mock[MetaStore]
   Mockito.when(metaMock.getMetricsMap).thenReturn(metrics)
-  val queryPlanner = new SimpleQueryPlanner {
+
+  val queryPlanner = new DefaultQueryPlanner {
     override val metaStore = metaMock
   }
 

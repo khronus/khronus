@@ -6,19 +6,22 @@ import com.searchlight.khronus.store.BucketSupport
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-trait BucketQuerySupport {
-  def bucketQueryExecutor: BucketQueryExecutor = BucketQueryExecutor
+trait BucketServiceSupport {
+  def bucketService: BucketService = BucketService.instance
 }
 
-trait BucketQueryExecutor {
-  def retrieve(subMetric: SubMetric, range: TimeRange): Future[BucketSlice[Bucket]]
+trait BucketService {
+  def retrieve(subMetric: SubMetric, range: TimeRange, resolution: Option[Duration]): Future[BucketSlice[Bucket]]
 }
 
-object BucketQueryExecutor extends BucketQueryExecutor with BucketSupport {
-  override def retrieve(subMetric: SubMetric, range: TimeRange): Future[BucketSlice[Bucket]] = {
+object BucketService {
+  val instance = new CassandraBucketService
+}
+
+class CassandraBucketService extends BucketService with BucketSupport {
+  override def retrieve(subMetric: SubMetric, range: TimeRange, resolution: Option[Duration]): Future[BucketSlice[Bucket]] = {
     //TODO: select the resolution that better fits the given time range
-    val resolution = 1 minute
     val metric = subMetric.asMetric()
-    getStore(metric.mtype).slice(metric, range.from, range.to, resolution)
+    getStore(metric.mtype).slice(metric, range.from, range.to, resolution.getOrElse(1 minute))
   }
 }

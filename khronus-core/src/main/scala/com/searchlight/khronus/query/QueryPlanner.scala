@@ -3,21 +3,23 @@ package com.searchlight.khronus.query
 import com.searchlight.khronus.model.SubMetric
 import com.searchlight.khronus.store.MetaSupport
 
-trait QueryPlannerSupport {
-  def queryPlanner: QueryPlanner = new SimpleQueryPlanner
-}
-
 trait QueryPlanner {
   def getQueryPlan(query: DynamicQuery): QueryPlan
 }
 
-case class QueryPlan(subMetrics: Map[QMetric, Seq[SubMetric]])
+trait QueryPlannerSupport {
+  def queryPlanner: QueryPlanner = QueryPlanner.instance
+}
 
-class SimpleQueryPlanner extends QueryPlanner with MetaSupport {
+object QueryPlanner {
+  val instance = new DefaultQueryPlanner
+}
+
+class DefaultQueryPlanner extends QueryPlanner with MetaSupport {
 
   def getQueryPlan(query: DynamicQuery): QueryPlan = {
     val subMetrics = cartesianProduct(getQueriedSubMetrics(query)).map(_.toMap)
-    val matchedSubMetrics = query.predicate map (p ⇒ subMetrics.filter(p.matches)) getOrElse (Seq.empty) //FIXME if none predicate?
+    val matchedSubMetrics = query.predicate map (p ⇒ subMetrics.filter(p.matches)) getOrElse Seq.empty //FIXME if none predicate?
     QueryPlan(matchedSubMetrics.flatten.groupBy(kv ⇒ kv._1).mapValues(v ⇒ v.map(va ⇒ va._2)))
   }
 
@@ -38,3 +40,5 @@ class SimpleQueryPlanner extends QueryPlanner with MetaSupport {
     }
   }
 }
+
+case class QueryPlan(subMetrics: Map[QMetric, Seq[SubMetric]])
