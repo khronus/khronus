@@ -63,16 +63,16 @@ object HandShakeProtocol {
 }
 
 trait KhronusHandlerException {
-  implicit def khronusExceptionHandler(implicit settings: RoutingSettings, log: LoggingContext): ExceptionHandler =
-    ExceptionHandler.apply {
-      case e: UnsupportedOperationException ⇒ ctx ⇒ {
-        log.error(s"Handling UnsupportedOperationException ${e.getMessage}", e)
-        responseWithCORSHeaders(ctx, (BadRequest, s"${e.getMessage}"))
-      }
-      case e: Exception ⇒ ctx ⇒ {
-        log.error(s"Handling Exception ${e.getMessage}", e)
+  implicit def khronusExceptionHandler(implicit settings: RoutingSettings, log: LoggingContext) =
+    ExceptionHandler {
+      case exception: UnsupportedOperationException ⇒ ctx ⇒
+        log.error(s"Handling UnsupportedOperationException ${exception.getMessage}", exception)
+        responseWithCORSHeaders(ctx, (BadRequest, s"${exception.getMessage}"))
+
+        case exception: Exception ⇒ ctx ⇒
+        log.error(s"Handling Exception ${exception.getMessage}", exception)
         responseWithCORSHeaders(ctx, InternalServerError)
-      }
+
     }
 
   private def responseWithCORSHeaders[T](ctx: RequestContext, response: T)(implicit marshaller: ToResponseMarshaller[T]) = {

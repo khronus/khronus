@@ -102,7 +102,7 @@ case class Metric(name: String, mtype: MetricType) {
 }
 
 object Metric {
-  private val pattern = "([\\w]*)\\[?([\\w:,]*)\\]?".r
+  private val pattern = "([~\\-\\_\\.\\w]*)\\[?([\\w:,]*)\\]?".r
   private val tagsPattern = "((\\w+))".r
 }
 

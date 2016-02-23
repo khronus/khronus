@@ -19,6 +19,7 @@ package com.searchlight.khronus.influx.finder
 import com.searchlight.khronus.influx.parser._
 import com.searchlight.khronus.influx.service.{ InfluxEndpoint, InfluxSeries }
 import com.searchlight.khronus.model._
+import com.searchlight.khronus.query.DynamicSQLQueryServiceSupport
 import com.searchlight.khronus.store.{ Summaries, SummaryStore, Slice, MetaSupport }
 import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable, Settings }
 
@@ -26,8 +27,9 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.collection.SeqView
+import scala.util.Failure
 
-trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySupport {
+trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySupport with DynamicSQLQueryServiceSupport {
   this: InfluxEndpoint ⇒
 
   import com.searchlight.khronus.influx.finder.InfluxQueryResolver._
@@ -37,7 +39,9 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
 
   def search(search: String): Future[Seq[InfluxSeries]] = search match {
     case GetSeriesPattern(expression) ⇒ listSeries(s".*$expression.*")
-    case query                        ⇒ executeQuery(query)
+    case query ⇒ executeQuery(query).andThen {
+      case Failure(reason) ⇒ log.error("search error", reason)
+    }
   }
 
   private def listSeries(expression: String): Future[Seq[InfluxSeries]] = {
@@ -51,17 +55,26 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
   private def executeQuery(expression: String): Future[Seq[InfluxSeries]] = measureFutureTime("executeInfluxQuery", "executeInfluxQuery") {
     log.info(s"Executing query [$expression]")
 
-    parser.parse(expression).map {
-      influxCriteria ⇒
+    if (expression.startsWith("/*dynamic*/")) {
+      dynamicSQLQueryService.executeSQLQuery(expression).map { ser ⇒
+        ser.map { s ⇒
+          InfluxSeries(s.name, Vector("time", "value"), s.points.map(point ⇒ Vector(point.timestamp.ms, point.value)).toVector)
+        }
+      }
+    } else {
+      parser.parse(expression).map {
+        influxCriteria ⇒
 
-        val slice = buildSlice(influxCriteria.filters)
-        val timeWindow = adjustResolution(slice, influxCriteria.groupBy)
-        val timeRangeMillis = buildTimeRangeMillis(slice, timeWindow)
+          val slice = buildSlice(influxCriteria.filters)
+          val timeWindow = adjustResolution(slice, influxCriteria.groupBy)
+          val timeRangeMillis = buildTimeRangeMillis(slice, timeWindow)
 
-        val summariesBySourceMap = getSummariesBySourceMap(influxCriteria, timeWindow, slice)
-        buildInfluxSeries(influxCriteria, timeRangeMillis, summariesBySourceMap)
+          val summariesBySourceMap = getSummariesBySourceMap(influxCriteria, timeWindow, slice)
+          buildInfluxSeries(influxCriteria, timeRangeMillis, summariesBySourceMap)
 
-    }.flatMap(Future.sequence(_))
+      }.flatMap(Future.sequence(_))
+    }
+
   }
 
   private def buildSlice(filters: Seq[Filter]): Slice = {
@@ -180,7 +193,9 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
     }
 
   private def generateScalarSeq(timeRangeMillis: TimeRangeMillis, scalar: Double): Future[Map[Long, Double]] = {
-    Future { (timeRangeMillis.from to timeRangeMillis.to by timeRangeMillis.timeWindow).map(ts ⇒ ts -> scalar).toMap }
+    Future {
+      (timeRangeMillis.from to timeRangeMillis.to by timeRangeMillis.timeWindow).map(ts ⇒ ts -> scalar).toMap
+    }
   }
 
   private def generateSummarySeq(timeRangeMillis: TimeRangeMillis, function: Functions.Function, summariesByTs: Future[Map[Long, Summary]], defaultValue: Option[Double]): Future[Map[Long, Double]] = {

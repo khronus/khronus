@@ -14,15 +14,15 @@ class JSQLParserTest extends Test {
   }
 
   test("parse simple count sql") {
-    val sql = "select count(m1) from metric1 m1 where time > 1 and time < 10 "
+    val sql = "select count(m1) from metric1 m1 where time > 1 and time < 10 group by time (1m)"
     val query = parser.parse(sql)
-    query should equal(DynamicQuery(Seq(Count("m1")), Seq(QMetric("metric1", "m1")), None, TimeRange(1, 10)))
+    query should equal(DynamicQuery(Seq(Count("m1")), Seq(QMetric("metric1", "m1")), None, TimeRange(1, 10), Some(1 minute)))
   }
 
   test("parse simple percentiles sql") {
-    val sql = "select percentiles(m1, 80, 99.9, 99.999) from metric1 m1 where time > 1 and time < 10 "
+    val sql = "select percentiles(m1, 80, 99.9, 99.999) from metric1 m1 where time > 1 and time < 10 group by time(1h)"
     val query = parser.parse(sql)
-    query should equal(DynamicQuery(Seq(Percentiles("m1", Seq(80, 99.9, 99.999))), Seq(QMetric("metric1", "m1")), None, TimeRange(1, 10)))
+    query should equal(DynamicQuery(Seq(Percentiles("m1", Seq(80, 99.9, 99.999))), Seq(QMetric("metric1", "m1")), None, TimeRange(1, 10), Some(1 hour)))
   }
 
   test("parse sql with multiples AND predicates") {
@@ -47,6 +47,12 @@ class JSQLParserTest extends Test {
     val sql = "select count(m1) from metric1 m1 where m1.tag1 = 2016 and time > 1 and time < 10 group by time (1h)"
     val query = parser.parse(sql)
     query should equal(DynamicQuery(Seq(Count("m1")), Seq(QMetric("metric1", "m1")), Some(Equals("m1", "tag1", "2016")), TimeRange(1, 10), Some(1 hour)))
+  }
+
+  test("parse simple count sql with comment") {
+    val sql = "/*dynamic*/ select count(m1) from metric1 m1 where time > 1 and time < 10 group by time(1h)"
+    val query = parser.parse(sql)
+    query should equal(DynamicQuery(Seq(Count("m1")), Seq(QMetric("metric1", "m1")), None, TimeRange(1, 10), Some(1 hour)))
   }
 
 }

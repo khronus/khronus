@@ -79,8 +79,8 @@ class JSQLParser extends SQLParser {
   }
 
   val patternTimeRange = """(?:and )?time \>[^0-9]+([0-9]+)[^\<]+\<[^0-9]+([0-9]+)( and)?""".r
-  val patternOnlyTimeRange = """where time >[^\<]+\<[^0-9]+[0-9]+$""".r
-  val resolutionPattern = """(time)\s*\(([0-9]h)\)""".r
+  val patternOnlyTimeRange = """where\s+time >[^\<]+\<[^0-9]+[0-9]+\s*group""".r
+  val resolutionPattern = """(time)\s*\(([0-9]+[shmd])\)""".r
 
   private def replaceResolution(m: Match) = s"groupby${m.group(1)}.T${m.group(2)}"
 
@@ -101,7 +101,7 @@ class JSQLParser extends SQLParser {
 
   def parse(sql: String): DynamicQuery = {
     val sqlWithoutTimeRange = patternOnlyTimeRange.findFirstIn(sql.trim) match {
-      case Some(_) ⇒ patternOnlyTimeRange.replaceAllIn(sql.trim, "")
+      case Some(_) ⇒ patternOnlyTimeRange.replaceAllIn(sql.trim, "group")
       case None    ⇒ patternTimeRange.replaceAllIn(sql, "")
     }
     val sqlWithResolutionFixed = resolutionPattern.replaceAllIn(sqlWithoutTimeRange, replaceResolution _)

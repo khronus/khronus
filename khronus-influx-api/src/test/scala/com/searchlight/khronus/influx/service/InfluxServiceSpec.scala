@@ -2,6 +2,7 @@ package com.searchlight.khronus.influx.service
 
 import akka.actor.ActorSystem
 import com.searchlight.khronus.model.{ Histogram, Counter, Metric, MetricType }
+import com.searchlight.khronus.query.DynamicSQLQueryService
 import com.searchlight.khronus.store.MetaStore
 import com.searchlight.khronus.util.JacksonJsonSupport
 import com.typesafe.config.ConfigFactory
@@ -37,6 +38,9 @@ class InfluxServiceSpec extends Specification with MockitoSugar with HttpService
     override lazy val actorRefFactory = system
 
     override lazy val metaStore: MetaStore = mock[MetaStore]
+
+    override val dynamicSQLQueryService = mock[DynamicSQLQueryService]
+
   }
 
   def applying[T](f: () ⇒ MatchResult[_]) = f()
