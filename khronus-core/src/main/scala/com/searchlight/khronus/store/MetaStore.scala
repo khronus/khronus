@@ -215,6 +215,6 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
   }
 
   override def getMetricsMap: Map[Metric, Seq[SubMetric]] = {
-    snapshot.keys.map(metric ⇒ metric.asSubMetric()).toSeq.groupBy(_.asMetric())
+    snapshot.keys.map(metric ⇒ metric.asSubMetric()).toSeq.groupBy(_.metric)
   }
 }

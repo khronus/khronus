@@ -19,7 +19,7 @@ class DefaultQueryPlanner extends QueryPlanner with MetaSupport {
 
   def getQueryPlan(query: DynamicQuery): QueryPlan = {
     val subMetrics = cartesianProduct(getQueriedSubMetrics(query)).map(_.toMap)
-    val matchedSubMetrics = query.predicate map (p ⇒ subMetrics.filter(p.matches)) getOrElse Seq.empty //FIXME if none predicate?
+    val matchedSubMetrics = query.predicate map (p ⇒ subMetrics.filter(p.matches)) getOrElse subMetrics
     QueryPlan(matchedSubMetrics.flatten.groupBy(kv ⇒ kv._1).mapValues(v ⇒ v.map(va ⇒ va._2)))
   }
 
@@ -28,7 +28,8 @@ class DefaultQueryPlanner extends QueryPlanner with MetaSupport {
   }
 
   private def subMetricsOf(qMetric: QMetric) = {
-    metaStore.getMetricsMap.find(m ⇒ m._1.name.equals(qMetric.name))
+    val metricsMap = metaStore.getMetricsMap
+    metricsMap.find(m ⇒ m._1.name.equals(qMetric.name))
   }
 
   private def cartesianProduct[T](lists: Seq[Option[Seq[T]]]): Seq[Seq[T]] = {
