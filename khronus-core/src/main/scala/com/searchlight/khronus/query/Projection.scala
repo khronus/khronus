@@ -21,7 +21,7 @@ trait FunctionProjection extends Projection {
               values(bucket).map(pair ⇒ (pair._1, Point(bucketNumber.startTimestamp(), pair._2)))
           }.groupBy {
             _._1
-          }.map { case (projectionName, points) ⇒ Series(s"${qMetric.name}.$projectionName", points.map(_._2)) }.toSeq
+          }.map { case (projectionName, points) ⇒ Series(s"${qMetric.name}.$projectionName", points.map(_._2).sortBy(p ⇒ p.timestamp.ms)) }.toSeq
         }
       }
     }
