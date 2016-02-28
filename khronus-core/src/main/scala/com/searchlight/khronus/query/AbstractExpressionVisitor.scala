@@ -33,7 +33,8 @@ class PredicateVisitor extends AbstractExpressionVisitor {
 
   override def visit(equalsTo: EqualsTo): Unit = {
     val bin = binaryOperator(equalsTo)
-    predicates += Equals(bin.alias, bin.tag, bin.value)
+    if (!(bin.tag.equals("time") && bin.value.equals("0")))
+      predicates += Equals(bin.alias, bin.tag, bin.value)
   }
 
   override def visit(andExpression: AndExpression): Unit = {
@@ -41,7 +42,16 @@ class PredicateVisitor extends AbstractExpressionVisitor {
     val right = new PredicateVisitor
     andExpression.getLeftExpression.accept(left)
     andExpression.getRightExpression.accept(right)
-    predicates += And(left.predicates.head, right.predicates.head)
+    if (left.predicates.nonEmpty && right.predicates.nonEmpty) {
+      predicates += And(left.predicates.head, right.predicates.head)
+    } else {
+      if (left.predicates.nonEmpty) {
+        predicates += left.predicates.head
+      }
+      if (right.predicates.nonEmpty) {
+        predicates += right.predicates.head
+      }
+    }
   }
 
   override def visit(minorThan: MinorThanExpression): Unit = {
@@ -67,10 +77,11 @@ class PredicateVisitor extends AbstractExpressionVisitor {
     val value = expression.getRightExpression match {
       case l: LongValue   ⇒ l.getValue.toString
       case s: StringValue ⇒ s.getValue
+      case c: Column      ⇒ c.getColumnName.replaceAll("\"", "")
     }
 
     expression.getLeftExpression match {
-      case e: Column ⇒ BinaryOperation(e.getTable.getName, e.getColumnName.toString, value)
+      case e: Column ⇒ BinaryOperation(e.getTable.getName, e.getColumnName, value)
     }
   }
 }

@@ -52,7 +52,11 @@ case class DynamicQuery(projections: Seq[Projection], metrics: Seq[QMetric], pre
 
 case class QMetric(name: String, alias: String)
 
-case class TimeRange(from: Timestamp, to: Timestamp)
+case class TimeRange(from: Timestamp, to: Timestamp) {
+  def mergedWith(other: TimeRange): TimeRange = {
+    TimeRange(if (from.ms > other.from.ms) from else other.from, if (to.ms < other.to.ms) to else other.to)
+  }
+}
 
 case class Series(name: String, points: Seq[Point])
 
