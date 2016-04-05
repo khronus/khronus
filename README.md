@@ -26,6 +26,10 @@ We are currently finishing details for the first stable and public Khronus relea
 * Highly scalable & available.
 * REST API for pushing data.
 
+## Getting started
+
+The best way to start playing with Khronus is launching our [khronus-docker](https://github.com/Searchlight/khronus-docker) container on a test environment, posting some metrics and doing some graphs trough Grafana. Follow the instructions [here](https://github.com/Searchlight/khronus-docker).
+
 ## Installation
 
 ### Download Khronus
