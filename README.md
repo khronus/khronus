@@ -49,7 +49,7 @@ khronus {
   # http port where Khronus will be listening for queries, posting & other stuff
   # port = 8400
 
-  # comma-delimited list of Cassandra seeds
+  # comma-delimited list of Cassandra nodes to use as intial contact points (the rest of the Cassandra nodes will be discovered)
   cassandra.cluster.seeds = "127.0.0.1"
 }
 
