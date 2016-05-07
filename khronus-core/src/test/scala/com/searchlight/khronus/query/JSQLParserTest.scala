@@ -1,6 +1,6 @@
 package com.searchlight.khronus.query
 
-import com.searchlight.khronus.query.projection.{Count, Div, Percentiles}
+import com.searchlight.khronus.query.projection.{ Count, Div, Percentiles }
 import com.searchlight.khronus.util.Test
 
 import scala.concurrent.duration._

@@ -1,11 +1,11 @@
 package com.searchlight.khronus.query
 
-import com.searchlight.khronus.model.{Metric, Timestamp}
+import com.searchlight.khronus.model.{ Metric, Timestamp }
 import com.searchlight.khronus.query.projection.Count
 import com.searchlight.khronus.store.MetaStore
 import org.mockito.Mockito
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.{ FunSuite, Matchers }
 
 class QueryPlannerTest extends FunSuite with Matchers with MockitoSugar {
 

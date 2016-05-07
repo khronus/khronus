@@ -1,16 +1,16 @@
 package com.searchlight.khronus.query
 
-import com.searchlight.khronus.api.{Point, Series}
+import com.searchlight.khronus.api.{ Point, Series }
 import com.searchlight.khronus.model._
-import com.searchlight.khronus.model.bucket.{CounterBucket, HistogramBucket}
-import com.searchlight.khronus.query.projection.{Count, Percentiles}
+import com.searchlight.khronus.model.bucket.{ CounterBucket, HistogramBucket }
+import com.searchlight.khronus.query.projection.{ Count, Percentiles }
 import org.HdrHistogram.Histogram
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.{ FunSuite, Matchers }
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{ Await, Future }
 
 class DynamicQueryExecutorTest extends FunSuite with Matchers with MockitoSugar {
 
