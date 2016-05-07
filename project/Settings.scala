@@ -9,7 +9,7 @@ import NativePackagerKeys._
 
 object Settings {
 
-  val ScalaVersion = "2.11.7"
+  val ScalaVersion = "2.11.8"
 
   lazy val basicSettings = Seq(
     scalaVersion  := ScalaVersion,
