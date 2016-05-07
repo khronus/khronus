@@ -19,14 +19,13 @@ package com.searchlight.khronus.influx.finder
 import com.searchlight.khronus.influx.parser._
 import com.searchlight.khronus.influx.service.{ InfluxEndpoint, InfluxSeries }
 import com.searchlight.khronus.model._
-import com.searchlight.khronus.query.DynamicSQLQueryServiceSupport
-import com.searchlight.khronus.store.{ Summaries, SummaryStore, Slice, MetaSupport }
+import com.searchlight.khronus.model.summary.{ CounterSummary, GaugeSummary, HistogramSummary }
+import com.searchlight.khronus.query.{ DynamicSQLQueryServiceSupport, Slice }
+import com.searchlight.khronus.store.{ MetaSupport, Summaries, SummaryStore }
 import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable, Settings }
 
-import scala.collection.concurrent.TrieMap
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future }
-import scala.collection.SeqView
 import scala.util.Failure
 
 trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySupport with DynamicSQLQueryServiceSupport {
@@ -58,7 +57,7 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
     if (expression.startsWith("/*dynamic*/")) {
       dynamicSQLQueryService.executeSQLQuery(expression).map { ser ⇒
         ser.map { s ⇒
-          InfluxSeries(s.name, Vector("time", "value"), s.points.map(point ⇒ Vector(point.timestamp.ms, point.value)).toVector)
+          InfluxSeries(s.name, Vector("time", "value"), s.points.map(point ⇒ Vector(point.timestamp, point.value)).toVector)
         }
       }
     } else {
@@ -92,51 +91,29 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
     }
 
     if (from == 1L)
-      throw new UnsupportedOperationException("From clause required");
+      throw new UnsupportedOperationException("From clause required")
 
     Slice(from, to)
   }
 
   protected def now = System.currentTimeMillis()
 
-  private def adjustResolution(slice: Slice, groupBy: GroupBy): FiniteDuration = {
-    val sortedWindows = Settings.Window.ConfiguredWindows.toSeq.sortBy(_.toMillis).reverse
+  private def adjustResolution(slice: Slice, groupBy: GroupBy): Duration = {
     val desiredTimeWindow = groupBy.duration
-    val nearestConfiguredWindow = sortedWindows.foldLeft(sortedWindows.last)((nearest, next) ⇒ if (millisBetween(desiredTimeWindow, next) < millisBetween(desiredTimeWindow, nearest)) next else nearest)
-
-    if (groupBy.forceResolution) {
-      nearestConfiguredWindow
-    } else {
-      val points = resolution(slice, nearestConfiguredWindow)
-      if (points <= maxResolution & points >= minResolution)
-        nearestConfiguredWindow
-      else {
-        sortedWindows.foldLeft(sortedWindows.head)((adjustedWindow, next) ⇒ {
-          val points = resolution(slice, next)
-          if (points >= minResolution & points <= maxResolution)
-            next
-          else if (points < minResolution) next else adjustedWindow
-        })
-      }
-    }
+    val forceResolution = groupBy.forceResolution
+    slice.getAdjustedResolution(desiredTimeWindow, forceResolution, minResolution, maxResolution)
   }
 
   protected lazy val maxResolution: Int = Settings.Dashboard.MaxResolutionPoints
   protected lazy val minResolution: Int = Settings.Dashboard.MinResolutionPoints
 
-  private def resolution(slice: Slice, timeWindow: FiniteDuration) = {
-    Math.abs(slice.to - slice.from) / timeWindow.toMillis
-  }
-
-  private def millisBetween(some: FiniteDuration, other: FiniteDuration) = Math.abs(some.toMillis - other.toMillis)
-
-  private def buildTimeRangeMillis(slice: Slice, timeWindow: FiniteDuration): TimeRangeMillis = {
+  private def buildTimeRangeMillis(slice: Slice, timeWindow: Duration): TimeRangeMillis = {
     val alignedFrom = alignTimestamp(slice.from, timeWindow, floorRounding = false)
     val alignedTo = alignTimestamp(slice.to, timeWindow, floorRounding = true)
     TimeRangeMillis(alignedFrom, alignedTo, timeWindow.toMillis)
   }
 
-  private def alignTimestamp(timestamp: Long, timeWindow: FiniteDuration, floorRounding: Boolean): Long = {
+  private def alignTimestamp(timestamp: Long, timeWindow: Duration, floorRounding: Boolean): Long = {
     if (timestamp % timeWindow.toMillis == 0)
       timestamp
     else {
@@ -145,10 +122,10 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
     }
   }
 
-  private def getSummariesBySourceMap(influxCriteria: InfluxCriteria, timeWindow: FiniteDuration, slice: Slice) = {
+  private def getSummariesBySourceMap(influxCriteria: InfluxCriteria, timeWindow: Duration, slice: Slice) = {
     influxCriteria.sources.foldLeft(Map.empty[String, Future[Map[Long, Summary]]])((acc, source) ⇒ {
       val tableId = source.alias.getOrElse(source.metric.name)
-      val summaries = getStore(source.metric.mtype).readAll(source.metric.name, timeWindow, slice, influxCriteria.orderAsc, influxCriteria.limit)
+      val summaries = getStore(source.metric.mtype).readAll(source.metric.flatName, timeWindow, slice, influxCriteria.orderAsc, influxCriteria.limit)
       val summariesByTs = summaries.map(f ⇒ f.foldLeft(Map.empty[Long, Summary])((acc, summary) ⇒ acc + (summary.timestamp.ms -> summary)))
       acc + (tableId -> summariesByTs)
     })
@@ -157,11 +134,14 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
   private def getStore(metricType: MetricType) = metricType match {
     case Histogram ⇒ getStatisticSummaryStore
     case Counter   ⇒ getCounterSummaryStore
+    case Gauge     ⇒ getGaugeSummaryStore
   }
 
   protected def getStatisticSummaryStore: SummaryStore[HistogramSummary] = Summaries.histogramSummaryStore
 
   protected def getCounterSummaryStore: SummaryStore[CounterSummary] = Summaries.counterSummaryStore
+
+  protected def getGaugeSummaryStore: SummaryStore[GaugeSummary] = Summaries.gaugeSummaryStore
 
   private def buildInfluxSeries(influxCriteria: InfluxCriteria, timeRangeMillis: TimeRangeMillis, summariesBySourceMap: Map[String, Future[Map[Long, Summary]]]): Seq[Future[InfluxSeries]] = {
     influxCriteria.projections.sortBy(_.seriesId).map {

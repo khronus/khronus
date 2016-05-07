@@ -1,29 +1,16 @@
-/*
- * =========================================================================================
- * Copyright © 2015 the khronus project <https://github.com/hotels-tech/khronus>
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
- * except in compliance with the License. You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under the
- * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
- * either express or implied. See the License for the specific language governing permissions
- * and limitations under the License.
- * =========================================================================================
- */
-package com.searchlight.khronus.model
+package com.searchlight.khronus.model.bucket
 
-import java.io.{ ByteArrayOutputStream, PrintStream }
+import java.io.{ PrintStream, ByteArrayOutputStream }
 
+import com.searchlight.khronus.model.summary.HistogramSummary
+import com.searchlight.khronus.model.{ Bucket, BucketNumber }
 import com.searchlight.khronus.util.Measurable
 import com.searchlight.khronus.util.log.Logging
-import org.HdrHistogram.{ Histogram ⇒ HdrHistogram }
 
 import scala.util.{ Failure, Try }
+import org.HdrHistogram.{ Histogram ⇒ HdrHistogram }
 
-class HistogramBucket(override val bucketNumber: BucketNumber, val histogram: HdrHistogram) extends Bucket(bucketNumber) with Logging {
+case class HistogramBucket(bucketNumber: BucketNumber, histogram: HdrHistogram) extends Bucket with Logging {
 
   override def summary: HistogramSummary = Try {
     val p50 = histogram.getValueAtPercentile(50)
@@ -53,8 +40,8 @@ object HistogramBucket extends Measurable {
   private val DEFAULT_MIN_HISTOGRAM_SIZE = 2L
   private val DEFAULT_PRECISION = 3
 
-  implicit def sumHistograms(buckets: Seq[HistogramBucket]): HdrHistogram = measureTime("sumHistograms", "sumHistograms", false) {
-    if (buckets.size == 1) buckets.head.histogram
+  implicit def aggregate(bucketNumber: BucketNumber, buckets: Seq[HistogramBucket]): HistogramBucket = measureTime("sumHistograms", "sumHistograms", false) {
+    val histo = if (buckets.size == 1) buckets.head.histogram
     else {
       val histograms = collection.mutable.Buffer[HdrHistogram]()
       buckets.foreach { bucket ⇒ histograms += bucket.histogram }
@@ -62,6 +49,7 @@ object HistogramBucket extends Measurable {
       histograms.filterNot(_.equals(biggerHistogram)).foreach(histogram ⇒ biggerHistogram.add(histogram))
       biggerHistogram
     }
+    HistogramBucket(bucketNumber, histo)
   }
 
   private def biggerHistogramOf(histograms: Seq[HdrHistogram]): HdrHistogram = {

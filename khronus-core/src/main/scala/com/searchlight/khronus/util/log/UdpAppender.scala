@@ -28,7 +28,7 @@ import scala.beans.BeanProperty
 /**
  * Appender that send data via UDP
  */
-class UpdAppender extends AppenderBase[ILoggingEvent] {
+class UdpAppender extends AppenderBase[ILoggingEvent] {
 
   @BeanProperty
   var encoder: PatternLayoutEncoder = _

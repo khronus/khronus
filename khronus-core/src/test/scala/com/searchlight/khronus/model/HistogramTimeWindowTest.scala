@@ -20,6 +20,8 @@ import java.io.IOException
 
 import com.searchlight.khronus.model.BucketNumber._
 import com.searchlight.khronus.model.Timestamp._
+import com.searchlight.khronus.model.bucket.HistogramBucket
+import com.searchlight.khronus.model.summary.HistogramSummary
 import com.searchlight.khronus.store._
 import com.searchlight.khronus.util.MonitoringSupportMock
 import org.HdrHistogram.{ Histogram ⇒ HdrHistogram }
@@ -36,6 +38,7 @@ import scala.util.control.NoStackTrace
 
 class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindowTest[HistogramBucket] {
 
+  import HistogramBucket._
   val metric = Metric("metrickA", Histogram)
 
   test("with previous buckets should store its buckets and summaries and remove previous buckets") {
@@ -50,11 +53,12 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindow
 
     val tick = Tick(previousBucket3.bucketNumber ~ windowDuration) //The last one
 
-    val histogramA: HdrHistogram = Seq(new HistogramBucket((1, previousWindowDuration), histogram1), new HistogramBucket((2, previousWindowDuration), histogram2))
-    val histogramB: HdrHistogram = Seq(previousBucket3)
+    val bucketsA: Seq[HistogramBucket] = Seq(new HistogramBucket((1, previousWindowDuration), histogram1), new HistogramBucket((2, previousWindowDuration), histogram2))
+    val bucketsB: Seq[HistogramBucket] = Seq(previousBucket3)
 
-    val bucketA = new HistogramBucket((0, windowDuration), histogramA)
-    val bucketB = new HistogramBucket((1, windowDuration), histogramB)
+    val bucketA = aggregate((0, windowDuration), bucketsA)
+    val bucketB = aggregate((1, windowDuration), bucketsB)
+
     val myBuckets = Seq(bucketA, bucketB)
 
     val summaryBucketA = HistogramSummary(0, 50, 80, 90, 95, 99, 100, 1, 100, 100, 50)
@@ -146,11 +150,11 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindow
 
     val tick = Tick(previousBucket3.bucketNumber ~ windowDuration) //The last one
 
-    val histogramA: HdrHistogram = Seq(previousBucket1, previousBucket2)
-    val histogramB: HdrHistogram = Seq(previousBucket3)
+    val bucketsA = Seq(previousBucket1, previousBucket2)
+    val bucketsB = Seq(previousBucket3)
 
-    val bucketA = new HistogramBucket((0, windowDuration), histogramA)
-    val bucketB = new HistogramBucket((1, windowDuration), histogramB)
+    val bucketA = aggregate((0, windowDuration), bucketsA)
+    val bucketB = aggregate((1, windowDuration), bucketsB)
     val myBuckets = Seq(bucketA, bucketB)
 
     when(window.metaStore.getLastProcessedTimestamp(metric)).thenReturn(Future[Timestamp](neverProcessedTimestamp))
@@ -184,11 +188,11 @@ class HistogramTimeWindowTest extends FunSuite with MockitoSugar with TimeWindow
 
     val tick = Tick(previousBucket3.bucketNumber ~ windowDuration) //The last one
 
-    val histogramA: HdrHistogram = Seq(new HistogramBucket((1, previousWindowDuration), histogram1), new HistogramBucket((2, previousWindowDuration), histogram2))
-    val histogramB: HdrHistogram = Seq(previousBucket3)
+    val bucketsA = Seq(new HistogramBucket((1, previousWindowDuration), histogram1), new HistogramBucket((2, previousWindowDuration), histogram2))
+    val bucketsB = Seq(previousBucket3)
 
-    val bucketA = new HistogramBucket((0, windowDuration), histogramA)
-    val bucketB = new HistogramBucket((1, windowDuration), histogramB)
+    val bucketA = aggregate((0, windowDuration), bucketsA)
+    val bucketB = aggregate((1, windowDuration), bucketsB)
     val myBuckets = Seq(bucketA, bucketB)
 
     val summaryBucketA = HistogramSummary(0, 50, 80, 90, 95, 99, 100, 1, 100, 100, 50)

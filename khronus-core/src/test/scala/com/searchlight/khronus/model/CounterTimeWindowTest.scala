@@ -4,6 +4,8 @@ import java.io.IOException
 
 import com.searchlight.khronus.model.BucketNumber._
 import com.searchlight.khronus.model.Timestamp._
+import com.searchlight.khronus.model.bucket.CounterBucket
+import com.searchlight.khronus.model.summary.CounterSummary
 import com.searchlight.khronus.store._
 import com.searchlight.khronus.util.MonitoringSupportMock
 import org.mockito.Matchers
@@ -14,7 +16,7 @@ import org.scalatest.mock.MockitoSugar
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.concurrent.{ Await, Future }
+import scala.concurrent.{Await, Future}
 import scala.util.control.NoStackTrace
 
 class CounterTimeWindowTest extends FunSuite with MockitoSugar with TimeWindowTest[CounterBucket] {

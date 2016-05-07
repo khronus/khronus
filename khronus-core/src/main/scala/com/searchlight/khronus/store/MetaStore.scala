@@ -54,7 +54,7 @@ trait MetaStore extends Snapshot[Map[Metric, (Timestamp, Boolean)]] {
 
   def notifyMetricMeasurement(metric: Metric, active: Boolean)
 
-  def getMetricsMap: Map[Metric, Seq[SubMetric]]
+  def getMetricsMap: Map[String, Seq[Metric]]
 
 }
 
@@ -114,7 +114,10 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
   def searchInSnapshotByRegex(regex: String): Seq[Metric] = {
     val pattern = Pattern.compile(regex)
     val matcher = pattern.matcher("")
-    snapshot.keys.filter(k ⇒ matcher.reset(k.name).matches()).toSeq
+    snapshot.keys.filter(k ⇒ matcher.reset(k.name).matches()).groupBy(_.name).values.toSeq.map { metrics ⇒
+      val head: Metric = metrics.toSeq.head
+      Metric(head.name, head.mtype)
+    }
   }
 
   def searchInSnapshotByMetricName(metricName: String): Option[(Metric, (Timestamp, Boolean))] = {
@@ -178,7 +181,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
         case e: Throwable ⇒ log.error("Error changing meta active status", e)
       }
 
-      keys foreach (activeStatusBuffer.remove(_))
+      keys foreach activeStatusBuffer.remove
     }
 
   private def deactivate(metric: Metric): Unit = {
@@ -203,18 +206,18 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
     }
   }
 
-  private def asString(metric: Metric) = s"${metric.name}|${metric.mtype}"
+  private def asString(metric: Metric) = s"${metric.flatName}|${metric.mtype}"
 
   private def toMetric(key: String): Metric = {
     val tokens = key.split("\\|")
     if (tokens.length > 2) {
-      Metric((key splitAt (key lastIndexOf '|'))._1, tokens.last)
+      Metric.fromFlatNameToMetric((key splitAt (key lastIndexOf '|'))._1, tokens.last)
     } else {
-      Metric(tokens(0), tokens(1))
+      Metric.fromFlatNameToMetric(tokens(0), tokens(1))
     }
   }
 
-  override def getMetricsMap: Map[Metric, Seq[SubMetric]] = {
-    snapshot.keys.map(metric ⇒ metric.asSubMetric()).toSeq.groupBy(_.metric)
+  override def getMetricsMap: Map[String, Seq[Metric]] = {
+    snapshot.keys.toSeq.groupBy(_.name)
   }
 }

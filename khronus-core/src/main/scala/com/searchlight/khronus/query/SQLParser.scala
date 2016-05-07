@@ -1,13 +1,14 @@
 package com.searchlight.khronus.query
 
+import com.searchlight.khronus.query.projection.{ Average, Count, Div, Percentiles }
 import net.sf.jsqlparser.expression.Expression
 import net.sf.jsqlparser.expression.operators.arithmetic.Division
 import net.sf.jsqlparser.parser.CCJSqlParserUtil
 import net.sf.jsqlparser.schema.{ Column, Table }
 import net.sf.jsqlparser.statement.select.{ FromItem, PlainSelect, Select, SelectExpressionItem }
+
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
-import scala.util.matching.Regex
 import scala.util.matching.Regex.Match
 
 trait SQLParserSupport {
@@ -25,11 +26,11 @@ object SQLParser {
 class JSQLParser extends SQLParser {
 
   private val functionFactories: Map[String, ((String, Seq[Expression]) ⇒ Projection)] = Map(
-    "count" -> Count.factory, "percentiles" -> Percentiles.factory)
+    "count" -> Count.factory, "percentiles" -> Percentiles.factory, "average" -> Average.factory)
 
   implicit def fromFromItemToQMetric(fromItem: FromItem): QMetric = {
     fromItem match {
-      case item: Table ⇒ QMetric(item.getName, item.getAlias.getName)
+      case item: Table ⇒ QMetric(item.getName, if (item.getAlias != null) item.getAlias.getName else item.getName)
     }
   }
 
@@ -51,13 +52,16 @@ class JSQLParser extends SQLParser {
       case d: Division ⇒ {
         val left = d.getLeftExpression
         val right = d.getRightExpression
-        DivProjection(projection(left), projection(right))
+        Div(projection(left), projection(right))
       }
       case f: net.sf.jsqlparser.expression.Function ⇒ {
-        val params = f.getParameters.getExpressions.asScala
-        val head = params.head
-        val tail = params.tail
-        functionFactories(f.getName)(head match { case exp: Column ⇒ exp.getColumnName }, tail)
+        if (f.getParameters != null) {
+          val params = f.getParameters.getExpressions.asScala
+          val head = params.head
+          val tail = params.tail
+          functionFactories(f.getName)(head match { case exp: Column ⇒ exp.getColumnName }, tail)
+        } else functionFactories(f.getName)("", Seq())
+
       }
     }
   }
@@ -70,18 +74,18 @@ class JSQLParser extends SQLParser {
     predicateVisitor.predicates.headOption
   }
 
-  def parseTimeExpression(someMatch: Match): TimeRange = {
+  def parseTimeExpression(someMatch: Match): Slice = {
     val sign = someMatch.group(1)
     val time = Option(someMatch.group(3)).map(n ⇒ now(someMatch.group(4), someMatch.group(5))).getOrElse(someMatch.group(2)).toLong
     sign match {
-      case ">"  ⇒ TimeRange(time + 0, System.currentTimeMillis())
-      case ">=" ⇒ TimeRange(time, System.currentTimeMillis())
-      case "<"  ⇒ TimeRange(1, time - 0)
-      case "<=" ⇒ TimeRange(1, time)
+      case ">"  ⇒ Slice(time + 0, System.currentTimeMillis())
+      case ">=" ⇒ Slice(time, System.currentTimeMillis())
+      case "<"  ⇒ Slice(1, time - 0)
+      case "<=" ⇒ Slice(1, time)
     }
   }
 
-  def timeRange(sql: String): TimeRange = {
+  def timeRange(sql: String): Slice = {
     val timeFilter = timePattern.findAllMatchIn(sql).toSeq
     timeFilter.size match {
       case 1 ⇒ parseTimeExpression(timeFilter.head)

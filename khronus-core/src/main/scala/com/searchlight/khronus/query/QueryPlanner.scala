@@ -1,10 +1,10 @@
 package com.searchlight.khronus.query
 
-import com.searchlight.khronus.model.SubMetric
+import com.searchlight.khronus.model.Metric
 import com.searchlight.khronus.store.MetaSupport
 
 trait QueryPlanner {
-  def getQueryPlan(query: DynamicQuery): QueryPlan
+  def calculateQueryPlan(query: DynamicQuery): QueryPlan
 }
 
 trait QueryPlannerSupport {
@@ -17,19 +17,27 @@ object QueryPlanner {
 
 class DefaultQueryPlanner extends QueryPlanner with MetaSupport {
 
-  def getQueryPlan(query: DynamicQuery): QueryPlan = {
-    val subMetrics = cartesianProduct(getQueriedSubMetrics(query)).map(_.toMap)
-    val matchedSubMetrics = query.predicate map (p ⇒ subMetrics.filter(p.matches)) getOrElse subMetrics
-    QueryPlan(matchedSubMetrics.flatten.groupBy(kv ⇒ kv._1).mapValues(v ⇒ v.map(va ⇒ va._2)))
+  def calculateQueryPlan(query: DynamicQuery): QueryPlan = {
+    val metrics = cartesianProduct(getQueriedMetrics(query)).map(_.toMap)
+    val filteredMetrics = predicateFilter(query.predicate, metrics)
+    QueryPlan(groupedByQMetric(filteredMetrics))
   }
 
-  private def getQueriedSubMetrics(query: DynamicQuery): Seq[Option[Seq[(QMetric, SubMetric)]]] = {
-    query.metrics.map(qMetric ⇒ subMetricsOf(qMetric).map(s ⇒ s._2.map(sub ⇒ (qMetric, sub))))
+  private def groupedByQMetric(filteredMetrics: Seq[Map[QMetric, Metric]]): Map[QMetric, Seq[Metric]] = {
+    filteredMetrics.flatten.groupBy(kv ⇒ kv._1).mapValues(v ⇒ v.map(va ⇒ va._2))
   }
 
-  private def subMetricsOf(qMetric: QMetric) = {
+  private def predicateFilter(predicate: Option[Predicate], metrics: Seq[Map[QMetric, Metric]]): Seq[Map[QMetric, Metric]] = {
+    predicate.map(p ⇒ metrics.filter(p.matches)) getOrElse metrics
+  }
+
+  private def getQueriedMetrics(query: DynamicQuery): Seq[Option[Seq[(QMetric, Metric)]]] = {
+    query.metrics.map(qMetric ⇒ matchedMetrics(qMetric).map(metrics ⇒ metrics.map(metric ⇒ (qMetric, metric))))
+  }
+
+  private def matchedMetrics(qMetric: QMetric) = {
     val metricsMap = metaStore.getMetricsMap
-    metricsMap.find(m ⇒ m._1.name.equals(qMetric.name))
+    metricsMap.get(qMetric.name)
   }
 
   private def cartesianProduct[T](lists: Seq[Option[Seq[T]]]): Seq[Seq[T]] = {
@@ -42,4 +50,4 @@ class DefaultQueryPlanner extends QueryPlanner with MetaSupport {
   }
 }
 
-case class QueryPlan(subMetrics: Map[QMetric, Seq[SubMetric]])
+case class QueryPlan(metrics: Map[QMetric, Seq[Metric]])

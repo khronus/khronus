@@ -20,6 +20,7 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 
 import com.datastax.driver.core.Session
+import com.searchlight.khronus.model.bucket.CounterBucket
 import com.searchlight.khronus.model.{ Timestamp, _ }
 import com.searchlight.khronus.util.{ Measurable, Settings }
 import com.esotericsoftware.kryo.io.{ Input, Output }

@@ -12,10 +12,11 @@ case class Pool[T](name: String, instances: Int, createInstance: () ⇒ T, relea
   def take(): T = {
     val pooledInstance = pooledInstances.poll()
     if (pooledInstance == null) {
-      return createInstance()
+      createInstance()
+    } else {
+      pooledInstancesCount.decrementAndGet()
+      pooledInstance
     }
-    pooledInstancesCount.decrementAndGet()
-    return pooledInstance
   }
 
   def release(instance: T) = {

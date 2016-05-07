@@ -45,10 +45,10 @@ class TimeWindowChainTest extends FunSuite with MockitoSugar with BeforeAndAfter
     when(window1m.process(any[Metric], any[Tick])).thenReturn(Future {})
 
     chain = new TimeWindowChain {
-      override val histogramsWindows = mockedWindows
+      override val histogramWindows = mockedWindows
       override val metaStore = mock[MetaStore]
-      override val countersWindows = Seq.empty[CounterTimeWindow]
-      override val windows: Map[MetricType, Seq[Window]] = Map(Counter -> countersWindows, Histogram -> histogramsWindows)
+      override val counterWindows = Seq.empty[CounterTimeWindow]
+      override val windows: Map[MetricType, Seq[Window]] = Map(Counter -> counterWindows, Histogram -> histogramWindows)
     }
 
     when(chain.metaStore.update(any[Seq[Metric]], any[Long], any[Boolean])).thenReturn(Future {})

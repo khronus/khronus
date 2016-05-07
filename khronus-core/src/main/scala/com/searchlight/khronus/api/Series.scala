@@ -13,6 +13,8 @@
  * and limitations under the License.
  * =========================================================================================
  */
-package com.searchlight.khronus.model
+package com.searchlight.khronus.api
 
-case class Version(appName: String, version: String)
+case class Series(name: String, points: Seq[Point])
+
+case class Point(timestamp: Long, value: Double)

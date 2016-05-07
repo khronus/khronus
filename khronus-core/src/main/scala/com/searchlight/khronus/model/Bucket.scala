@@ -5,8 +5,10 @@ import com.searchlight.khronus.util.Settings
 import scala.concurrent.duration.Duration
 import com.searchlight.khronus.util.log.Logging
 
-abstract case class Bucket(bucketNumber: BucketNumber) {
+trait Bucket {
   def timestamp = bucketNumber.startTimestamp()
+
+  def bucketNumber: BucketNumber
 
   def summary: Summary
 }
@@ -26,12 +28,13 @@ object BucketSlice {
     BucketSlice(Seq(BucketResult(bucket.timestamp, new LazyBucket(bucket))))
   }
 }
+
 case class Timestamp(ms: Long) {
   /** Returns a BucketNumber of the given Duration using this Timestamp as it's startTimestamp */
-  def toBucketNumberOf(duration: Duration): BucketNumber = toBucketNumber(duration, Math.floor _)
+  def toBucketNumberOf(duration: Duration): BucketNumber = toBucketNumber(duration, Math.floor)
 
   /** Returns a BucketNumber of the given Duration using this Timestamp as it's endTimestamp */
-  def fromEndTimestampToBucketNumberOf(duration: Duration): BucketNumber = toBucketNumber(duration, Math.floor _) - 1
+  def fromEndTimestampToBucketNumberOf(duration: Duration): BucketNumber = toBucketNumber(duration, Math.floor) - 1
 
   private def toBucketNumber(duration: Duration, f: Double ⇒ Double) = {
     if (ms < 0) {
@@ -45,15 +48,15 @@ case class Timestamp(ms: Long) {
    * It returns a new timestamp aligned to the end of the last bucket of the given duration.
    * It is basically a floor of this timestamp with the given duration.
    */
-  def alignedTo(duration: Duration) = toBucketNumber(duration, Math.floor _).startTimestamp()
+  def alignedTo(duration: Duration) = toBucketNumber(duration, Math.floor).startTimestamp()
 
   def -(someMs: Long) = Timestamp(ms - someMs)
 }
 
 object Timestamp {
-  implicit def fromLong(ms: Long) = Timestamp(ms)
+  implicit def fromLong(ms: Long): Timestamp = Timestamp(ms)
 
-  implicit def fromInt(ms: Int) = Timestamp(ms.toLong)
+  implicit def fromInt(ms: Int): Timestamp = Timestamp(ms.toLong)
 }
 
 case class BucketNumber(number: Long, duration: Duration) {
@@ -84,7 +87,7 @@ case class BucketNumber(number: Long, duration: Duration) {
 
   def following: BucketNumber = this + 1
 
-  override def toString() = {
+  override def toString = {
     val prefix = s"BucketNumber($number, $duration)"
     if (Settings.Window.WindowDurations.head.equals(duration)) {
       s"$prefix ${date(startTimestamp().ms)}"
@@ -96,7 +99,7 @@ case class BucketNumber(number: Long, duration: Duration) {
 }
 
 object BucketNumber extends Logging {
-  implicit def fromIntTuple(tuple: (Int, Duration)) = BucketNumber(tuple._1, tuple._2)
+  implicit def fromIntTuple(tuple: (Int, Duration)): BucketNumber = BucketNumber(tuple._1, tuple._2)
 
-  implicit def fromLongTuple(tuple: (Long, Duration)) = BucketNumber(tuple._1, tuple._2)
+  implicit def fromLongTuple(tuple: (Long, Duration)): BucketNumber = BucketNumber(tuple._1, tuple._2)
 }

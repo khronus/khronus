@@ -20,7 +20,8 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 
 import com.datastax.driver.core.Session
-import com.searchlight.khronus.model.HistogramSummary
+import com.searchlight.khronus.model.summary.HistogramSummary
+import com.searchlight.khronus.model.Summary
 import com.searchlight.khronus.util.log.Logging
 import com.searchlight.khronus.util.{ Measurable, Settings }
 import com.esotericsoftware.kryo.io.{ Input, Output }

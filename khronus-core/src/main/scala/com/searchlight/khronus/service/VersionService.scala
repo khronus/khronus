@@ -17,7 +17,6 @@
 package com.searchlight.khronus.service
 
 import akka.actor.Props
-import com.searchlight.khronus.model.Version
 import com.searchlight.khronus.util.JacksonJsonSupport
 import spray.http.MediaTypes._
 import spray.routing._
@@ -40,8 +39,10 @@ trait VersionEndpoint extends HttpService with JacksonJsonSupport {
       respondWithMediaType(`application/json`) {
         // XML is marshalled to `text/xml` by default, so we simply override here
         complete {
-          Version("Khronus", "0.0.1-ALPHA")
+          Version("Khronus", "0.3")
         }
       }
     }
 }
+
+case class Version(appName: String, version: String)

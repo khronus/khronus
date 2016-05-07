@@ -16,8 +16,8 @@
 
 package com.searchlight.khronus.model
 
-import com.searchlight.khronus.model.CounterBucket._
-import com.searchlight.khronus.model.HistogramBucket._
+import com.searchlight.khronus.model.bucket.{ CounterBucket, GaugeBucket, HistogramBucket }
+import com.searchlight.khronus.model.summary.{ CounterSummary, GaugeSummary, HistogramSummary }
 import com.searchlight.khronus.store._
 import com.searchlight.khronus.util.log.Logging
 import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable }
@@ -28,10 +28,11 @@ import scala.util.{ Failure, Success }
 
 trait Window {
   def process(implicit metric: Metric, tick: Tick): Future[Unit]
+
   def duration: Duration
 }
 
-abstract class TimeWindow[T <: Bucket, U <: Summary] extends Window with BucketStoreSupport[T] with SummaryStoreSupport[U] with MetaSupport with Logging with Measurable with BucketCacheSupport[T] {
+abstract class TimeWindow[T <: Bucket, S <: Summary] extends Window with BucketStoreSupport[T] with SummaryStoreSupport[S] with MetaSupport with Logging with Measurable with BucketCacheSupport[T] {
 
   import com.searchlight.khronus.model.TimeWindow._
 
@@ -55,7 +56,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends Window with BucketS
         //group in buckets of my window duration
         val myBuckets = aggregateBuckets(grouped(previousWindowBuckets))
         //calculate the summaries
-        val mySummaries = myBuckets map (bucket ⇒ calculateSummary(bucket))
+        val mySummaries = myBuckets map (bucket ⇒ summary(bucket))
         //store temporal buckets for next window if needed
         //store the summaries
         val stores = storeBucketsAndSummaries(myBuckets, mySummaries, fromBucketNumber, toBucketNumber)
@@ -64,7 +65,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends Window with BucketS
     }
   }
 
-  private def storeBucketsAndSummaries(buckets: Seq[T], summaries: Seq[U], from: BucketNumber, to: BucketNumber)(implicit metric: Metric, tick: Tick, context: Context) = {
+  private def storeBucketsAndSummaries(buckets: Seq[T], summaries: Seq[S], from: BucketNumber, to: BucketNumber)(implicit metric: Metric, tick: Tick, context: Context) = {
     storeBuckets(buckets, from, to) flatMap { _ ⇒
       summaryStore.store(metric, duration, summaries)
     }
@@ -78,10 +79,10 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends Window with BucketS
     retrievePreviousBuckets(metric, tick, from, to) flatMap block
   }
 
-  protected def calculateSummary(bucket: T): U
+  protected def summary(bucket: T): S
 
   private def storeBuckets(buckets: Seq[T], from: BucketNumber, to: BucketNumber)(implicit tick: Tick, metric: Metric, context: Context) = {
-    if (shouldStoreTemporalHistograms) measureFutureTime("storeTemporalBuckets", metric, duration) {
+    if (shouldStoreBuckets) measureFutureTime("storeTemporalBuckets", metric, duration) {
       val storeFuture = bucketStore.store(metric, duration, buckets)
       storeFuture.onFailure { case reason: Throwable ⇒ log.error(s"$context - Fail to store temporal buckets", reason) }
       storeFuture.map { _ ⇒
@@ -102,15 +103,15 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends Window with BucketS
     groupedBuckets
   }
 
-  protected def aggregateBuckets(buckets: Map[BucketNumber, Seq[T]]): Seq[T] = {
-    buckets.collect { case (bucketNumber, buckets) ⇒ aggregate(bucketNumber, buckets) }.toSeq
+  protected def aggregateBuckets(bucketsMap: Map[BucketNumber, Seq[T]]): Seq[T] = {
+    bucketsMap.collect { case (bucketNumber, buckets) ⇒ aggregate(bucketNumber, buckets) }.toSeq
   }
 
   protected def aggregate(bucketNumber: BucketNumber, buckets: Seq[T]): T
 
   protected def previousWindowDuration: Duration
 
-  protected def shouldStoreTemporalHistograms: Boolean
+  protected def shouldStoreBuckets: Boolean
 
   private def retrievePreviousBuckets(metric: Metric, tick: Tick, fromBucketNumber: BucketNumber, toBucketNumber: BucketNumber)(implicit context: Context) = {
     val start = System.currentTimeMillis()
@@ -124,7 +125,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends Window with BucketS
       val futureSlice = bucketStore.slice(metric, fromBucketNumber.startTimestamp(), toBucketNumber.startTimestamp(), previousWindowDuration)
       futureSlice.map { bucketSlice ⇒
         if (bucketSlice.results.isEmpty) {
-          recordTime(formatLabel("emptySliceTime", metric, duration), System.currentTimeMillis() - start)
+          recordHistogram(formatLabel("emptySliceTime", metric, duration), System.currentTimeMillis() - start)
           notifyEmptySlice(metric, duration)
         }
         log.debug(s"$context - Found ${bucketSlice.results.size} buckets of $previousWindowDuration")
@@ -151,24 +152,33 @@ object TimeWindow extends ConcurrencySupport {
   implicit val executionContext: ExecutionContext = executionContext("time-window-worker")
 }
 
-case class CounterTimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true)
+case class CounterTimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreBuckets: Boolean = true)
     extends TimeWindow[CounterBucket, CounterSummary] with CounterBucketStoreSupport with CounterSummaryStoreSupport {
 
-  override def aggregate(bucketNumber: BucketNumber, buckets: Seq[CounterBucket]): CounterBucket = new CounterBucket(bucketNumber, buckets)
+  override def summary(bucket: CounterBucket) = bucket.summary
 
-  override def calculateSummary(bucket: CounterBucket): CounterSummary = bucket.summary
+  override def aggregate(bucketNumber: BucketNumber, buckets: Seq[CounterBucket]): CounterBucket = new CounterBucket(bucketNumber, buckets)
 
   override val bucketCache: BucketCache[CounterBucket] = InMemoryCounterBucketCache
 }
 
-case class HistogramTimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreTemporalHistograms: Boolean = true)
+case class HistogramTimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreBuckets: Boolean = true)
     extends TimeWindow[HistogramBucket, HistogramSummary] with HistogramBucketSupport with HistogramSummarySupport {
 
-  override def aggregate(bucketNumber: BucketNumber, buckets: Seq[HistogramBucket]): HistogramBucket = new HistogramBucket(bucketNumber, buckets)
+  override def summary(bucket: HistogramBucket) = bucket.summary
 
-  override def calculateSummary(bucket: HistogramBucket): HistogramSummary = bucket.summary
+  override def aggregate(bucketNumber: BucketNumber, buckets: Seq[HistogramBucket]): HistogramBucket = HistogramBucket.aggregate(bucketNumber, buckets)
 
   override val bucketCache: BucketCache[HistogramBucket] = InMemoryHistogramBucketCache
+}
+
+case class GaugeTimeWindow(duration: Duration, previousWindowDuration: Duration, shouldStoreBuckets: Boolean = true)
+    extends TimeWindow[GaugeBucket, GaugeSummary] with GaugeBucketStoreSupport with GaugeSummaryStoreSupport {
+  override def summary(bucket: GaugeBucket) = bucket.summary
+
+  override def aggregate(bucketNumber: BucketNumber, buckets: Seq[GaugeBucket]): GaugeBucket = GaugeBucket.aggregate(bucketNumber, buckets)
+
+  override val bucketCache: BucketCache[GaugeBucket] = InMemoryGaugeBucketCache
 }
 
 case class Context(metric: Metric, durationStr: String) extends Logging {

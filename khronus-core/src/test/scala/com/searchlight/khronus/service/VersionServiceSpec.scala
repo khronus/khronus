@@ -15,14 +15,13 @@
  */
 package com.searchlight.khronus.service
 
-import com.searchlight.khronus.util.JacksonJsonSupport
-import org.specs2.mutable.Specification
-import spray.testkit.Specs2RouteTest
-import spray.http._
-import StatusCodes._
-import com.searchlight.khronus.model.Version
 import akka.actor.ActorSystem
+import com.searchlight.khronus.util.JacksonJsonSupport
 import com.typesafe.config.ConfigFactory
+import org.specs2.mutable.Specification
+import spray.http.StatusCodes._
+import spray.http._
+import spray.testkit.Specs2RouteTest
 
 class VersionServiceSpec extends Specification with Specs2RouteTest with VersionEndpoint with JacksonJsonSupport {
   def actorRefFactory = ActorSystem("TestSystem", ConfigFactory.parseString(

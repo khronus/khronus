@@ -1,10 +1,10 @@
 package com.searchlight.khronus.store
 
-import com.searchlight.khronus.model.BucketNumber._
 import com.searchlight.khronus.model.Timestamp._
-import com.searchlight.khronus.util.{Settings, BaseIntegrationTest}
+import com.searchlight.khronus.model.bucket.CounterBucket
+import com.searchlight.khronus.model.{Counter, Metric}
+import com.searchlight.khronus.util.{BaseIntegrationTest, Settings}
 import org.scalatest.{FunSuite, Matchers}
-import com.searchlight.khronus.model.{Counter, Metric, MetricType, CounterBucket}
 
 import scala.concurrent.duration._
 
@@ -17,7 +17,7 @@ class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest 
   implicit val context = scala.concurrent.ExecutionContext.Implicits.global
 
   test("should store and retrieve buckets properly") {
-    val counter = new CounterBucket((250L, 30 seconds), 200L)
+    val counter = CounterBucket((250L, 30 seconds), 200L)
     await {
       Buckets.counterBucketStore.store(testMetric, 30 seconds, Seq(counter))
     }
@@ -26,7 +26,7 @@ class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest 
     val bucketsFromCassandra = await {
       Buckets.counterBucketStore.slice(testMetric, 1, executionTimestamp, 30 seconds)
     }
-    val bucketFromCassandra = bucketsFromCassandra.results(0)
+    val bucketFromCassandra = bucketsFromCassandra.results.head
 
     counter shouldEqual bucketFromCassandra.lazyBucket()
 
@@ -46,7 +46,7 @@ class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest 
 
     bucketsFromCassandra.results.size shouldEqual 1
 
-    val bucketFromCassandra = bucketsFromCassandra.results(0)
+    val bucketFromCassandra = bucketsFromCassandra.results.head
 
     counter shouldEqual bucketFromCassandra.lazyBucket()
 
@@ -66,7 +66,7 @@ class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest 
 
     bucketsFromCassandra.results.size shouldEqual 2
 
-    val bucketFromCassandra = bucketsFromCassandra.results(0)
+    val bucketFromCassandra = bucketsFromCassandra.results.head
 
     counter shouldEqual bucketFromCassandra.lazyBucket()
 
@@ -87,7 +87,7 @@ class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest 
     }
 
     bucketsFromCassandra.results should have length 1
-    bucketsFromCassandra.results(0).lazyBucket() shouldEqual bucketFromThePast
+    bucketsFromCassandra.results.head.lazyBucket() shouldEqual bucketFromThePast
   }
 
 }

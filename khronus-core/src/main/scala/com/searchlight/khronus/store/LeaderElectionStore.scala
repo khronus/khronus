@@ -96,7 +96,7 @@ class LeaderElectionStore(session: Session) extends CassandraUtils with Concurre
           releaseLock(retry + 1)
         } else {
           log.error(s"Fail to recover from releaseLock(retry = $retry)", e)
-          throw e;
+          throw e
         }
       } else {
         //commit phase fails

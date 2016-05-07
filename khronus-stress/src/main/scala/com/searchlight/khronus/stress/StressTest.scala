@@ -99,7 +99,7 @@ object StressTest extends App with JacksonJsonSupport {
     }
 
     def getMeasurementValues(): Seq[Long] = {
-      for (i ← 1 to nnMeasurements) yield (random.nextInt(10000)).toLong
+      for (i ← 1 to nnMeasurements) yield random.nextInt(10000).toLong
     }
 
     println("Ending...")

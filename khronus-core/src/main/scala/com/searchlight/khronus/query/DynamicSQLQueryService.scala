@@ -1,5 +1,7 @@
 package com.searchlight.khronus.query
 
+import com.searchlight.khronus.api.Series
+
 import scala.concurrent.Future
 
 trait DynamicSQLQueryServiceSupport {

@@ -153,7 +153,7 @@ class MasterSpec extends TestKitBase with ImplicitSender
 
       master ! WorkDone(worker1)
 
-      assert(idleWorkers.size == 0)
+      assert(idleWorkers.isEmpty)
       workerProbe1.expectMsg(Work(Seq(firstMetric)))
       assert(pendingMetrics == 0)
     }

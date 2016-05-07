@@ -40,7 +40,7 @@ class LeaderElectionStoreTest extends FunSuite with BaseIntegrationTest with Mat
     val f = LeaderElectionOne.leaderElectionStore.acquireLock() map { x =>
       x shouldBe true
       stores foreach (store => {
-        val lock = store.acquireLock();
+        val lock = store.acquireLock()
         val hasLock = Await.result(lock, 2 seconds)
         hasLock shouldBe false
       })

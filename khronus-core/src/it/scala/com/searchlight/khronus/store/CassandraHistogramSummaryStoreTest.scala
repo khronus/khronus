@@ -1,19 +1,22 @@
 package com.searchlight.khronus.store
 
-import com.searchlight.khronus.model.{Timestamp, HistogramSummary, Metric}
+import com.searchlight.khronus.model.summary.HistogramSummary
+import com.searchlight.khronus.model.{Timestamp, Metric}
+import com.searchlight.khronus.query.Slice
 import com.searchlight.khronus.util.{Settings, BaseIntegrationTest}
 import org.scalatest.{Matchers,  FunSuite}
 import scala.concurrent.duration._
 
 class CassandraHistogramSummaryStoreTest extends FunSuite with BaseIntegrationTest with Matchers{
   override val tableNames: Seq[String] = Settings.Window.WindowDurations.map(duration => Summaries.histogramSummaryStore.tableName(duration))
+  private val ASCENDING_ORDER = false
 
   test("An StatisticSummary should be capable of serialize and deserialize from Cassandra") {
     val summary = HistogramSummary(Timestamp(1417639860000l),47903,47903,47903,47903,47903,47903,47872,47903,1,47888)
     val summaries = Seq(summary)
     await { Summaries.histogramSummaryStore.store(Metric("testMetric","histogram"), 30 seconds, summaries) }
     val bucketsFromCassandra = await { Summaries.histogramSummaryStore.sliceUntilNow(Metric("testMetric","histogram"), 30 seconds) }
-    val summaryFromCassandra = bucketsFromCassandra(0)
+    val summaryFromCassandra = bucketsFromCassandra.head
 
     summary shouldEqual summaryFromCassandra
   }
@@ -28,7 +31,7 @@ class CassandraHistogramSummaryStoreTest extends FunSuite with BaseIntegrationTe
 
     val bucketsFromCassandra = await { Summaries.histogramSummaryStore.readAll("testMetric", 30 seconds, Slice(1500, 2500)) }
     bucketsFromCassandra.size shouldEqual 1
-    bucketsFromCassandra(0) shouldEqual onIntervalSummary
+    bucketsFromCassandra.head shouldEqual onIntervalSummary
   }
 
   test("Reading with descending order should returns timestamp desc") {
@@ -37,7 +40,7 @@ class CassandraHistogramSummaryStoreTest extends FunSuite with BaseIntegrationTe
     val summaries = Seq(earlierSummary, laterSummary)
     await { Summaries.histogramSummaryStore.store(Metric("testMetric","histogram"), 30 seconds, summaries) }
 
-    val bucketsFromCassandra = await { Summaries.histogramSummaryStore.readAll("testMetric", 30 seconds, Slice(0, 100), false) }
+    val bucketsFromCassandra = await { Summaries.histogramSummaryStore.readAll("testMetric", 30 seconds, Slice(0, 100), ASCENDING_ORDER) }
 
     bucketsFromCassandra(0) shouldEqual laterSummary
     bucketsFromCassandra(1) shouldEqual earlierSummary

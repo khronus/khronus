@@ -1,6 +1,7 @@
 package com.searchlight.khronus.store
 
 import com.searchlight.khronus.model._
+import com.searchlight.khronus.model.bucket.CounterBucket
 import com.searchlight.khronus.util.Settings
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{ FunSuite, Matchers }
@@ -16,7 +17,7 @@ class BucketCacheTest extends FunSuite with MockitoSugar with Matchers {
     val toTick1 = tick09_00a09_30.bucketNumber.following
 
     val metric = Metric("tito", Counter)
-    cache.multiSet(metric, fromTick1, toTick1, Seq(new CounterBucket(fromTick1, 10l)))
+    cache.multiSet(metric, fromTick1, toTick1, Seq(CounterBucket(fromTick1, 10l)))
     cache.markProcessedTick(tick09_00a09_30, metric)
 
     cache.nCachedMetrics(Counter).intValue() shouldBe 1
@@ -27,7 +28,7 @@ class BucketCacheTest extends FunSuite with MockitoSugar with Matchers {
     val fromTick2 = toTick1
     val toTick2 = tick09_30a10_00.bucketNumber.following
 
-    cache.multiSet(metric, fromTick2, toTick2, Seq(new CounterBucket(fromTick2, 15l)))
+    cache.multiSet(metric, fromTick2, toTick2, Seq(CounterBucket(fromTick2, 15l)))
     cache.markProcessedTick(tick09_30a10_00, metric)
 
     cache.nCachedMetrics(Counter).intValue() shouldBe 1

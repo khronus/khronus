@@ -5,26 +5,27 @@ import org.scalatest.{ Matchers, FunSuite }
 
 class MetricTest extends FunSuite with Matchers with MockitoSugar {
 
-  private val metricWithTags = Metric("~system.emptySliceTime.timer.1HOURS[tag1:value1,tag2:value2,tag3:value3]", "counter")
-  private val metricWithoutTags = Metric("~system.emptySliceTime.timer.1HOURS", "counter")
-  private val subMetricWithTags = SubMetric(Metric("~system.emptySliceTime.timer.1HOURS", "counter"),
-    Map("tag1" -> "value1", "tag2" -> "value2", "tag3" -> "value3"))
-  private val subMetricWithoutTags = SubMetric(Metric("~system.emptySliceTime.timer.1HOURS", "counter"), Map())
+  private val mtype: MetricType = "counter"
+  private val flatNameWithTags = "~system.emptySliceTime.timer.1HOURS[tag1:value1,tag2:value2,tag3:value3]"
+  private val flatNameWithoutTags = "~system.emptySliceTime.timer.1HOURS"
 
-  test("metric to submetric") {
-    metricWithTags.asSubMetric() should equal(subMetricWithTags)
+  private val metricWithTags = Metric("~system.emptySliceTime.timer.1HOURS", mtype, Map("tag1" -> "value1", "tag2" -> "value2", "tag3" -> "value3"))
+  private val metricWithoutTags = Metric("~system.emptySliceTime.timer.1HOURS", mtype, Map())
+
+  test("flatName to metric") {
+    Metric.fromFlatNameToMetric(flatNameWithTags, mtype) should equal(metricWithTags)
   }
 
-  test("metric without tags to submetric") {
-    metricWithoutTags.asSubMetric() should equal(subMetricWithoutTags)
+  test("flatName to metric without tags") {
+    Metric.fromFlatNameToMetric(flatNameWithoutTags, mtype) should equal(metricWithoutTags)
   }
 
-  test("submetric to metric") {
-    subMetricWithTags.asMetric() should equal(metricWithTags)
+  test("metric flatName") {
+    metricWithTags.flatName should equal(flatNameWithTags)
   }
 
-  test("submetric without tags to metric") {
-    subMetricWithoutTags.asMetric() should equal(metricWithoutTags)
+  test("metric without tags flatName") {
+    metricWithoutTags.flatName should equal(flatNameWithoutTags)
   }
 
 }

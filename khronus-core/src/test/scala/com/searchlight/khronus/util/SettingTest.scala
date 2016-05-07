@@ -27,8 +27,8 @@ class SettingTest extends FunSuite with MockitoSugar with Matchers {
   System.setProperty("config.trace", "loads")
 
   test("should configure histogram time windows properly") {
-    Settings.Histograms.TimeWindows shouldBe (Seq(HistogramTimeWindow(30 seconds, 1 millis),
-      HistogramTimeWindow(1 minute, 30 seconds, false)))
+    Settings.Histograms.TimeWindows shouldBe Seq(HistogramTimeWindow(30 seconds, 1 millis),
+      HistogramTimeWindow(1 minute, 30 seconds, false))
   }
 
 }

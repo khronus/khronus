@@ -16,7 +16,7 @@ trait Measurable extends Logging with SlowMetricsRecorder {
     val blockReturn = block
     val elapsed = now - start
     if (doLog) log.debug(s"$text - time spent: ${elapsed}ms")
-    recordTime(label, elapsed)
+    recordHistogram(label, elapsed)
     blockReturn
   }
 
@@ -42,7 +42,7 @@ trait Measurable extends Logging with SlowMetricsRecorder {
       case Success(_) ⇒ {
         val elapsed = now - start
         log.debug(s"$text - time spent: ${elapsed}ms")
-        recordTime(label, elapsed)
+        recordHistogram(label, elapsed)
       }
     }
   }

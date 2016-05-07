@@ -1,18 +1,18 @@
 package com.searchlight.khronus.query
 
-import com.searchlight.khronus.model.{ Metric, SubMetric, Timestamp }
-import com.searchlight.khronus.store.{ MetaSupport, MetaStore }
+import com.searchlight.khronus.model.{Metric, Timestamp}
+import com.searchlight.khronus.query.projection.Count
+import com.searchlight.khronus.store.MetaStore
 import org.mockito.Mockito
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{ FunSuite, Matchers }
+import org.scalatest.{FunSuite, Matchers}
 
 class QueryPlannerTest extends FunSuite with Matchers with MockitoSugar {
 
-  val cpuHistogram: Metric = Metric("cpu", "histogram")
-  val cpuNode1 = SubMetric(cpuHistogram, Map("node" -> "node1"))
-  val cpuNode2 = SubMetric(cpuHistogram, Map("node" -> "node2"))
-  val someTimeRange: TimeRange = TimeRange(Timestamp(1), Timestamp(2))
-  val metrics = Map(cpuHistogram -> Seq(cpuNode1, cpuNode2))
+  val cpuNode1 = Metric("cpu", "histogram", Map("node" -> "node1"))
+  val cpuNode2 = Metric("cpu", "histogram", Map("node" -> "node2"))
+  val someTimeRange = Slice(Timestamp(1).ms, Timestamp(2).ms)
+  val metrics = Map("cpu" -> Seq(cpuNode1, cpuNode2))
   val metaMock = mock[MetaStore]
   Mockito.when(metaMock.getMetricsMap).thenReturn(metrics)
 
@@ -25,11 +25,11 @@ class QueryPlannerTest extends FunSuite with Matchers with MockitoSugar {
 
     val query = DynamicQuery(Seq(Count("c")), Seq(cpu), Some(Equals("c", "node", "node1")), someTimeRange)
 
-    val result = queryPlanner.getQueryPlan(query)
+    val result = queryPlanner.calculateQueryPlan(query)
 
-    result.subMetrics should have size 1
-    result.subMetrics(cpu) should have size 1
-    result.subMetrics(cpu) should equal(Seq(cpuNode1))
+    result.metrics should have size 1
+    result.metrics(cpu) should have size 1
+    result.metrics(cpu) should equal(Seq(cpuNode1))
   }
 
   test("select two metric query") {
@@ -38,13 +38,13 @@ class QueryPlannerTest extends FunSuite with Matchers with MockitoSugar {
 
     val query = DynamicQuery(Seq(Count("c"), Count("d")), Seq(c, d), Some(And(Equals("c", "node", "node1"), Equals("d", "node", "node2"))), someTimeRange)
 
-    val result = queryPlanner.getQueryPlan(query)
+    val result = queryPlanner.calculateQueryPlan(query)
 
-    result.subMetrics should have size 2
-    result.subMetrics(c) should have size 1
-    result.subMetrics(c) should equal(Seq(cpuNode1))
-    result.subMetrics(d) should have size 1
-    result.subMetrics(d) should equal(Seq(cpuNode2))
+    result.metrics should have size 2
+    result.metrics(c) should have size 1
+    result.metrics(c) should equal(Seq(cpuNode1))
+    result.metrics(d) should have size 1
+    result.metrics(d) should equal(Seq(cpuNode2))
   }
 
 }

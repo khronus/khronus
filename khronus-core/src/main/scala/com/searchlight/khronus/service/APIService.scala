@@ -2,10 +2,9 @@ package com.searchlight.khronus.service
 
 import akka.actor.Props
 import com.searchlight.khronus.api.MetricBatch
-import com.searchlight.khronus.store.CassandraMetricMeasurementStore._
 import com.searchlight.khronus.store.MetricMeasurementStoreSupport
-import com.searchlight.khronus.util.{ ConcurrencySupport, JacksonJsonSupport }
 import com.searchlight.khronus.util.log.Logging
+import com.searchlight.khronus.util.{ ConcurrencySupport, JacksonJsonSupport }
 import spray.http.StatusCodes._
 import spray.httpx.encoding.{ Gzip, NoEncoding }
 import spray.routing._
@@ -43,9 +42,19 @@ trait APIService extends HttpService with MetricMeasurementStoreSupport with Jac
           }
         }
       }
+    } ~ get {
+      parameters('q, 'from ?, 'to ?, 'res ?)
+        .as(ApiRequest) { apiRequest ⇒
+          complete {
+            OK
+          }
+        }
+
     }
 
 }
+
+case class ApiRequest(q: String, from: Option[String], to: Option[String], res: Option[String])
 
 object SprayMetrics extends Logging {
 

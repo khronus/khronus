@@ -149,6 +149,33 @@ object Settings {
     val SummaryFetchSize = counterConfig.getInt("summary-fetch-size")
   }
 
+  object Gauges {
+    private val gaugeConfig = config.getConfig("khronus.gauge")
+    val BucketRetentionPolicy = gaugeConfig.getDuration("bucket-retention-policy", SECONDS).toInt
+    val SummaryRetentionPolicyDefault = Duration(gaugeConfig.getString("summary-retention-policy.default"))
+    val SummaryRetentionPolicyOverrides: Map[Duration, Duration] = {
+      val list: Iterable[ConfigObject] = gaugeConfig.getObjectList("summary-retention-policy.overrides").asScala
+      (for {
+        item: ConfigObject ← list
+        entry: Entry[String, ConfigValue] ← item.entrySet().asScala
+        resolution = Duration(entry.getKey)
+        ttl = Duration(entry.getValue.unwrapped().toString)
+      } yield (resolution, ttl)).toMap
+    }
+    val TimeWindows = Window.WindowDurations.sliding(2).map { dp ⇒
+      val previous = dp.head
+      val duration = dp.last
+      GaugeTimeWindow(duration, previous, Window.WindowDurations.last != duration)
+    }.toSeq
+
+    val SummaryRetentionPolicies = getRetentionPolicies(SummaryRetentionPolicyDefault, SummaryRetentionPolicyOverrides, Window.WindowDurations)
+
+    val BucketLimit = gaugeConfig.getInt("bucket-limit")
+    val BucketFetchSize = gaugeConfig.getInt("bucket-fetch-size")
+    val SummaryLimit = gaugeConfig.getInt("summary-limit")
+    val SummaryFetchSize = gaugeConfig.getInt("summary-fetch-size")
+  }
+
   object BucketCache {
     private val bucketCacheConfig = config.getConfig("khronus.bucket-cache")
 
@@ -157,7 +184,7 @@ object Settings {
     val MaxStore = bucketCacheConfig.getInt("max-store")
 
     val MaxMetrics: Map[MetricType, Int] = Map(Histogram -> bucketCacheConfig.getInt(s"max-metrics.$Histogram"),
-      Counter -> bucketCacheConfig.getInt(s"max-metrics.$Counter"))
+      Counter -> bucketCacheConfig.getInt(s"max-metrics.$Counter"), Gauge -> bucketCacheConfig.getInt(s"max-metrics.$Gauge"))
 
     def IsEnabledFor(metricType: MetricType): Boolean = Option(bucketCacheConfig.getBoolean(metricType.toString)).getOrElse(false)
   }
@@ -173,11 +200,7 @@ object Settings {
 
   private def getRetentionPolicies(default: Duration, overrides: Map[Duration, Duration], windows: Seq[Duration]): Map[Duration, Duration] = {
     windows.map(window ⇒ {
-      if (overrides.contains(window)) {
-        (window -> overrides(window))
-      } else {
-        (window -> default)
-      }
+      if (overrides.contains(window)) window -> overrides(window) else window -> default
     }).toMap
   }
 

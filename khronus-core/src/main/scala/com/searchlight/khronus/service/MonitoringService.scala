@@ -12,20 +12,20 @@ import scala.collection.concurrent.TrieMap
 import scala.collection.mutable.Buffer
 
 trait MonitoringSupport {
-  def recordTime(metricName: String, time: Long): Unit = MonitoringService.recordTime(metricName, time)
+  def recordHistogram(name: String, value: Long): Unit = MonitoringService.recordHistogram(name, value)
 
-  def recordGauge(metricName: String, value: Long): Unit = MonitoringService.recordGauge(metricName, value)
+  def recordGauge(name: String, value: Long): Unit = MonitoringService.recordGauge(name, value)
 
-  def incrementCounter(metricName: String): Unit = incrementCounter(metricName, 1)
+  def incrementCounter(name: String): Unit = incrementCounter(name, 1)
 
-  def incrementCounter(metricName: String, counts: Int): Unit = incrementCounter(metricName, counts.toLong)
+  def incrementCounter(name: String, counts: Int): Unit = incrementCounter(name, counts.toLong)
 
-  def incrementCounter(metricName: String, counts: Long): Unit = MonitoringService.incrementCounter(metricName, counts)
+  def incrementCounter(name: String, counts: Long): Unit = MonitoringService.incrementCounter(name, counts)
 }
 
 object MonitoringService extends MetricMeasurementStoreSupport with Logging with ConcurrencySupport {
 
-  private val timers = TrieMap[String, ConcurrentLinkedQueue[java.lang.Long]]()
+  private val histograms = TrieMap[String, ConcurrentLinkedQueue[java.lang.Long]]()
   private val gauges = TrieMap[String, ConcurrentLinkedQueue[java.lang.Long]]()
   private val counters = TrieMap[String, AtomicLong]()
 
@@ -38,18 +38,18 @@ object MonitoringService extends MetricMeasurementStoreSupport with Logging with
     }, 0, 10, TimeUnit.SECONDS)
   }
 
-  def recordTime(metricName: String, value: Long) = enabled {
-    val values = timers.getOrElseUpdate(metricName, new ConcurrentLinkedQueue[java.lang.Long]())
+  def recordHistogram(name: String, value: Long) = enabled {
+    val values = histograms.getOrElseUpdate(name, new ConcurrentLinkedQueue[java.lang.Long]())
     values.offer(value)
   }
 
-  def recordGauge(metricName: String, value: Long) = enabled {
-    val values = gauges.getOrElseUpdate(metricName, new ConcurrentLinkedQueue[java.lang.Long]())
+  def recordGauge(name: String, value: Long) = enabled {
+    val values = gauges.getOrElseUpdate(name, new ConcurrentLinkedQueue[java.lang.Long]())
     values.offer(value)
   }
 
-  def incrementCounter(metricName: String, counts: Long) = enabled {
-    val counter = counters.getOrElseUpdate(metricName, new AtomicLong())
+  def incrementCounter(name: String, counts: Long) = enabled {
+    val counter = counters.getOrElseUpdate(name, new AtomicLong())
     counter.addAndGet(counts)
   }
 
@@ -82,18 +82,30 @@ object MonitoringService extends MetricMeasurementStoreSupport with Logging with
   }
 
   private def measurements(): List[MetricMeasurement] = {
-    val measurements = counters.map { case (metricName, counts) ⇒ collectCounterValues(metricName, counts) } ++
-      timers.map { case (metricName, values) ⇒ collectHistogramValues(metricName, values, "timer") } ++
-      gauges.map { case (metricName, values) ⇒ collectHistogramValues(metricName, values, "gauge") }
+    val measurements = counters.flatMap { case (name, counts) ⇒ collectCounterValues(name, counts) } ++
+      histograms.flatMap { case (name, values) ⇒ collectHistogramValues(name, values) } ++
+      gauges.flatMap { case (name, values) ⇒ collectGaugeValues(name, values) }
     measurements.toList
   }
 
-  private def collectCounterValues(metricName: String, counts: AtomicLong): MetricMeasurement = {
-    MetricMeasurement(system(metricName), "counter", List(Measurement(Some(System.currentTimeMillis()), Seq(counts.getAndSet(0)))))
+  private def collectCounterValues(name: String, counts: AtomicLong): Option[MetricMeasurement] = {
+    Some(MetricMeasurement(system(name), "counter", List(Measurement(Some(System.currentTimeMillis()), Seq(counts.getAndSet(0))))))
   }
 
-  private def collectHistogramValues(metricName: String, values: ConcurrentLinkedQueue[java.lang.Long], mtype: String): MetricMeasurement = {
-    MetricMeasurement(system(metricName), mtype, List(Measurement(Some(System.currentTimeMillis()), drain(values))))
+  private def collectHistogramValues(name: String, values: ConcurrentLinkedQueue[java.lang.Long]): Option[MetricMeasurement] = {
+    val histogramValues: Seq[Long] = drain(values)
+    if (histogramValues.nonEmpty)
+      Some(MetricMeasurement(system(name), "histogram", List(Measurement(Some(System.currentTimeMillis()), histogramValues))))
+    else
+      None
+  }
+
+  private def collectGaugeValues(name: String, values: ConcurrentLinkedQueue[java.lang.Long]): Option[MetricMeasurement] = {
+    val gaugeValues = drain(values)
+    if (gaugeValues.nonEmpty) {
+      Some(MetricMeasurement(system(name), "gauge", List(Measurement(Some(System.currentTimeMillis()), gaugeValues))))
+    } else
+      None
   }
 
   private def system(metricName: String) = s"~system.$metricName"

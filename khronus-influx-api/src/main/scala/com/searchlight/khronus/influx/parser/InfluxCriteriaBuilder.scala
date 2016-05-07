@@ -1,7 +1,7 @@
 package com.searchlight.khronus.influx.parser
 
 import scala.concurrent.{ ExecutionContext, Future }
-import com.searchlight.khronus.model.{ Counter, Histogram, Functions, MetricType }
+import com.searchlight.khronus.model._
 import com.searchlight.khronus.store.MetaSupport
 import com.searchlight.khronus.util.ConcurrencySupport
 
@@ -31,7 +31,7 @@ trait InfluxCriteriaBuilder extends MetaSupport with ConcurrencySupport {
   private def validateProjectionAlias(projections: Seq[Projection], aliasTables: Seq[String]): Unit = {
     projections.foreach {
       case field: AliasingTable ⇒
-        if (field.tableId != None && !aliasTables.contains(field.tableId.get))
+        if (field.tableId.isDefined && !aliasTables.contains(field.tableId.get))
           throw new UnsupportedOperationException(s"Projection is using an invalid alias: ${field.tableId.get} - Table alias: [${aliasTables.mkString(", ")}]")
       case number: Number ⇒ // Numbers dont have alias
       case operation: Operation ⇒
@@ -44,7 +44,7 @@ trait InfluxCriteriaBuilder extends MetaSupport with ConcurrencySupport {
     val matchedMetrics = metaStore.searchInSnapshotByRegex(getCaseInsensitiveRegex(table.name))
     if (matchedMetrics.isEmpty)
       throw new UnsupportedOperationException(s"Unsupported query - There isnt any metric matching the regex [${table.name}]")
-    else if (matchedMetrics.size > 1 && table.alias != None)
+    else if (matchedMetrics.size > 1 && table.alias.isDefined)
       throw new UnsupportedOperationException(s"Unsupported query - Regex [${table.name}] matches more than one metric, so it can't have an alias (${table.alias}})")
 
     Future.successful(matchedMetrics.collect { case m ⇒ Source(m, table.alias) })
@@ -74,11 +74,11 @@ trait InfluxCriteriaBuilder extends MetaSupport with ConcurrencySupport {
       case None        ⇒ sources
     }
 
-    matchedSources.map {
+    matchedSources.flatMap {
       source ⇒
         validateByMetricType(source.metric.mtype, function)
         Seq(Field(function.name, function.alias, Some(source.alias.getOrElse(source.metric.name))))
-    }.flatten
+    }
   }
 
   private def validateByMetricType(metricType: String, function: SimpleProjection): Unit = {
@@ -97,13 +97,13 @@ trait InfluxCriteriaBuilder extends MetaSupport with ConcurrencySupport {
       case None        ⇒ sources
     }
 
-    matchedSources.map {
+    matchedSources.flatMap {
       source ⇒
         val functionsByMetricType = allFunctionsByMetricType(source.metric.mtype)
         functionsByMetricType.collect {
           case functionName ⇒ Field(functionName, None, Some(source.alias.getOrElse(source.metric.name)))
         }
-    }.flatten
+    }
   }
 
   private def lookupByAlias(alias: String, sources: Seq[Source]): Source = {
@@ -113,6 +113,7 @@ trait InfluxCriteriaBuilder extends MetaSupport with ConcurrencySupport {
   private def allFunctionsByMetricType(metricType: MetricType): Seq[String] = metricType match {
     case Histogram ⇒ Functions.allHistogramFunctions
     case Counter   ⇒ Functions.allCounterFunctions
+    case Gauge     ⇒ Functions.allGaugeFunctions
   }
 
 }

@@ -16,7 +16,7 @@
 package com.searchlight.khronus.api
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
-import com.searchlight.khronus.model.{ SubMetric, Metric }
+import com.searchlight.khronus.model.Metric
 
 case class MetricBatch(metrics: List[MetricMeasurement])
 
@@ -24,7 +24,7 @@ case class MetricMeasurement(name: String, mtype: String, measurements: List[Mea
 
   override def toString = s"Metric($name,$mtype)"
 
-  def asMetric = SubMetric(Metric(name, mtype), tags).asMetric()
+  def asMetric = Metric(name, mtype, tags)
 
 }
 

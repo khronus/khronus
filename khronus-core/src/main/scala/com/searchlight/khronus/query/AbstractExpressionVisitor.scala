@@ -1,7 +1,5 @@
 package com.searchlight.khronus.query
 
-import java.util
-
 import net.sf.jsqlparser.expression._
 import net.sf.jsqlparser.expression.operators.arithmetic._
 import net.sf.jsqlparser.expression.operators.conditional.{ AndExpression, OrExpression }
@@ -20,9 +18,7 @@ class ListVisitor extends ItemsListVisitor {
   override def visit(subSelect: SubSelect): Unit = ???
 
   override def visit(expressionList: ExpressionList): Unit = {
-    if (expressionList.getExpressions.isInstanceOf[util.List[StringValue]]) {
-      values ++= expressionList.getExpressions.asInstanceOf[util.List[StringValue]].asScala map (_.getValue)
-    }
+    values ++= expressionList.getExpressions.asScala.collect { case stringValue: StringValue ⇒ stringValue.getValue }
   }
 
   override def visit(multiExprList: MultiExpressionList): Unit = ???
@@ -69,7 +65,7 @@ class PredicateVisitor extends AbstractExpressionVisitor {
     inExpression.getRightItemsList.accept(listVisitor)
 
     inExpression.getLeftExpression match {
-      case e: Column ⇒ predicates += In(e.getTable.getName, e.getColumnName.toString, listVisitor.values.toList)
+      case e: Column ⇒ predicates += In(e.getTable.getName, e.getColumnName, listVisitor.values.toList)
     }
   }
 
@@ -198,4 +194,6 @@ class AbstractExpressionVisitor extends ExpressionVisitor {
   override def visit(minorThan: MinorThanExpression): Unit = ???
 
   override def visit(minorThanEquals: MinorThanEquals): Unit = ???
+
+  override def visit(hint: OracleHint): Unit = ???
 }

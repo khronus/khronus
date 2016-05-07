@@ -18,12 +18,13 @@ package com.searchlight.khronus.store
 
 import com.datastax.driver.core._
 import com.datastax.driver.core.policies._
+import com.searchlight.khronus.model.summary.CounterSummary
 import com.searchlight.khronus.util.Settings
 import com.searchlight.khronus.util.log.Logging
 import com.google.common.util.concurrent.{ FutureCallback, Futures }
 
 import scala.concurrent.{ ExecutionContext, Future, Promise }
-import scala.util.{ Failure, Success, Try };
+import scala.util.{ Failure, Success, Try }
 
 object CassandraCluster extends Logging with CassandraClusterConfiguration {
   private val cluster: Cluster = clusterBuilder.build()
@@ -35,7 +36,7 @@ object CassandraCluster extends Logging with CassandraClusterConfiguration {
     cluster.close()
   }
 
-  sys.addShutdownHook(close)
+  sys.addShutdownHook(close())
 }
 
 trait CassandraClusterConfiguration {
@@ -84,7 +85,7 @@ trait CassandraKeyspace extends Logging with CassandraUtils {
   def connectCassandra = CassandraCluster.connect()
 
   def truncate(table: String) = Try {
-    session.execute(s"truncate $table;");
+    session.execute(s"truncate $table;")
   }
 
 }
@@ -108,6 +109,7 @@ object Buckets extends CassandraKeyspace {
   initialize()
   val histogramBucketStore = new CassandraHistogramBucketStore(session)
   val counterBucketStore = new CassandraCounterBucketStore(session)
+  val gaugeBucketStore = new CassandraGaugeBucketStore(session)
 
   override def keyspace = "buckets"
 
@@ -129,6 +131,7 @@ object Summaries extends CassandraKeyspace {
   initialize()
   val histogramSummaryStore = new CassandraHistogramSummaryStore(session)
   val counterSummaryStore = new CassandraCounterSummaryStore(session)
+  val gaugeSummaryStore = new CassandraGaugeSummaryStore(session)
 
   override def keyspace = "summaries"
 
@@ -184,9 +187,9 @@ trait CassandraUtils extends Logging {
         log.warn(s"Failed to $action - Retrying... ${e.getMessage}")
         retry(n - 1, action)(block)
       }
-      case Failure(e) ⇒ {
-        log.error(s"Failed to $action - No more retries", e)
-        throw (e)
+      case Failure(reason) ⇒ {
+        log.error(s"Failed to $action - No more retries", reason)
+        throw reason
       }
     }
   }

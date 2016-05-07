@@ -30,7 +30,7 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
     try {
       store(metricMeasurements)
     } catch {
-      case reason: Throwable ⇒ log.error("Failed receiving samples", reason)
+      case reason: Throwable ⇒ log.error("Failed storing samples", reason)
     }
   }
 
@@ -39,9 +39,16 @@ object CassandraMetricMeasurementStore extends MetricMeasurementStore with Bucke
 
     val buckets = collectBuckets(metrics)
 
-    val futures = buckets.groupBy(_._1.mtype).map(x ⇒ getStore(x._1).store(x._2, rawDuration))
+    val futures = groupedByType(buckets).map {
+      case (mtype, groupedBuckets) ⇒
+        getStore(mtype).store(groupedBuckets, rawDuration)
+    }
 
     measureFutureTime("measurementStore.store.futures", "store metricMeasurements futures")(Future.sequence(futures))
+  }
+
+  def groupedByType(buckets: mutable.Buffer[(Metric, () ⇒ Bucket)]): Map[MetricType, mutable.Buffer[(Metric, () ⇒ Bucket)]] = {
+    buckets.groupBy(_._1.mtype)
   }
 
   def collectBuckets(metrics: List[MetricMeasurement]): mutable.Buffer[(Metric, () ⇒ Bucket)] = {

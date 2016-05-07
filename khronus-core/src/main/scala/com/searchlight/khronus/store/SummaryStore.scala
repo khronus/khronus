@@ -21,14 +21,13 @@ import java.nio.ByteBuffer
 import com.datastax.driver.core.utils.Bytes
 import com.datastax.driver.core.{ BatchStatement, ResultSet, Session, SimpleStatement }
 import com.searchlight.khronus.model.{ Metric, Summary }
+import com.searchlight.khronus.query.Slice
 import com.searchlight.khronus.util.log.Logging
 import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable, Settings }
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
-
-case class Slice(from: Long = -1L, to: Long)
 
 object CassandraSummaryStore extends ConcurrencySupport {
   implicit val asyncExecutionContext = executionContext("summary-store-worker")
@@ -94,7 +93,7 @@ abstract class CassandraSummaryStore[T <: Summary](session: Session) extends Sum
       log.trace(s"$metric - Storing ${summariesChunk.size} summaries ($summariesChunk) of $windowDuration")
 
       val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
-      summariesChunk.foreach(summary ⇒ batchStmt.add(stmtPerWindow(windowDuration).insert.bind(metric.name, Long.box(summary.timestamp.ms), serializeSummary(summary))))
+      summariesChunk.foreach(summary ⇒ batchStmt.add(stmtPerWindow(windowDuration).insert.bind(metric.flatName, Long.box(summary.timestamp.ms), serializeSummary(summary))))
 
       val future: Future[Unit] = session.executeAsync(batchStmt)
       future
@@ -102,7 +101,7 @@ abstract class CassandraSummaryStore[T <: Summary](session: Session) extends Sum
 
   def sliceUntilNow(metric: Metric, windowDuration: Duration): Future[Seq[T]] = {
     val slice = Slice(to = now)
-    readAll(metric.name, windowDuration, slice)
+    readAll(metric.flatName, windowDuration, slice)
   }
 
   def readAll(metric: String, windowDuration: Duration, slice: Slice, ascendingOrder: Boolean = true, count: Int = limit): Future[Seq[T]] = measureFutureTime("summary.readAll", "summary.readAll") {

@@ -92,7 +92,7 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
         bucketsChunk.foreach(bucket ⇒ {
           val serializedBucket = serialize(metric, windowDuration, bucket)
           log.trace(s"${p(metric, windowDuration)} Storing a bucket of ${serializedBucket.limit()} bytes")
-          boundBatchStmt.add(stmt.bind(bucketCollection(serializedBucket, windowDuration), metric.name, Long.box(bucket.timestamp.ms)))
+          boundBatchStmt.add(stmt.bind(bucketCollection(serializedBucket, windowDuration), metric.flatName, Long.box(bucket.timestamp.ms)))
         })
 
         val future: Future[Unit] = session.executeAsync(boundBatchStmt)
@@ -109,7 +109,7 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
           case (metric, fBucket) ⇒ {
             val bucket = fBucket()
             val serializedBucket = serialize(metric, windowDuration, bucket)
-            val f: Future[Unit] = session.executeAsync(stmt.bind(Seq(serializedBucket).asJava, metric.name, Long.box(bucket.timestamp.ms)))
+            val f: Future[Unit] = session.executeAsync(stmt.bind(Seq(serializedBucket).asJava, metric.flatName, Long.box(bucket.timestamp.ms)))
             f
           }
         }
@@ -130,9 +130,9 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
 
   def slice(metric: Metric, from: Timestamp, to: Timestamp, sourceWindow: Duration): Future[BucketSlice[T]] = measureFutureTime("slice", metric, sourceWindow) {
     val stmt = stmtPerWindow(sourceWindow).selects(SliceQuery)
-    val boundStmt = stmt.bind(metric.name, Long.box(from.ms), Long.box(to.ms), Int.box(limit))
+    val boundStmt = stmt.bind(metric.flatName, Long.box(from.ms), Long.box(to.ms), Int.box(limit))
 
-    val future: Future[ResultSet] = measureAndCheckForTimeOutliers("bucketSliceCassandra", metric, sourceWindow, getQueryAsString(stmt.getQueryString, metric.name, from.ms, to.ms, limit)) {
+    val future: Future[ResultSet] = measureAndCheckForTimeOutliers("bucketSliceCassandra", metric, sourceWindow, getQueryAsString(stmt.getQueryString, metric.flatName, from.ms, to.ms, limit)) {
       session.executeAsync(boundStmt)
     }
     future.map(resultSet ⇒ {
@@ -145,11 +145,7 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
   }
 
   def ifNotEmpty(col: Seq[Any])(f: Future[Unit]): Future[Unit] = {
-    if (col.size > 0) {
-      f
-    } else {
-      Future.successful(())
-    }
+    if (col.nonEmpty) f else Future.successful(())
   }
 
   private def getQueryAsString(stmt: String, binds: Any*): String = {

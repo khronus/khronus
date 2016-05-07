@@ -3,7 +3,7 @@ package org.HdrHistogram
 import java.nio.ByteBuffer
 import java.util.zip.{ Deflater, Inflater }
 
-import com.searchlight.khronus.model.HistogramBucket
+import com.searchlight.khronus.model.bucket.HistogramBucket
 import com.searchlight.khronus.util.Pool
 import com.esotericsoftware.kryo.io.{ Input, Output }
 
@@ -61,10 +61,10 @@ class SkinnyHistogram(lowestValue: Long, maxValue: Long, precision: Int) extends
     var vectorBuilder = Vector.newBuilder[(Int, Long)]
     var lastValue: Long = 0
     var lastIdx: Int = 0
-    for (i ← (0 to (counts.length - 1))) {
+    for (i ←  0 to (counts.length - 1)) {
       val (idx, value) = (i, counts(i))
       if (value > 0) {
-        vectorBuilder += (((idx - lastIdx), (value - lastValue)))
+        vectorBuilder += ((idx - lastIdx, value - lastValue))
         lastIdx = idx
         lastValue = value
       }
@@ -94,12 +94,12 @@ object SkinnyHistogram {
     val lengthOfUnCompressedContents = buffer.getInt()
 
     val decompressor = inflatersPool.take()
-    decompressor.setInput(buffer.array(), 12, lengthOfCompressedContents);
-    val decompressedBuffer = ByteBuffer.allocate(lengthOfUnCompressedContents);
-    decompressor.inflate(decompressedBuffer.array());
+    decompressor.setInput(buffer.array(), 12, lengthOfCompressedContents)
+    val decompressedBuffer = ByteBuffer.allocate(lengthOfUnCompressedContents)
+    decompressor.inflate(decompressedBuffer.array())
     inflatersPool.release(decompressor)
 
-    return decodeFromByteBuffer(decompressedBuffer)
+    decodeFromByteBuffer(decompressedBuffer)
   }
 
   def decodeFromByteBuffer(buffer: ByteBuffer): Histogram = {

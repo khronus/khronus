@@ -49,7 +49,7 @@ object HdrHistogramTest extends App {
     val histogram2 = new HdrHistogram(oneHourInMicroseconds, 3)
     val histogram3 = new HdrHistogram(3600000L, onePercentError)
 
-    for (i ← (1 to 1000000)) {
+    for (i ← 1 to 1000000) {
       val r = Random.nextInt(12500)
       histogram0.recordValue(r)
       histogram1.recordValue(r)

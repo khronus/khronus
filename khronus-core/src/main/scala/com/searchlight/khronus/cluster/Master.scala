@@ -244,9 +244,9 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
   private def releaseResources(): Unit = {
     log.info("Releasing resources in Master Actor")
-    this.idleWorkers map (w ⇒ stop(_))
+    this.idleWorkers map stop
     this.idleWorkers = Set[ActorRef]()
-    this.busyWorkers map (stop(_))
+    this.busyWorkers map stop
     this.busyWorkers = Set[ActorRef]()
     router foreach (r ⇒ {
       r ! Broadcast(PoisonPill)
@@ -296,7 +296,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
       if (busyWorkers.isEmpty) {
         //no more busy workers. end of the tick
         val timeElapsed = System.currentTimeMillis() - start
-        recordTime("totalTimeTick", timeElapsed)
+        recordHistogram("totalTimeTick", timeElapsed)
         log.info(s"Finished Tick. [elapsed-time=${timeElapsed}ms]")
       }
     }

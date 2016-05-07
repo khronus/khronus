@@ -20,6 +20,7 @@ import java.nio.ByteBuffer
 
 import com.datastax.driver.core.Session
 import com.searchlight.khronus.model._
+import com.searchlight.khronus.model.bucket.HistogramBucket
 import com.searchlight.khronus.util.log.Logging
 import com.searchlight.khronus.util.{ Measurable, Settings }
 import org.HdrHistogram.Histogram

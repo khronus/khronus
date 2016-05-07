@@ -1,9 +1,9 @@
 package com.searchlight.khronus.store
 
-import com.searchlight.khronus.model.BucketNumber._
 import com.searchlight.khronus.model.Timestamp._
-import com.searchlight.khronus.model.{HistogramBucket, Metric, Timestamp}
-import com.searchlight.khronus.util.{Settings, BaseIntegrationTest}
+import com.searchlight.khronus.model.bucket.HistogramBucket
+import com.searchlight.khronus.model.{Metric, Timestamp}
+import com.searchlight.khronus.util.{BaseIntegrationTest, Settings}
 import org.HdrHistogram.Histogram
 import org.scalatest.{FunSuite, Matchers}
 
@@ -19,7 +19,7 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
   test("should store and retrieve buckets properly") {
     val histogram = HistogramBucket.newHistogram
     fill(histogram)
-    val histogramBucket = new HistogramBucket((30, 30 seconds), histogram)
+    val histogramBucket = HistogramBucket((30, 30 seconds), histogram)
     await {
       Buckets.histogramBucketStore.store(testMetric, 30 seconds, Seq(histogramBucket))
     }
@@ -28,7 +28,7 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
     val bucketTuplesFromCassandra = await {
       Buckets.histogramBucketStore.slice(testMetric, 1, executionTimestamp, 30 seconds)
     }
-    val bucketTupleFromCassandra = bucketTuplesFromCassandra.results(0)
+    val bucketTupleFromCassandra = bucketTuplesFromCassandra.results.head
 
     histogram shouldEqual bucketTupleFromCassandra.lazyBucket().histogram
   }
@@ -50,7 +50,7 @@ class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTes
     }
 
     bucketTuplesFromCassandra.results should have length 1
-    bucketTuplesFromCassandra.results(0).lazyBucket() shouldEqual bucketFromThePast
+    bucketTuplesFromCassandra.results.head.lazyBucket() shouldEqual bucketFromThePast
   }
 
   private def fill(histogram: Histogram) = {

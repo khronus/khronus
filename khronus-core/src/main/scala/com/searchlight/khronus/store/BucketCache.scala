@@ -5,6 +5,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.{ AtomicLong, AtomicReference }
 
 import com.searchlight.khronus.model._
+import com.searchlight.khronus.model.bucket.{ HistogramBucket, CounterBucket, GaugeBucket }
 import com.searchlight.khronus.util.log.Logging
 import com.searchlight.khronus.util.{ Measurable, Settings }
 
@@ -47,7 +48,7 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
     } else {
       metricsByTick.get(previousKnownTick).foreach { metrics ⇒
         val metricsProcessedInPreviousTick = collection.SortedSet(metrics.asScala.toSeq: _*)(Ordering[String].on[Metric] {
-          _.name
+          _.flatName
         })
         cleanCaches(cachesByMetric.keys.filterNot { metric ⇒ metricsProcessedInPreviousTick(metric) })
 
@@ -180,7 +181,7 @@ trait BucketCache[T <: Bucket] extends Logging with Measurable {
   private def mark(tick: Tick, metric: Metric) = metricsByTick.getOrElseUpdate(tick, new ConcurrentLinkedQueue[Metric]()).offer(metric)
 
   private def reportCacheSizes() = {
-    nCachedMetrics foreach { case (mtype, counter) ⇒ recordGauge(s"bucketCache.size.$mtype", counter.get()) }
+    nCachedMetrics foreach { case (mtype, counter) ⇒ recordHistogram(s"bucketCache.size.$mtype", counter.get()) }
   }
 
 }
@@ -190,7 +191,13 @@ object InMemoryCounterBucketCache extends BucketCache[CounterBucket] {
   override val nCachedMetrics: Map[MetricType, AtomicLong] = Map(Counter -> new AtomicLong(0))
 
   override def buildCache(): MetricBucketCache[CounterBucket] = new CounterMetricBucketCache()
+}
 
+object InMemoryGaugeBucketCache extends BucketCache[GaugeBucket] {
+  override val cachesByMetric: TrieMap[Metric, MetricBucketCache[GaugeBucket]] = new TrieMap[Metric, MetricBucketCache[GaugeBucket]]()
+  override val nCachedMetrics: Map[MetricType, AtomicLong] = Map(Gauge -> new AtomicLong(0))
+
+  override def buildCache(): MetricBucketCache[GaugeBucket] = new GaugeMetricBucketCache()
 }
 
 object InMemoryHistogramBucketCache extends BucketCache[HistogramBucket] {
@@ -251,6 +258,16 @@ class CounterMetricBucketCache extends MetricBucketCache[CounterBucket] {
   override def buildEmptyBucket(): CounterBucket = EmptyCounterBucket
 }
 
+class GaugeMetricBucketCache extends MetricBucketCache[GaugeBucket] {
+  private val serializer: GaugeBucketSerializer = DefaultGaugeBucketSerializer
+
+  override def serialize(bucket: GaugeBucket): Array[Byte] = serializer.serialize(bucket).array()
+
+  override def deserialize(bytes: Array[Byte], bucketNumber: BucketNumber): GaugeBucket = serializer.deserialize(bucketNumber, bytes)
+
+  override def buildEmptyBucket(): GaugeBucket = EmptyGaugeBucket
+}
+
 class HistogramMetricBucketCache extends MetricBucketCache[HistogramBucket] {
   private val histogramSerializer: HistogramSerializer = DefaultHistogramSerializer
 
@@ -272,6 +289,12 @@ class EmptyHistogramBucket extends HistogramBucket(UndefinedBucketNumber, null) 
 object EmptyCounterBucket extends EmptyCounterBucket
 
 class EmptyCounterBucket extends CounterBucket(UndefinedBucketNumber, 0) with EmptyBucket {
+  override val summary = null
+}
+
+object EmptyGaugeBucket extends EmptyGaugeBucket
+
+class EmptyGaugeBucket extends GaugeBucket(UndefinedBucketNumber, 0, 0, 0, 0) with EmptyBucket {
   override val summary = null
 }
 

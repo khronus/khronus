@@ -1,6 +1,7 @@
 package com.searchlight.khronus.store
 
 import com.searchlight.khronus.model._
+import com.searchlight.khronus.model.summary.CounterSummary
 import com.searchlight.khronus.util.BaseIntegrationTest
 import com.searchlight.khronus.util.{Settings, BaseIntegrationTest}
 import org.scalatest.{FunSuite, Matchers}

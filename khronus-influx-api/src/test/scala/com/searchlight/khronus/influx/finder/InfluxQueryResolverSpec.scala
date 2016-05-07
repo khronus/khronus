@@ -20,18 +20,19 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
 import com.searchlight.khronus.influx.parser.InfluxQueryParser
-import com.searchlight.khronus.influx.service.{ InfluxEndpoint, InfluxSeries }
-import com.searchlight.khronus.model.{ CounterSummary, Functions, Metric, HistogramSummary, _ }
-import com.searchlight.khronus.store.{ Slice, _ }
+import com.searchlight.khronus.influx.service.{InfluxEndpoint, InfluxSeries}
+import com.searchlight.khronus.model.summary.{CounterSummary, HistogramSummary}
+import com.searchlight.khronus.model.{Functions, Metric, _}
+import com.searchlight.khronus.query.Slice
+import com.searchlight.khronus.store._
 import com.typesafe.config.ConfigFactory
 import org.mockito.Mockito._
-import org.mockito.{ Mockito, Matchers ⇒ MockitoMatchers }
+import org.mockito.{Matchers => MockitoMatchers, Mockito}
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{ BeforeAndAfter, FunSuite, Matchers }
+import org.scalatest.{BeforeAndAfter, FunSuite, Matchers}
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.concurrent.{ Await, Future }
+import scala.concurrent.{Await, Future}
 
 class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers with MockitoSugar with InfluxQueryResolver with InfluxEndpoint {
   override implicit def actorRefFactory = ActorSystem("TestSystem", ConfigFactory.parseString(

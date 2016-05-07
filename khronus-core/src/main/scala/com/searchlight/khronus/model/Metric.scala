@@ -16,43 +16,73 @@
 package com.searchlight.khronus.model
 
 import com.searchlight.khronus.api.Measurement
+import com.searchlight.khronus.model.bucket.{ CounterBucket, GaugeBucket, HistogramBucket }
 import com.searchlight.khronus.store.CassandraMetricMeasurementStore._
 import org.HdrHistogram.{ Histogram ⇒ HdrHistogram }
 
 object MetricType {
-  private val map = Map("counter" -> Counter, "timer" -> Histogram, "histogram" -> Histogram, "gauge" -> Histogram)
+  private val map = Map(Counter.toString -> Counter, "timer" -> Histogram, Histogram.toString -> Histogram, Gauge.toString -> Gauge)
+
   implicit def fromStringToMetricType(typeName: String): MetricType = map.getOrElse(typeName, throw new RuntimeException(s"Unknown metric type $typeName"))
+
   implicit def fromMetricTypeToString(metricType: MetricType): String = metricType.toString
 }
 
 sealed trait MetricType {
   def bucketWithMeasures(metric: Metric, bucketNumber: BucketNumber, measurements: List[Measurement]): Bucket
+
   def aggregate(bucketNumber: BucketNumber, buckets: Seq[BucketResult[Bucket]]): Bucket
+
   protected def skipNegativeValues(metric: Metric, values: Seq[Long]): Seq[Long] = {
-    val (invalidValues, okValues) = values.partition(value ⇒ value < 0)
-    if (invalidValues.nonEmpty)
-      log.warn(s"Skipping invalid values for metric $metric: $invalidValues")
-    okValues
+    val (negativeValues, positiveValues) = values.partition(value ⇒ value < 0)
+    if (negativeValues.nonEmpty)
+      log.warn(s"Skipping negative values for metric $metric: $negativeValues")
+    positiveValues
   }
 }
+
 case object Counter extends MetricType {
   override val toString = "counter"
+
   override def bucketWithMeasures(metric: Metric, bucketNumber: BucketNumber, measures: List[Measurement]): Bucket = {
-    val counts = measures.map(measure ⇒ skipNegativeValues(metric, measure.values).sum).sum
-    new CounterBucket(bucketNumber, counts)
+    val count = measures.map(measure ⇒ skipNegativeValues(metric, measure.values).sum).sum
+    CounterBucket(bucketNumber, count)
   }
 
   override def aggregate(bucketNumber: BucketNumber, buckets: Seq[BucketResult[Bucket]]): Bucket = {
-    new CounterBucket(bucketNumber, CounterBucket.sumCounters(buckets.map(_.lazyBucket().asInstanceOf[CounterBucket])))
+    CounterBucket(bucketNumber, CounterBucket.aggregate(buckets.map(_.lazyBucket().asInstanceOf[CounterBucket])))
   }
 }
+
+case object Gauge extends MetricType {
+  override val toString = "gauge"
+
+  override def bucketWithMeasures(metric: Metric, bucketNumber: BucketNumber, measures: List[Measurement]): Bucket = {
+    var min = Long.MaxValue
+    var max = Long.MinValue
+    var count = 0L
+    var sum = 0L
+    measures.foreach { measure ⇒
+      count = count + measure.values.size
+      sum = sum + measure.values.sum
+      min = if (measure.values.min < min) measure.values.min else min
+      max = if (measure.values.max < max) measure.values.max else max
+    }
+    GaugeBucket(bucketNumber, min, max, sum / count, count)
+  }
+
+  override def aggregate(bucketNumber: BucketNumber, buckets: Seq[BucketResult[Bucket]]): Bucket = {
+    GaugeBucket.aggregate(bucketNumber, buckets.map(_.lazyBucket().asInstanceOf[GaugeBucket]))
+  }
+}
+
 case object Histogram extends MetricType {
   override val toString = "histogram"
 
   override def bucketWithMeasures(metric: Metric, bucketNumber: BucketNumber, measures: List[Measurement]): Bucket = {
     val histogram = HistogramBucket.newHistogram(maxValue(measures))
     measures.foreach(measure ⇒ record(metric, measure, histogram))
-    new HistogramBucket(bucketNumber, histogram)
+    HistogramBucket(bucketNumber, histogram)
   }
 
   private def maxValue(measurements: List[Measurement]) = {
@@ -81,45 +111,41 @@ case object Histogram extends MetricType {
   }
 
   override def aggregate(bucketNumber: BucketNumber, buckets: Seq[BucketResult[Bucket]]): Bucket = {
-    new HistogramBucket(bucketNumber, HistogramBucket.sumHistograms(buckets.map(_.lazyBucket().asInstanceOf[HistogramBucket])))
+    HistogramBucket.aggregate(bucketNumber, buckets.map(_.lazyBucket().asInstanceOf[HistogramBucket]))
   }
 }
 
-case class Metric(name: String, mtype: MetricType) {
-  import Metric._
+case class Metric(name: String, mtype: MetricType, tags: Map[String, String] = Map()) {
+
   def isSystem = SystemMetric.isSystem(name)
 
-  private def extractTags(): (String, Map[String, String]) = {
-    val pattern(metricName, tagsString) = name
-    val tags = tagsPattern.findAllIn(tagsString).grouped(2).map(group ⇒ group.head -> group.last).toMap
-    (metricName, tags)
+  def flatName = {
+    if (tags.nonEmpty) {
+      s"$name[${flattenTags()}]"
+    } else
+      name
   }
 
-  def asSubMetric() = {
-    val (name, tags) = extractTags()
-    SubMetric(Metric(name, mtype), tags)
+  private def flattenTags(): String = {
+    tags.keys.toSeq.sorted.map(key ⇒ s"$key:${tags(key)}").mkString(",")
   }
+
 }
 
 object Metric {
   private val pattern = "([~\\-\\_\\.\\w]*)\\[?([\\w:,]*)\\]?".r
   private val tagsPattern = "((\\w+))".r
-}
 
-case class SubMetric(metric: Metric, tags: Map[String, String]) {
-  def asMetric() = {
-    if (tags.nonEmpty) {
-      Metric(s"${metric.name}[${flattenTags()}]", metric.mtype)
-    } else
-      metric
-  }
-  private def flattenTags(): String = {
-    tags.keys.toSeq.sorted.map(key ⇒ s"$key:${tags(key)}").mkString(",")
+  def fromFlatNameToMetric(flatName: String, mtype: MetricType): Metric = {
+    val pattern(metricName, tagsString) = flatName
+    val tags = tagsPattern.findAllIn(tagsString).grouped(2).map(group ⇒ group.head -> group.last).toMap
+    Metric(metricName, mtype, tags)
   }
 }
 
 object SystemMetric {
   val systemSymbol = '~'
+
   def isSystem(metricName: String) = {
     metricName.charAt(0) == systemSymbol
   }
