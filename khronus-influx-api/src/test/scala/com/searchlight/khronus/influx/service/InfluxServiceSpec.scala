@@ -39,7 +39,7 @@ class InfluxServiceSpec extends Specification with MockitoSugar with HttpService
 
     override lazy val metaStore: MetaStore = mock[MetaStore]
 
-    override val dynamicSQLQueryService = mock[DynamicSQLQueryService]
+    override lazy val dynamicSQLQueryService = mock[DynamicSQLQueryService]
 
   }
 
