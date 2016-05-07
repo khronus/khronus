@@ -81,13 +81,12 @@ class InfluxServiceSpec extends Specification with MockitoSugar with HttpService
             val instance = new MockedInfluxEndpoint()
 
             val counter = Metric("counter1", Counter)
-            val timer = Metric("timer1", Histogram)
-            val searchExpression: String = ".*counter.*"
+            val searchExpression = ".*counter.*"
 
             Mockito.when(instance.metaStore.searchInSnapshotByRegex(searchExpression)).thenReturn(Seq(counter))
 
             Get(listSeriesURI) ~> instance.influxServiceRoute ~> check {
-              handled must beTrue
+              response.isResponse must beTrue
               status == OK
 
               Mockito.verify(instance.metaStore).searchInSnapshotByRegex(searchExpression)
@@ -95,10 +94,11 @@ class InfluxServiceSpec extends Specification with MockitoSugar with HttpService
               val results = responseAs[Seq[InfluxSeries]]
               results.size must beEqualTo(1)
 
-              results(0).name === "list_series_result"
-              results(0).columns.size mustEqual 2
-              results(0).points.size mustEqual 1
-              results(0).points(0)(1) mustEqual counter.name
+              val series = results.head
+              series.name === "list_series_result"
+              series.columns.size mustEqual 2
+              series.points.size mustEqual 1
+              series.points(0)(1) mustEqual counter.name
             }
           }
       }
