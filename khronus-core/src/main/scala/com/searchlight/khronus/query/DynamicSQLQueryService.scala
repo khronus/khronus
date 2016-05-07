@@ -5,7 +5,7 @@ import com.searchlight.khronus.api.Series
 import scala.concurrent.Future
 
 trait DynamicSQLQueryServiceSupport {
-  val dynamicSQLQueryService: DynamicSQLQueryService = DynamicSQLQueryService.instance
+  def dynamicSQLQueryService: DynamicSQLQueryService = DynamicSQLQueryService.instance
 }
 
 trait DynamicSQLQueryService {
