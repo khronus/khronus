@@ -25,7 +25,7 @@ object Dependencies {
   val akkaContrib         =       "com.typesafe.akka"               %%  "akka-contrib"                % akkaV
   val scalaTest           =       "org.scalatest"                   %%  "scalatest"                   % "2.2.1"
   val akkaQuartz          =       "us.theatr"                       %%  "akka-quartz"                 % "0.3.0"
-  val hdrHistogram        =       "org.hdrhistogram"                %   "HdrHistogram"                % "2.1.7"
+  val hdrHistogram        =       "org.hdrhistogram"                %   "HdrHistogram"                % "2.1.8"
   val specs2              =       "org.specs2"          	          %%  "specs2-core"   		          % "2.3.11"
   val mockito             =       "org.mockito"         	          %   "mockito-all"   		          % "1.9.5"
   val cassandraDriver     =       "com.datastax.cassandra"          %   "cassandra-driver-core"       % "2.1.4"
@@ -37,9 +37,9 @@ object Dependencies {
   val commonsCodec        =       "commons-codec"                   %   "commons-codec"               % "1.9"
   val parserCombinators   =       "org.scala-lang.modules"          %%  "scala-parser-combinators"    % "1.0.2"
   val snappy              =       "org.xerial.snappy"               %   "snappy-java"                 % "1.1.1.6"
-  val jacksonAfterBurner  =       "com.fasterxml.jackson.module"    %   "jackson-module-afterburner"  % "2.4.4"
-  val jacksonScala        =       "com.fasterxml.jackson.module"    %%  "jackson-module-scala"        % "2.4.4"
-  val jsqlParser          =       "com.github.jsqlparser"           %   "jsqlparser"                  % "0.9.4"
+  val jacksonAfterBurner  =       "com.fasterxml.jackson.module"    %   "jackson-module-afterburner"  % "2.7.2"
+  val jacksonScala        =       "com.fasterxml.jackson.module"    %%  "jackson-module-scala"        % "2.7.2"
+  val jsqlParser          =       "com.github.jsqlparser"           %   "jsqlparser"                  % "0.9.5"
 
   def compile(deps: ModuleID*): Seq[ModuleID]   = deps map (_ % "compile")
   def provided(deps: ModuleID*): Seq[ModuleID]  = deps map (_ % "provided")
