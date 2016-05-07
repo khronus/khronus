@@ -16,7 +16,7 @@ class BucketCacheTest extends FunSuite with MockitoSugar with Matchers {
     val fromTick1 = tick09_00a09_30.bucketNumber
     val toTick1 = tick09_00a09_30.bucketNumber.following
 
-    val metric = Metric("tito", Counter)
+    val metric = Metric("someMetric", Counter)
     cache.multiSet(metric, fromTick1, toTick1, Seq(CounterBucket(fromTick1, 10l)))
     cache.markProcessedTick(tick09_00a09_30, metric)
 
