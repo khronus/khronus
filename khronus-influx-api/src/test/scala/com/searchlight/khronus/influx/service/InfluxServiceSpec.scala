@@ -1,7 +1,7 @@
 package com.searchlight.khronus.influx.service
 
 import akka.actor.ActorSystem
-import com.searchlight.khronus.model.{ Histogram, Counter, Metric, MetricType }
+import com.searchlight.khronus.model.{ Counter, Metric }
 import com.searchlight.khronus.query.DynamicSQLQueryService
 import com.searchlight.khronus.store.MetaStore
 import com.searchlight.khronus.util.JacksonJsonSupport
@@ -15,7 +15,7 @@ import spray.http._
 import spray.routing.HttpService
 import spray.testkit.Specs2RouteTest
 
-import scala.concurrent.Future
+import concurrent.duration._
 
 class InfluxServiceSpec extends Specification with MockitoSugar with HttpService with Specs2RouteTest with JacksonJsonSupport {
 
@@ -32,6 +32,9 @@ class InfluxServiceSpec extends Specification with MockitoSugar with HttpService
       |
     """.stripMargin))
   override def createActorSystem(): ActorSystem = actorRefFactory
+
+  implicit def default(implicit system: ActorSystem) = RouteTestTimeout(new DurationInt(5).second)
+
   val influxSeriesURI = "/series"
 
   class MockedInfluxEndpoint extends InfluxEndpoint {
@@ -84,7 +87,6 @@ class InfluxServiceSpec extends Specification with MockitoSugar with HttpService
             val searchExpression = ".*counter.*"
 
             Mockito.when(instance.metaStore.searchInSnapshotByRegex(searchExpression)).thenReturn(Seq(counter))
-
             Get(listSeriesURI) ~> instance.influxServiceRoute ~> check {
               response.isResponse must beTrue
               status == OK
