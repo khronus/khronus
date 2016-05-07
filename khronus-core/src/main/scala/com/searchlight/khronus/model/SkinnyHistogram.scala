@@ -61,7 +61,7 @@ class SkinnyHistogram(lowestValue: Long, maxValue: Long, precision: Int) extends
     var vectorBuilder = Vector.newBuilder[(Int, Long)]
     var lastValue: Long = 0
     var lastIdx: Int = 0
-    for (i ←  0 to (counts.length - 1)) {
+    for (i ← 0 to (counts.length - 1)) {
       val (idx, value) = (i, counts(i))
       if (value > 0) {
         vectorBuilder += ((idx - lastIdx, value - lastValue))
