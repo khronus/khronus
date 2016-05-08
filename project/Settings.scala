@@ -14,7 +14,7 @@ object Settings {
   lazy val basicSettings = Seq(
     scalaVersion  := ScalaVersion,
     organization := "com.searchlight",
-    version := "0.3",
+    version := "0.3.0-beta1",
     exportJars := true,
     resolvers    ++= Dependencies.resolutionRepos,
     fork in (Test, run) := true,

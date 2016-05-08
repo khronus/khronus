@@ -12,7 +12,7 @@ object Projects extends Build {
   import Settings._
   import Packager._
 
-  lazy val root = Project("root", file("."))
+  lazy val khronusRoot = Project("khronus-root", file("."))
     .aggregate(khronus,khronusCore, khronusStress, khronusInflux)
     .settings(basicSettings: _*)
     .settings(formatSettings: _*)
