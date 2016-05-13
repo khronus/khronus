@@ -22,11 +22,18 @@ case class MetricBatch(metrics: List[MetricMeasurement])
 
 case class MetricMeasurement(name: String, mtype: String, measurements: List[Measurement], tags: Map[String, String] = Map()) {
 
+  import MetricMeasurement._
+
   override def toString = s"Metric($name,$mtype)"
 
-  def asMetric = Metric(name, mtype, tags)
+  def asMetric = Metric(name, mtype, Option(tags).getOrElse(EMPTY_TAGS))
 
+}
+
+object MetricMeasurement {
+  val EMPTY_TAGS: Map[String, String] = Map()
 }
 
 case class Measurement(@JsonDeserialize(contentAs = classOf[java.lang.Long]) ts: Option[Long],
   @JsonDeserialize(contentAs = classOf[java.lang.Long]) values: Seq[Long])
+

@@ -137,9 +137,16 @@ object Metric {
   private val tagsPattern = "((\\w+))".r
 
   def fromFlatNameToMetric(flatName: String, mtype: MetricType): Metric = {
-    val pattern(metricName, tagsString) = flatName
-    val tags = tagsPattern.findAllIn(tagsString).grouped(2).map(group ⇒ group.head -> group.last).toMap
-    Metric(metricName, mtype, tags)
+    val matches = pattern.findAllMatchIn(flatName).toArray
+    if (matches.length == 2) {
+      val head = matches.head
+      val metricName = head.group(1)
+      val tagsString = head.group(2)
+      val tags = tagsPattern.findAllIn(tagsString).grouped(2).map(group ⇒ group.head -> group.last).toMap
+      Metric(metricName, mtype, tags)
+    } else {
+      Metric(flatName, mtype, Map())
+    }
   }
 }
 

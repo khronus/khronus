@@ -16,6 +16,11 @@ class MetricTest extends FunSuite with Matchers with MockitoSugar {
     Metric.fromFlatNameToMetric(flatNameWithTags, mtype) should equal(metricWithTags)
   }
 
+  test("flatName with symbols to metric") {
+    val nameWithSymbols = "${azd-host}:BookingManager.svc:status:503"
+    Metric.fromFlatNameToMetric(nameWithSymbols, mtype) should equal(Metric(nameWithSymbols, mtype, Map()))
+  }
+
   test("flatName to metric without tags") {
     Metric.fromFlatNameToMetric(flatNameWithoutTags, mtype) should equal(metricWithoutTags)
   }
