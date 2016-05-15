@@ -4,8 +4,8 @@ import com.searchlight.khronus.model.summary.GaugeSummary
 import com.searchlight.khronus.model.{ Bucket, BucketNumber }
 import com.searchlight.khronus.util.Measurable
 
-case class GaugeBucket(bucketNumber: BucketNumber, min: Long, max: Long, average: Long, count: Long) extends Bucket {
-  override def summary = GaugeSummary(timestamp, min, max, average, count)
+case class GaugeBucket(bucketNumber: BucketNumber, min: Long, max: Long, mean: Long, count: Long) extends Bucket {
+  override def summary = GaugeSummary(timestamp, min, max, mean, count)
 }
 
 object GaugeBucket extends Measurable {
@@ -16,7 +16,7 @@ object GaugeBucket extends Measurable {
     var sum = 0L
     buckets.foreach { bucket ⇒
       count = count + 1
-      sum = sum + bucket.average
+      sum = sum + bucket.mean
       min = if (bucket.min < min) bucket.min else min
       max = if (bucket.max < max) bucket.max else max
     }

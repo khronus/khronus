@@ -107,7 +107,7 @@ object Functions {
 
   val allHistogramFunctions: Seq[String] = allNames
   val allCounterFunctions: Seq[String] = Seq(Count.name, Cpm.name)
-  val allGaugeFunctions: Seq[String] = Seq(Mean.name)
+  val allGaugeFunctions: Seq[String] =  Seq(Count, Min, Max, Mean, Cpm).map(_.name)
 
   def withName(s: String): Function = all.find(_.name == s).get
 

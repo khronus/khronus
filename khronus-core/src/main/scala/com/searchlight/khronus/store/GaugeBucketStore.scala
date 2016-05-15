@@ -47,7 +47,7 @@ class CassandraGaugeBucketStore(session: Session) extends CassandraBucketStore[G
 
   override def serialize(metric: Metric, windowDuration: Duration, bucket: Bucket): ByteBuffer = {
     val buffer = serializer.serialize(bucket.asInstanceOf[GaugeBucket])
-    recordGauge(formatLabel("serializedBucketBytes", metric, windowDuration), buffer.array().length)
+    recordHistogram(formatLabel("serializedBucketBytes", metric, windowDuration), buffer.array().length)
     buffer
   }
 
@@ -67,7 +67,7 @@ object DefaultGaugeBucketSerializer extends GaugeBucketSerializer {
     output.writeByte(1)
     output.writeVarLong(bucket.min, true)
     output.writeVarLong(bucket.max, true)
-    output.writeVarLong(bucket.average, true)
+    output.writeVarLong(bucket.mean, true)
     output.writeVarLong(bucket.count, true)
     output.flush()
     baos.flush()

@@ -1,6 +1,6 @@
 package com.searchlight.khronus.query
 
-import com.searchlight.khronus.query.projection.{ Average, Count, Div, Percentiles }
+import com.searchlight.khronus.query.projection.{ Mean, Count, Div, Percentiles }
 import net.sf.jsqlparser.expression.Expression
 import net.sf.jsqlparser.expression.operators.arithmetic.Division
 import net.sf.jsqlparser.parser.CCJSqlParserUtil
@@ -26,7 +26,7 @@ object SQLParser {
 class JSQLParser extends SQLParser {
 
   private val functionFactories: Map[String, ((String, Seq[Expression]) ⇒ Projection)] = Map(
-    "count" -> Count.factory, "percentiles" -> Percentiles.factory, "average" -> Average.factory)
+    "count" -> Count.factory, "percentiles" -> Percentiles.factory, "mean" -> Mean.factory)
 
   implicit def fromFromItemToQMetric(fromItem: FromItem): QMetric = {
     fromItem match {
