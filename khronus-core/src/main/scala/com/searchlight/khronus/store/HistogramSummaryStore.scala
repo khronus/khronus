@@ -44,7 +44,7 @@ class CassandraHistogramSummaryStore(session: Session) extends CassandraSummaryS
 
   override def serializeSummary(summary: HistogramSummary): ByteBuffer = {
     val byteArray = HistogramSummarySerializerV2.serialize(summary)
-    recordGauge("histogramSummarySerializedBytes", byteArray.length)
+    recordHistogram("histogramSummarySerializedBytes", byteArray.length)
     ByteBuffer.wrap(byteArray)
   }
 

@@ -50,7 +50,7 @@ class CassandraHistogramBucketStore(session: Session) extends CassandraBucketSto
     val buffer = histogramSerializer.serialize(histogramBucket.histogram)
     val bytesEncoded = buffer.limit()
     log.trace(s"$metric- Histogram of $windowDuration with ${histogramBucket.histogram.getTotalCount()} measures encoded and compressed into $bytesEncoded bytes")
-    recordGauge(formatLabel("serializedBucketBytes", metric, windowDuration), bytesEncoded)
+    recordHistogram(formatLabel("serializedBucketBytes", metric, windowDuration), bytesEncoded)
     buffer
   }
 

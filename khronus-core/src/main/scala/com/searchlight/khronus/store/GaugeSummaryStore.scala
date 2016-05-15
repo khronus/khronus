@@ -46,7 +46,7 @@ class CassandraGaugeSummaryStore(session: Session) extends CassandraSummaryStore
     output.writeByte(1)
     output.writeVarLong(summary.min, true)
     output.writeVarLong(summary.max, true)
-    output.writeVarLong(summary.average, true)
+    output.writeVarLong(summary.mean, true)
     output.writeVarLong(summary.count, true)
     output.flush()
     baos.flush()

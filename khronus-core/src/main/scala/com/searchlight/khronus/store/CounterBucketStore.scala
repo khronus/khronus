@@ -47,7 +47,7 @@ class CassandraCounterBucketStore(session: Session) extends CassandraBucketStore
 
   override def serialize(metric: Metric, windowDuration: Duration, bucket: Bucket): ByteBuffer = {
     val buffer = serializer.serialize(bucket.asInstanceOf[CounterBucket])
-    recordGauge(formatLabel("serializedBucketBytes", metric, windowDuration), buffer.array().length)
+    recordHistogram(formatLabel("serializedBucketBytes", metric, windowDuration), buffer.array().length)
     buffer
   }
 
