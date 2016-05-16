@@ -11,6 +11,7 @@ class AffinityConsistentHashRing extends Logging {
   private val tokens = collection.mutable.SortedSet[Token]()(Ordering.by(_.hash))
   private val tokensByWorker = collection.mutable.Map[String, Seq[Token]]()
   private var metricsByWorker: Map[String, MetricsQueue] = Map[String, MetricsQueue]()
+  private val workerKeys = collection.mutable.Map[ActorRef, String]()
 
   private def virtualTokens(actor: String, count: Int = 256) = (1 to count).map(id ⇒ Token(hash(s"$actor-$id"), actor)).toSeq
 
@@ -22,16 +23,19 @@ class AffinityConsistentHashRing extends Logging {
 
   def addWorker(worker: ActorRef): Unit = {
     val workerKey = key(worker)
+    workerKeys += (worker -> workerKey)
     if (!tokensByWorker.contains(workerKey)) {
       val workerTokens = virtualTokens(workerKey)
-      tokensByWorker += ((workerKey, workerTokens))
+      tokensByWorker += (workerKey -> workerTokens)
       tokens ++= workerTokens
     }
   }
 
   def removeWorker(worker: ActorRef): Unit = {
-    tokensByWorker.remove(key(worker)).foreach { workerTokens ⇒
+    val workerKey = workerKeys.getOrElse(worker, key(worker))
+    tokensByWorker.remove(workerKey).foreach { workerTokens ⇒
       tokens --= workerTokens
+      workerKeys.remove(worker)
     }
   }
 
