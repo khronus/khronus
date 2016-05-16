@@ -16,3 +16,4 @@ case class Max(alias: String = "") extends FunctionProjection {
 
   def values(bucket: GaugeBucket): Seq[(String, Double)] = Seq((name, bucket.max.toDouble))
 }
+

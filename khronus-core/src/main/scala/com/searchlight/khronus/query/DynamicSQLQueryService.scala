@@ -10,6 +10,7 @@ trait DynamicSQLQueryServiceSupport {
 
 trait DynamicSQLQueryService {
   def executeSQLQuery(query: String): Future[Seq[Series]]
+  def executeQuery(dynamicQuery: DynamicQuery): Future[Seq[Series]]
 }
 
 object DynamicSQLQueryService {
@@ -19,7 +20,11 @@ object DynamicSQLQueryService {
 class DefaultDynamicSQLQueryService extends DynamicSQLQueryService with SQLParserSupport with DynamicQueryExecutorSupport {
 
   def executeSQLQuery(query: String): Future[Seq[Series]] = {
-    dynamicQueryExecutor.execute(parser.parse(query))
+    val dynamicQuery: DynamicQuery = parser.parse(query)
+    executeQuery(dynamicQuery)
   }
 
+  def executeQuery(dynamicQuery: DynamicQuery): Future[Seq[Series]] = {
+    dynamicQueryExecutor.execute(dynamicQuery)
+  }
 }

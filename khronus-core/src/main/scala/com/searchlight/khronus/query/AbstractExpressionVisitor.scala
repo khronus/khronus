@@ -39,7 +39,7 @@ class PredicateVisitor extends AbstractExpressionVisitor {
     andExpression.getLeftExpression.accept(left)
     andExpression.getRightExpression.accept(right)
     if (left.predicates.nonEmpty && right.predicates.nonEmpty) {
-      predicates += And(left.predicates.head, right.predicates.head)
+      predicates += And(Seq(left.predicates.head, right.predicates.head))
     } else {
       if (left.predicates.nonEmpty) {
         predicates += left.predicates.head

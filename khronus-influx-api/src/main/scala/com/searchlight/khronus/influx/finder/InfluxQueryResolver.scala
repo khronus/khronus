@@ -16,11 +16,13 @@
 
 package com.searchlight.khronus.influx.finder
 
+import com.searchlight.khronus.api.Series
 import com.searchlight.khronus.influx.parser._
 import com.searchlight.khronus.influx.service.{ InfluxEndpoint, InfluxSeries }
+import com.searchlight.khronus.model.Functions._
 import com.searchlight.khronus.model._
 import com.searchlight.khronus.model.summary.{ CounterSummary, GaugeSummary, HistogramSummary }
-import com.searchlight.khronus.query.{ DynamicSQLQueryServiceSupport, Slice }
+import com.searchlight.khronus.query._
 import com.searchlight.khronus.store.{ MetaSupport, Summaries, SummaryStore }
 import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable, Settings }
 
@@ -51,6 +53,8 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
     Future.successful(Seq(new InfluxSeries("list_series_result", Vector("time", "name"), points)))
   }
 
+  import com.searchlight.khronus.query
+
   private def executeQuery(expression: String): Future[Seq[InfluxSeries]] = measureFutureTime("executeInfluxQuery", "executeInfluxQuery") {
     log.info(s"Executing query [$expression]")
 
@@ -61,19 +65,49 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
         }
       }
     } else {
-      parser.parse(expression).map {
+      parser.parse(expression).flatMap {
         influxCriteria ⇒
 
           val slice = buildSlice(influxCriteria.filters)
           val timeWindow = adjustResolution(slice, influxCriteria.groupBy)
           val timeRangeMillis = buildTimeRangeMillis(slice, timeWindow)
 
-          val summariesBySourceMap = getSummariesBySourceMap(influxCriteria, timeWindow, slice)
-          buildInfluxSeries(influxCriteria, timeRangeMillis, summariesBySourceMap)
+          if (influxCriteria.hasDimensionalFilters) {
+            val dynamicQuery: DynamicQuery = createDynamicQuery(influxCriteria, slice, timeWindow)
+            dynamicSQLQueryService.executeQuery(dynamicQuery).map { ser ⇒
+              ser.map { s ⇒
+                InfluxSeries(s.name, Vector("time", "value"), s.points.map(point ⇒ Vector(point.timestamp, point.value)).toVector)
+              }
+            }
+          } else {
+            val summariesBySourceMap = getSummariesBySourceMap(influxCriteria, timeWindow, slice)
+            val series: Seq[Future[InfluxSeries]] = buildInfluxSeries(influxCriteria, timeRangeMillis, summariesBySourceMap)
+            Future.sequence(series)
+          }
 
-      }.flatMap(Future.sequence(_))
+      }
     }
 
+  }
+
+  private def createInfluxProjection(metric: Metric)(projection: SimpleProjection): query.Projection = {
+    projection match {
+      case field: Field ⇒ Functions.withName(field.name) match {
+        case Count         ⇒ query.projection.Count(metric.name)
+        case Max           ⇒ query.projection.Max(metric.name)
+        case Mean          ⇒ query.projection.Mean(metric.name)
+        case Min           ⇒ query.projection.Min(metric.name)
+        case p: Percentile ⇒ query.projection.Percentiles(metric.name, Seq(p.value))
+        case Cpm           ⇒ ???
+      }
+      case _ ⇒ ???
+    }
+  }
+
+  private def createDynamicQuery(influxCriteria: InfluxCriteria, slice: Slice, resolution: Duration): DynamicQuery = {
+    val metric = influxCriteria.sources.head.metric
+    val predicate = And(influxCriteria.filters.collect { case sf: StringFilter ⇒ Equals(metric.name, sf.identifier, sf.value) })
+    DynamicQuery(projections = influxCriteria.projections.map(createInfluxProjection(metric)), metrics = Seq(QMetric(metric.name, metric.name)), predicate = Some(predicate), slice, Some(resolution))
   }
 
   private def buildSlice(filters: Seq[Filter]): Slice = {

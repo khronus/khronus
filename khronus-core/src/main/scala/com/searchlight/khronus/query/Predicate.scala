@@ -28,8 +28,8 @@ case class In(alias: String, tag: String, values: List[String]) extends Predicat
   def matches(metrics: Map[QMetric, Metric]) = ???
 }
 
-case class And(a: Predicate, b: Predicate) extends Predicate {
-  def matches(metrics: Map[QMetric, Metric]) = a.matches(metrics) && b.matches(metrics)
+case class And(predicates: Seq[Predicate]) extends Predicate {
+  def matches(metrics: Map[QMetric, Metric]) = predicates.forall(_.matches(metrics))
 }
 
 case class Or(a: Predicate, b: Predicate) extends Predicate {
