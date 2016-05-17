@@ -18,7 +18,7 @@ object GaugeBucket extends Measurable {
       count = count + 1
       sum = sum + bucket.mean
       min = if (bucket.min < min) bucket.min else min
-      max = if (bucket.max < max) bucket.max else max
+      max = if (bucket.max > max) bucket.max else max
     }
     GaugeBucket(bucketNumber, min, max, sum / count, count)
   }

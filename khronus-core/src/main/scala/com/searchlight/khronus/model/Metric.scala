@@ -66,7 +66,7 @@ case object Gauge extends MetricType {
       count = count + measure.values.size
       sum = sum + measure.values.sum
       min = if (measure.values.min < min) measure.values.min else min
-      max = if (measure.values.max < max) measure.values.max else max
+      max = if (measure.values.max > max) measure.values.max else max
     }
     GaugeBucket(bucketNumber, min, max, sum / count, count)
   }
