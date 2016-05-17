@@ -112,8 +112,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
   }
 
   def searchInSnapshotByRegex(regex: String): Seq[Metric] = {
-    val pattern = Pattern.compile(regex)
-    val matcher = pattern.matcher("")
+    val matcher = regexMatcher(regex)
     snapshot.keys.filter(k ⇒ matcher.reset(k.name).matches()).groupBy(_.name).values.toSeq.map { metrics ⇒
       val head: Metric = metrics.toSeq.head
       Metric(head.name, head.mtype)
@@ -121,8 +120,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
   }
 
   def searchInSnapshotByMetricName(metricName: String): Option[(Metric, (Timestamp, Boolean))] = {
-    val pattern = Pattern.compile(metricName)
-    val matcher = pattern.matcher("")
+    val matcher = regexMatcher(metricName)
     snapshot.find { case (metric, (timestamp, active)) ⇒ matcher.reset(metric.name).matches() }
   }
 
@@ -220,5 +218,11 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
 
   override def getMetricsMap: Map[String, Seq[Metric]] = {
     snapshot.keys.toSeq.groupBy(_.name)
+  }
+
+  private def regexMatcher(regex: String) = {
+    val pattern = Pattern.compile(regex)
+    val matcher = pattern.matcher("")
+    matcher
   }
 }

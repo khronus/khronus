@@ -16,7 +16,6 @@
 
 package com.searchlight.khronus.influx.finder
 
-import com.searchlight.khronus.api.Series
 import com.searchlight.khronus.influx.parser._
 import com.searchlight.khronus.influx.service.{ InfluxEndpoint, InfluxSeries }
 import com.searchlight.khronus.model.Functions._
@@ -26,7 +25,7 @@ import com.searchlight.khronus.query._
 import com.searchlight.khronus.store.{ MetaSupport, Summaries, SummaryStore }
 import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable, Settings }
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Failure
 
@@ -50,7 +49,7 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
     val points = metaStore.searchInSnapshotByRegex(expression).
       foldLeft(Vector.empty[Vector[Any]])((acc, current) ⇒ acc :+ Vector(0, current.name))
 
-    Future.successful(Seq(new InfluxSeries("list_series_result", Vector("time", "name"), points)))
+    Future.successful(Seq(InfluxSeries("list_series_result", Vector("time", "name"), points)))
   }
 
   import com.searchlight.khronus.query
@@ -58,36 +57,35 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
   private def executeQuery(expression: String): Future[Seq[InfluxSeries]] = measureFutureTime("executeInfluxQuery", "executeInfluxQuery") {
     log.info(s"Executing query [$expression]")
 
-    if (expression.startsWith("/*dynamic*/")) {
-      dynamicSQLQueryService.executeSQLQuery(expression).map { ser ⇒
-        ser.map { s ⇒
-          InfluxSeries(s.name, Vector("time", "value"), s.points.map(point ⇒ Vector(point.timestamp, point.value)).toVector)
-        }
-      }
-    } else {
-      parser.parse(expression).flatMap {
-        influxCriteria ⇒
-
-          val slice = buildSlice(influxCriteria.filters)
-          val timeWindow = adjustResolution(slice, influxCriteria.groupBy)
-          val timeRangeMillis = buildTimeRangeMillis(slice, timeWindow)
-
-          if (influxCriteria.hasDimensionalFilters) {
-            val dynamicQuery: DynamicQuery = createDynamicQuery(influxCriteria, slice, timeWindow)
-            dynamicSQLQueryService.executeQuery(dynamicQuery).map { ser ⇒
-              ser.map { s ⇒
-                InfluxSeries(s.name, Vector("time", "value"), s.points.map(point ⇒ Vector(point.timestamp, point.value)).toVector)
-              }
-            }
-          } else {
-            val summariesBySourceMap = getSummariesBySourceMap(influxCriteria, timeWindow, slice)
-            val series: Seq[Future[InfluxSeries]] = buildInfluxSeries(influxCriteria, timeRangeMillis, summariesBySourceMap)
-            Future.sequence(series)
-          }
-
+    parser.parse(expression).flatMap { criteria ⇒
+      val slice = buildSlice(criteria.filters)
+      val resolution = adjustResolution(slice, criteria.groupBy)
+      if (isDimensional(criteria)) {
+        executeAsDynamicQuery(criteria, slice, resolution)
+      } else {
+        executeAsSummaryQuery(criteria, slice, resolution)
       }
     }
+  }
 
+  private def executeAsSummaryQuery(influxCriteria: InfluxCriteria, slice: Slice, resolution: Duration): Future[Seq[InfluxSeries]] = {
+    val timeRangeMillis = buildTimeRangeMillis(slice, resolution)
+    val summariesBySourceMap = getSummariesBySourceMap(influxCriteria, resolution, slice)
+    val series: Seq[Future[InfluxSeries]] = buildInfluxSeries(influxCriteria, timeRangeMillis, summariesBySourceMap)
+    Future.sequence(series)
+  }
+
+  private def executeAsDynamicQuery(influxCriteria: InfluxCriteria, slice: Slice, resolution: Duration): Future[Seq[InfluxSeries]] = {
+    val dynamicQuery = createDynamicQuery(influxCriteria, slice, resolution)
+    dynamicSQLQueryService.executeQuery(dynamicQuery).map { seriesSeq ⇒
+      seriesSeq.map { series ⇒
+        InfluxSeries(series.name, Vector("time", "value"), series.points.map(point ⇒ Vector(point.timestamp, point.value)).toVector)
+      }
+    }
+  }
+
+  private def isDimensional(influxCriteria: InfluxCriteria): Boolean = {
+    influxCriteria.hasDimensionalFilters || metaStore.getMetricsMap(influxCriteria.sources.head.metric.name).nonEmpty
   }
 
   private def createInfluxProjection(metric: Metric)(projection: SimpleProjection): query.Projection = {
@@ -98,7 +96,7 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
         case Mean          ⇒ query.projection.Mean(metric.name)
         case Min           ⇒ query.projection.Min(metric.name)
         case p: Percentile ⇒ query.projection.Percentiles(metric.name, Seq(p.value))
-        case Cpm           ⇒ ???
+        case Cpm           ⇒ query.projection.Count(metric.name, Some(1 minute))
       }
       case _ ⇒ ???
     }
