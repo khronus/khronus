@@ -50,7 +50,7 @@ class MasterSpec extends TestKitBase with ImplicitSender
       |}
     """.stripMargin))
 
-  val timeout: FiniteDuration = 5000 millis
+  val timeout: FiniteDuration = 10000 millis
   override protected def afterAll() = TestKit.shutdownActorSystem(system)
 
   "The Master actor" should {
