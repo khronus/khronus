@@ -56,6 +56,8 @@ trait MetaStore extends Snapshot[Map[Metric, (Timestamp, Boolean)]] {
 
   def getMetricsMap: Map[String, Seq[Metric]]
 
+  def hasDimensions(metric: Metric): Boolean
+
 }
 
 trait MetaSupport {
@@ -225,4 +227,6 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
     val matcher = pattern.matcher("")
     matcher
   }
+
+  override def hasDimensions(metric: Metric): Boolean = getMetricsMap.get(metric.name).exists(_.head.tags.nonEmpty)
 }

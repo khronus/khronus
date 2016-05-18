@@ -84,9 +84,7 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
     }
   }
 
-  private def isDimensional(influxCriteria: InfluxCriteria): Boolean = {
-    influxCriteria.hasDimensionalFilters || metaStore.getMetricsMap(influxCriteria.sources.head.metric.name).nonEmpty
-  }
+  private def isDimensional(influxCriteria: InfluxCriteria): Boolean = metaStore.hasDimensions(influxCriteria.sources.head.metric)
 
   private def createInfluxProjection(metric: Metric)(projection: SimpleProjection): query.Projection = {
     projection match {

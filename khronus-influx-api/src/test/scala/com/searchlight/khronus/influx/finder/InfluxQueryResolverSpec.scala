@@ -28,6 +28,7 @@ import com.searchlight.khronus.store._
 import com.typesafe.config.ConfigFactory
 import org.mockito.Mockito._
 import org.mockito.{ Matchers ⇒ MockitoMatchers, Mockito }
+import MockitoMatchers._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{ BeforeAndAfter, FunSuite, Matchers }
 
@@ -51,6 +52,8 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
   val metaStoreMock = mock[MetaStore]
 
   override lazy val metaStore = metaStoreMock
+  Mockito.when(metaStoreMock.hasDimensions(any[Metric])).thenReturn(false)
+
   override lazy val getStatisticSummaryStore = mock[SummaryStore[HistogramSummary]]
   override lazy val getCounterSummaryStore = mock[SummaryStore[CounterSummary]]
   override lazy val now = System.currentTimeMillis()

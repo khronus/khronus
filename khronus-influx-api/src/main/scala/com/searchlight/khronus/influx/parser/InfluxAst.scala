@@ -22,15 +22,13 @@ import com.searchlight.khronus.influx.parser.MathOperators.MathOperator
 import scala.math._
 
 case class InfluxCriteria(projections: Seq[SimpleProjection],
-    sources: Seq[Source],
-    filters: Seq[Filter],
-    groupBy: GroupBy,
-    fillValue: Option[Double] = None,
-    scale: Option[Double] = None,
-    limit: Int = Int.MaxValue,
-    orderAsc: Boolean = true) {
-  def hasDimensionalFilters = filters.exists(filter ⇒ filter.isInstanceOf[StringFilter])
-}
+  sources: Seq[Source],
+  filters: Seq[Filter],
+  groupBy: GroupBy,
+  fillValue: Option[Double] = None,
+  scale: Option[Double] = None,
+  limit: Int = Int.MaxValue,
+  orderAsc: Boolean = true)
 
 // SELECT
 sealed trait Projection
