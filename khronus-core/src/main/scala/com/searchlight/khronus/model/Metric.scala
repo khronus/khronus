@@ -133,19 +133,18 @@ case class Metric(name: String, mtype: MetricType, tags: Map[String, String] = M
 }
 
 object Metric {
-  private val pattern = "([~\\-\\_\\.\\w]*)\\[?([\\w:,]*)\\]?".r
+  // anything but a '[', then optionally a '[' that must by closed by ']' to the end of the string
+  private val pattern = "([^\\[]+)(?:\\[(.+)\\])?$" .r
   private val tagsPattern = "((\\w+))".r
 
   def fromFlatNameToMetric(flatName: String, mtype: MetricType): Metric = {
     val matches = pattern.findAllMatchIn(flatName).toArray
-    if (matches.length == 2) {
-      val head = matches.head
-      val metricName = head.group(1)
-      val tagsString = head.group(2)
+    val pattern(metricName, tagsString) = flatName
+    if (tagsString != null) {
       val tags = tagsPattern.findAllIn(tagsString).grouped(2).map(group ⇒ group.head -> group.last).toMap
       Metric(metricName, mtype, tags)
     } else {
-      Metric(flatName, mtype, Map())
+      Metric(metricName, mtype, Map())
     }
   }
 }
