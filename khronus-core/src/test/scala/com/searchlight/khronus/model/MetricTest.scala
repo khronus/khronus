@@ -9,10 +9,16 @@ class MetricTest extends FunSuite with Matchers with MockitoSugar {
   private val flatNameWithTags = "~system.emptySliceTime.timer.1HOURS[tag1:value1,tag2:value2,tag3:value3]"
   private val flatNameWithoutTags = "~system.emptySliceTime.timer.1HOURS"
   private val appFlatNameWithTags = "testApp:emptySliceTime.timer.1HOURS[tag1:value1,tag2:value2,tag3:value3]"
+  private val nameWitBracketsWithoutTags = "production.webservices.amadeus.com:ADS.book.AR[PNR_Retrieve]:status:200:AsTimer"
 
   private val metricWithTags = Metric("~system.emptySliceTime.timer.1HOURS", mtype, Map("tag1" -> "value1", "tag2" -> "value2", "tag3" -> "value3"))
   private val metricWithoutTags = Metric("~system.emptySliceTime.timer.1HOURS", mtype, Map())
   private val appMetricWithTags = Metric("testApp:emptySliceTime.timer.1HOURS", mtype, Map("tag1" -> "value1", "tag2" -> "value2", "tag3" -> "value3"))
+  private val metricWitBracketsWithoutTags = Metric("production.webservices.amadeus.com:ADS.book.AR[PNR_Retrieve]:status:200:AsTimer", mtype, Map())
+
+  test("flatName with brackets to metric") {
+    Metric.fromFlatNameToMetric(nameWitBracketsWithoutTags, mtype) should equal(metricWitBracketsWithoutTags)
+  }
 
   test("App like flatName to metric") {
     Metric.fromFlatNameToMetric(appFlatNameWithTags, mtype) should equal(appMetricWithTags)
