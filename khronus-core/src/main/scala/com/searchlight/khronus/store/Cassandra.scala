@@ -56,7 +56,7 @@ trait CassandraClusterConfiguration {
     withReconnectionPolicy(new ExponentialReconnectionPolicy(1000l, 10 * 1000l)).
     withRetryPolicy(retryPolicy).
     withCompression(ProtocolOptions.Compression.SNAPPY).
-    withQueryOptions(new QueryOptions().setConsistencyLevel(ConsistencyLevel.ONE))
+    withQueryOptions(new QueryOptions().setConsistencyLevel(ConsistencyLevel.QUORUM))
 
 }
 

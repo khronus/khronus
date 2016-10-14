@@ -92,7 +92,7 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
         bucketsChunk.foreach(bucket ⇒ {
           val serializedBucket = serialize(metric, windowDuration, bucket)
           log.trace(s"${p(metric, windowDuration)} Storing a bucket of ${serializedBucket.limit()} bytes")
-          boundBatchStmt.add(stmt.bind(bucketCollection(serializedBucket, windowDuration), metric.name, Long.box(bucket.timestamp.ms)))
+          boundBatchStmt.add(stmt.bind(bucketCollection(serializedBucket, windowDuration), metric.name, Long.box(bucket.timestamp.ms)).setConsistencyLevel(ConsistencyLevel.ONE))
         })
 
         val future: Future[Unit] = session.executeAsync(boundBatchStmt)
@@ -109,7 +109,7 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
           case (metric, fBucket) ⇒ {
             val bucket = fBucket()
             val serializedBucket = serialize(metric, windowDuration, bucket)
-            val f: Future[Unit] = session.executeAsync(stmt.bind(Seq(serializedBucket).asJava, metric.name, Long.box(bucket.timestamp.ms)))
+            val f: Future[Unit] = session.executeAsync(stmt.bind(Seq(serializedBucket).asJava, metric.name, Long.box(bucket.timestamp.ms)).setConsistencyLevel(ConsistencyLevel.ONE))
             f
           }
         }

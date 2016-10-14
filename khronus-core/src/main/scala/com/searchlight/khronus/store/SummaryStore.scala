@@ -19,7 +19,7 @@ package com.searchlight.khronus.store
 import java.nio.ByteBuffer
 
 import com.datastax.driver.core.utils.Bytes
-import com.datastax.driver.core.{ BatchStatement, ResultSet, Session, SimpleStatement }
+import com.datastax.driver.core._
 import com.searchlight.khronus.model.{ Metric, Summary }
 import com.searchlight.khronus.util.log.Logging
 import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable, Settings }
@@ -94,7 +94,7 @@ abstract class CassandraSummaryStore[T <: Summary](session: Session) extends Sum
       log.trace(s"$metric - Storing ${summariesChunk.size} summaries ($summariesChunk) of $windowDuration")
 
       val batchStmt = new BatchStatement(BatchStatement.Type.UNLOGGED)
-      summariesChunk.foreach(summary ⇒ batchStmt.add(stmtPerWindow(windowDuration).insert.bind(metric.name, Long.box(summary.timestamp.ms), serializeSummary(summary))))
+      summariesChunk.foreach(summary ⇒ batchStmt.add(stmtPerWindow(windowDuration).insert.bind(metric.name, Long.box(summary.timestamp.ms), serializeSummary(summary)).setConsistencyLevel(ConsistencyLevel.ONE)))
 
       val future: Future[Unit] = session.executeAsync(batchStmt)
       future
