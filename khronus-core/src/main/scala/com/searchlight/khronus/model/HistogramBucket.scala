@@ -58,20 +58,25 @@ object HistogramBucket extends Measurable {
     else {
       val histograms = collection.mutable.Buffer[Histogram]()
       buckets.foreach { bucket ⇒ histograms += bucket.histogram }
-      val biggerHistogram = biggerHistogramOf(histograms)
-      histograms.filterNot(_.equals(biggerHistogram)).foreach(histogram ⇒ biggerHistogram.add(histogram))
+      val biggerHistogram = histograms.remove(biggerHistogramIndex(histograms))
+      histograms.foreach(histogram ⇒ biggerHistogram.add(histogram))
       biggerHistogram
     }
   }
 
-  private def biggerHistogramOf(histograms: Seq[Histogram]): Histogram = {
-    var biggerHistogram = histograms.head
-    histograms.tail.foreach { histogram ⇒
-      if (histogram.getMaxValue > biggerHistogram.getMaxValue) {
-        biggerHistogram = histogram
-      }
+  implicit val HistoOrdering = new Ordering[Histogram] {
+    override def compare(x: Histogram, y: Histogram): Int = {
+      if (x.getMaxValue < y.getMaxValue)
+        -1
+      else if (x.getMaxValue > y.getMaxValue)
+        1
+      else
+        0
     }
-    biggerHistogram
+  }
+
+  private def biggerHistogramIndex(histograms: Seq[Histogram]): Int = {
+    histograms.zipWithIndex.maxBy(_._1)(HistoOrdering)._2
   }
 
   //1 hour in milliseconds
