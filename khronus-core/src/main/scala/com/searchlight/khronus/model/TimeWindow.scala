@@ -55,8 +55,11 @@ abstract class TimeWindow[T <: Bucket, S <: Summary] extends Window with BucketS
       withPreviousWindowBuckets(fromBucketNumber, toBucketNumber) { previousWindowBuckets ⇒
         //group in buckets of my window duration
         val myBuckets = aggregateBuckets(grouped(previousWindowBuckets))
-        //calculate the summaries
-        val mySummaries = myBuckets map (bucket ⇒ summary(bucket))
+        //calculate the summaries for non dimensional metrics
+        val mySummaries = metaStore.hasDimensions(metric) match {
+          case false => myBuckets map (bucket ⇒ summary(bucket))
+          case _ => Seq.empty[S]
+        }
         //store temporal buckets for next window if needed
         //store the summaries
         val stores = storeBucketsAndSummaries(myBuckets, mySummaries, fromBucketNumber, toBucketNumber)

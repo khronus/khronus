@@ -49,7 +49,7 @@ trait SlowMetricsRecorder extends Logging with MonitoringSupport {
   def formatLabel(label: String, metric: Metric, duration: Duration): String = s"$label.${metric.mtype}.${duration.length}${duration.unit}"
 }
 
-object SlowMetricsRecorder extends ConcurrencySupport with MetaSupport {
+object SlowMetricsRecorder extends ConcurrencySupport with MetaSupport with TimeWindowsSupport {
 
   private def now = System.currentTimeMillis()
 
@@ -62,7 +62,7 @@ object SlowMetricsRecorder extends ConcurrencySupport with MetaSupport {
   val ASCENDING_ORDER = false
 
   //any value that exceed this limit, will be marked as outlier
-  val MAX_DEFAULT_OUTLIERS_LIMIT = Tick.smallestWindow().toMillis
+  val MAX_DEFAULT_OUTLIERS_LIMIT = smallestWindow.duration.toMillis
 
   val renewLimitsPool = scheduledThreadPool("outliers-scheduled-worker")
   schedulePool()
@@ -91,7 +91,7 @@ object SlowMetricsRecorder extends ConcurrencySupport with MetaSupport {
   }
 
   private def goBack(duration: Duration): Long = System.currentTimeMillis() - (duration match {
-    case Duration(1, MILLISECONDS) ⇒ Tick.smallestWindow().toMillis * 4
+    case Duration(1, MILLISECONDS) ⇒ smallestWindow.duration.toMillis * 4
     case _                         ⇒ duration.toMillis * 4
   })
 
@@ -99,7 +99,7 @@ object SlowMetricsRecorder extends ConcurrencySupport with MetaSupport {
     metaStore.searchInSnapshotByMetricName(metricName) map {
       case (metric, lastProcess) ⇒
         val slice = Slice(goBack(duration), System.currentTimeMillis())
-        val percentile = getStore(metric.mtype).readAll(metric.flatName, Tick.smallestWindow(), slice, ASCENDING_ORDER, 1).map(summaries ⇒
+        val percentile = getStore(metric.mtype).readAll(metric.flatName, smallestWindow.duration, slice, ASCENDING_ORDER, 1).map(summaries ⇒
           summaries.headOption map (summary ⇒ summary.get(Percentile95)))(executionContextOutliers)
 
         percentile

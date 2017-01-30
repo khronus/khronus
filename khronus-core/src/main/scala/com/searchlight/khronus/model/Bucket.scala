@@ -89,7 +89,7 @@ case class BucketNumber(number: Long, duration: Duration) {
 
   override def toString = {
     val prefix = s"BucketNumber($number, $duration)"
-    if (Settings.Window.WindowDurations.head.equals(duration)) {
+    if (Settings.Window.WindowDurationsForNonDimensional.head.equals(duration)) {
       s"$prefix ${date(startTimestamp().ms)}"
     } else {
       s"$prefix from ${date(startTimestamp().ms)} to ${date(endTimestamp().ms)}"

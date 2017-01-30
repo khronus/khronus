@@ -16,11 +16,13 @@
 
 package com.searchlight.khronus.model
 
+import com.searchlight.khronus.model.MetricSpecs.{Dimensional, MetricSpec, NonDimensional}
 import com.searchlight.khronus.store.MetaSupport
 import com.searchlight.khronus.util.log.Logging
-import com.searchlight.khronus.util.{ Measurable, FutureSupport, SameThreadExecutionContext }
+import com.searchlight.khronus.util.{FutureSupport, Measurable, SameThreadExecutionContext}
+
 import scala.concurrent.Future
-import scala.util.{ Try, Success, Failure }
+import scala.util.{Failure, Success, Try}
 
 class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport with FutureSupport with Measurable {
 
@@ -54,9 +56,14 @@ class TimeWindowChain extends TimeWindowsSupport with Logging with MetaSupport w
     }
   }
 
+  def getSpec(metric: Metric): MetricSpec = metaStore.hasDimensions(metric) match {
+    case true => Dimensional
+    case false => NonDimensional
+  }
+
   private def windowsToBeProcessed(metric: Metric, currentTick: Tick): Future[Seq[Window]] = {
     metaStore.getLastProcessedTimestamp(metric).map { lastProcessed ⇒
-      windows(metric.mtype).filter { window ⇒ mustExecuteInThisTick(window, lastProcessed, currentTick) }
+      windows(metric.mtype, getSpec(metric)).filter { window ⇒ mustExecuteInThisTick(window, lastProcessed, currentTick) }
     }
   }
 

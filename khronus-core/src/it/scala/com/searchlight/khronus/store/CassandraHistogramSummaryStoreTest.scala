@@ -8,7 +8,7 @@ import org.scalatest.{Matchers,  FunSuite}
 import scala.concurrent.duration._
 
 class CassandraHistogramSummaryStoreTest extends FunSuite with BaseIntegrationTest with Matchers{
-  override val tableNames: Seq[String] = Settings.Window.WindowDurations.map(duration => Summaries.histogramSummaryStore.tableName(duration))
+  override val tableNames: Seq[String] = Settings.Window.WindowDurationsForNonDimensional.map(duration => Summaries.histogramSummaryStore.tableName(duration))
   private val ASCENDING_ORDER = false
 
   test("An StatisticSummary should be capable of serialize and deserialize from Cassandra") {

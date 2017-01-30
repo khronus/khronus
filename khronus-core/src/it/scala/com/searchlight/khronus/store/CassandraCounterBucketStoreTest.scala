@@ -10,7 +10,7 @@ import scala.concurrent.duration._
 
 
 class CassandraCounterBucketStoreTest extends FunSuite with BaseIntegrationTest with Matchers {
-  override val tableNames: Seq[String] = Settings.Window.WindowDurations.map(duration => Buckets.counterBucketStore.tableName(duration))
+  override val tableNames: Seq[String] = Settings.Window.WindowDurationsForNonDimensional.map(duration => Buckets.counterBucketStore.tableName(duration))
 
   val testMetric = Metric("testMetric", Counter)
 

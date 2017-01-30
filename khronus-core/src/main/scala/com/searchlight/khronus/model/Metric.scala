@@ -20,6 +20,12 @@ import com.searchlight.khronus.model.bucket.{ CounterBucket, GaugeBucket, Histog
 import com.searchlight.khronus.store.CassandraMetricMeasurementStore._
 import org.HdrHistogram.{ Histogram ⇒ HdrHistogram }
 
+object MetricSpecs {
+  sealed trait MetricSpec
+  case object Dimensional extends MetricSpec
+  case object NonDimensional extends MetricSpec
+}
+
 object MetricType {
   private val map = Map(Counter.toString -> Counter, "timer" -> Histogram, Histogram.toString -> Histogram, Gauge.toString -> Gauge)
 

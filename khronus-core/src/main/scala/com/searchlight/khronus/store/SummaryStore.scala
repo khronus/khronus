@@ -51,7 +51,7 @@ abstract class CassandraSummaryStore[T <: Summary](session: Session) extends Sum
 
   protected def tableName(duration: Duration): String
 
-  protected def windowDurations: Seq[Duration] = Settings.Window.WindowDurations
+  protected def windowDurations: Seq[Duration] = Settings.Window.WindowDurationsForNonDimensional
 
   protected def ttl(windowDuration: Duration): Int
 

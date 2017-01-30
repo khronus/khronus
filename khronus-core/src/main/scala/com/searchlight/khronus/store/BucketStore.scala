@@ -49,7 +49,7 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
 
   protected def tableName(duration: Duration): String
 
-  protected def windowDurations: Seq[Duration] = Settings.Window.WindowDurations
+  protected def windowDurations: Seq[Duration] = Settings.Window.WindowDurationsForNonDimensional
 
   protected def ttl(windowDuration: Duration): Int
 

@@ -9,11 +9,11 @@ case class Tick(bucketNumber: BucketNumber) extends Logging {
   def endTimestamp = bucketNumber.endTimestamp()
 }
 
-object Tick extends Logging {
+object Tick extends Logging with TimeWindowsSupport {
 
   def apply()(implicit clock: Clock = SystemClock): Tick = {
     val executionTimestamp = Timestamp(clock.now)
-    val bucketNumber = executionTimestamp.alignedTo(smallestWindow()).fromEndTimestampToBucketNumberOf(smallestWindow())
+    val bucketNumber = executionTimestamp.alignedTo(smallestWindow.duration).fromEndTimestampToBucketNumberOf(smallestWindow.duration)
     val tick = Tick(bucketNumber - Settings.Window.TickDelay)
     tick
   }
@@ -22,12 +22,9 @@ object Tick extends Logging {
     val currentTick = Tick()(new Clock {
       override def now: Long = clock.now + Settings.Master.MaxDelayBetweenClocks.toMillis
     })
-    (bucketNumber ~ smallestWindow()) <= currentTick.bucketNumber
+    (bucketNumber ~ smallestWindow.duration) <= currentTick.bucketNumber
   }
 
-  def smallestWindow() = Settings.Histograms.TimeWindows.head.duration
-
-  def highestWindow() = Settings.Histograms.TimeWindows.last.duration
 }
 
 trait Clock {

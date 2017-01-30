@@ -58,7 +58,7 @@ case class Slice(from: Long = -1L, to: Long) {
   }
 
   def getAdjustedResolution(resolution: Duration, forceResolution: Boolean, minResolution: Int, maxResolution: Int): Duration = {
-    val sortedWindows = Settings.Window.ConfiguredWindows.toSeq.sortBy(_.toMillis).reverse
+    val sortedWindows = Settings.Window.ConfiguredWindowsForNonDimensional.toSeq.sortBy(_.toMillis).reverse
     val nearestConfiguredWindow = sortedWindows.foldLeft(sortedWindows.last)((nearest, next) ⇒ if (millisBetween(resolution, next) < millisBetween(resolution, nearest)) next else nearest)
 
     if (forceResolution) {

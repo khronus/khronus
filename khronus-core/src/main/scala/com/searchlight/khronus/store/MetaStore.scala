@@ -201,7 +201,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
   }
 
   def notifyEmptySlice(metric: Metric, duration: Duration) = {
-    if (Settings.Window.WindowDurations.last.equals(duration) && snapshot.get(metric).get._2) {
+    if (Settings.Window.WindowDurationsForNonDimensional.last.equals(duration) && snapshot.get(metric).get._2) {
       deactivate(metric)
     }
   }

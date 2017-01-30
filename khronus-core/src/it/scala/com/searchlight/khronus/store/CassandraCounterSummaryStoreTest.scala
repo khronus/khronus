@@ -9,7 +9,7 @@ import org.scalatest.{FunSuite, Matchers}
 import scala.concurrent.duration._
 
 class CassandraCounterSummaryStoreTest extends FunSuite with BaseIntegrationTest with Matchers{
-  override val tableNames: Seq[String] = Settings.Window.WindowDurations.map(duration => Summaries.counterSummaryStore.tableName(duration))
+  override val tableNames: Seq[String] = Settings.Window.WindowDurationsForNonDimensional.map(duration => Summaries.counterSummaryStore.tableName(duration))
 
   test("An CounterSummary should be capable of serialize and deserialize from Cassandra") {
     val summary = new CounterSummary(22L, 250L)

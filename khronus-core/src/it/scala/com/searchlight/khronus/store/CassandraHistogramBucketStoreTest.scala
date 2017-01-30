@@ -12,7 +12,7 @@ import scala.util.Random
 
 class CassandraHistogramBucketStoreTest extends FunSuite with BaseIntegrationTest with Matchers {
 
-  override val tableNames: Seq[String] = Settings.Window.WindowDurations.map(duration => Buckets.histogramBucketStore.tableName(duration))
+  override val tableNames: Seq[String] = Settings.Window.WindowDurationsForNonDimensional.map(duration => Buckets.histogramBucketStore.tableName(duration))
 
   val testMetric = Metric("testMetric", "histogram")
 

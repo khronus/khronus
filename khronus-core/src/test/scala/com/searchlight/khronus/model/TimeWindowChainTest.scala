@@ -16,13 +16,16 @@
 
 package com.searchlight.khronus.model
 
+import com.searchlight.khronus.model.MetricSpecs.{Dimensional, MetricSpec, NonDimensional}
 import com.searchlight.khronus.store.MetaStore
-import org.scalatest.{ BeforeAndAfter, FunSuite }
+import org.scalatest.{BeforeAndAfter, FunSuite}
 import org.scalatest.mock.MockitoSugar
-import scala.concurrent.{ Await, Future }
+
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 import org.mockito.Mockito._
 import org.mockito.Matchers._
+
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class TimeWindowChainTest extends FunSuite with MockitoSugar with BeforeAndAfter {
@@ -32,13 +35,13 @@ class TimeWindowChainTest extends FunSuite with MockitoSugar with BeforeAndAfter
 
   var window30s: HistogramTimeWindow = _
   var window1m: HistogramTimeWindow = _
-  var mockedWindows: Seq[HistogramTimeWindow] = _
+  var mockedWindows: Map[MetricSpecs.MetricSpec, scala.Seq[Window]] = _
   var chain: TimeWindowChain = _
 
   before {
     window30s = mock[HistogramTimeWindow]
     window1m = mock[HistogramTimeWindow]
-    mockedWindows = Seq(window30s, window1m)
+    mockedWindows = Map(NonDimensional -> Seq(window30s, window1m))
     when(window30s.duration).thenReturn(30 seconds)
     when(window1m.duration).thenReturn(1 minute)
     when(window30s.process(any[Metric], any[Tick])).thenReturn(Future {})
@@ -47,8 +50,8 @@ class TimeWindowChainTest extends FunSuite with MockitoSugar with BeforeAndAfter
     chain = new TimeWindowChain {
       override val histogramWindows = mockedWindows
       override val metaStore = mock[MetaStore]
-      override val counterWindows = Seq.empty[CounterTimeWindow]
-      override val windows: Map[MetricType, Seq[Window]] = Map(Counter -> counterWindows, Histogram -> histogramWindows)
+      override val counterWindows: Map[MetricSpecs.MetricSpec, scala.Seq[Window]] = Map.empty[MetricSpecs.MetricSpec, scala.Seq[Window]]
+      override val windows: Map[(MetricType, MetricSpec), Seq[Window]] = Map((Counter, NonDimensional) -> counterWindows(NonDimensional), (Histogram, NonDimensional) -> histogramWindows(NonDimensional))
     }
 
     when(chain.metaStore.update(any[Seq[Metric]], any[Long], any[Boolean])).thenReturn(Future {})
