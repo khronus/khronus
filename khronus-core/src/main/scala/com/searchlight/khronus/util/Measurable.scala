@@ -1,13 +1,13 @@
 package com.searchlight.khronus.util
 
-import com.searchlight.khronus.model.{ Metric, MonitoringSupport }
+import com.searchlight.khronus.model.{Metric, MonitoringSupport}
 import com.searchlight.khronus.util.log.Logging
 
 import scala.concurrent.duration.Duration
-import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
-trait Measurable extends Logging with SlowMetricsRecorder {
+trait Measurable extends Logging with MonitoringSupport {
 
   private def now = System.currentTimeMillis()
 
@@ -46,4 +46,6 @@ trait Measurable extends Logging with SlowMetricsRecorder {
       }
     }
   }
+
+  def formatLabel(label: String, metric: Metric, duration: Duration): String = s"$label.${metric.mtype}.${duration.length}${duration.unit}"
 }

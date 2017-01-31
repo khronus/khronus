@@ -132,7 +132,7 @@ abstract class CassandraBucketStore[T <: Bucket](session: Session) extends Bucke
     val stmt = stmtPerWindow(sourceWindow).selects(SliceQuery)
     val boundStmt = stmt.bind(metric.name, Long.box(from.ms), Long.box(to.ms), Int.box(limit))
 
-    val future: Future[ResultSet] = measureAndCheckForTimeOutliers("bucketSliceCassandra", metric, sourceWindow, getQueryAsString(stmt.getQueryString, metric.name, from.ms, to.ms, limit)) {
+    val future: Future[ResultSet] = measureFutureTime("bucketSliceCassandra", metric, sourceWindow) {
       session.executeAsync(boundStmt)
     }
     future.map(resultSet ⇒ {

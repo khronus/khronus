@@ -2,14 +2,13 @@ package com.searchlight.khronus.store
 
 import java.util.concurrent.TimeUnit
 
-import com.searchlight.khronus.util.{ SameThreadExecutionContext, ConcurrencySupport }
 import com.searchlight.khronus.util.log.Logging
+import com.searchlight.khronus.util.{ConcurrencySupport, Measurable}
 
 import scala.concurrent.duration._
-import scala.concurrent.{ Await, ExecutionContext, Future }
-import scala.util.{ Failure, Success, Try }
+import scala.concurrent.{Await, ExecutionContext, Future}
 
-trait Snapshot[T] extends Logging with ConcurrencySupport {
+trait Snapshot[T] extends Logging with ConcurrencySupport with Measurable {
 
   def snapshotName: String
 
@@ -34,7 +33,7 @@ trait Snapshot[T] extends Logging with ConcurrencySupport {
 
   private def reload() = {
     try {
-      snapshot = Await.result(getFreshData(), 10 seconds)
+      snapshot = Await.result(getFreshData(), Duration.Inf)
     } catch {
       case reason: Throwable ⇒ log.error("Error reloading snapshot", reason)
     }

@@ -37,7 +37,7 @@ abstract class TimeWindow[T <: Bucket, U <: Summary] extends Window with BucketS
 
   private val durationText = duration.toString
 
-  def process(implicit metric: Metric, tick: Tick): Future[Unit] = measureAndCheckForTimeOutliers("processWindow", metric, duration) {
+  def process(implicit metric: Metric, tick: Tick): Future[Unit] = measureFutureTime("processWindow", metric, duration) {
     implicit val context = Context(metric, durationText)
 
     //get the last bucket processed for this window
