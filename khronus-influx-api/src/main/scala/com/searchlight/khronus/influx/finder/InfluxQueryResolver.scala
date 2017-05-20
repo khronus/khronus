@@ -16,26 +16,29 @@
 
 package com.searchlight.khronus.influx.finder
 
+import com.searchlight.khronus.dao.{ MetricMetadata, MetaSupport }
 import com.searchlight.khronus.influx.parser._
 import com.searchlight.khronus.influx.service.{ InfluxEndpoint, InfluxSeries }
+import com.searchlight.khronus.model
 import com.searchlight.khronus.model.Functions._
 import com.searchlight.khronus.model._
-import com.searchlight.khronus.model.summary.{ CounterSummary, GaugeSummary, HistogramSummary }
-import com.searchlight.khronus.query._
-import com.searchlight.khronus.store.{ MetaSupport, Summaries, SummaryStore }
+import com.searchlight.khronus.model.query._
+import com.searchlight.khronus.service.QueryService
 import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable, Settings }
 
 import scala.concurrent.duration._
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Failure
 
-trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySupport with DynamicSQLQueryServiceSupport {
+trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySupport {
   this: InfluxEndpoint ⇒
 
   import com.searchlight.khronus.influx.finder.InfluxQueryResolver._
 
   implicit val executionContext: ExecutionContext = executionContext("influx-query-resolver-worker")
   val parser = new InfluxQueryParser
+
+  protected def queryService = InfluxQueryResolver.queryService
 
   def search(search: String): Future[Seq[InfluxSeries]] = search match {
     case GetSeriesPattern(expression) ⇒ listSeries(s".*$expression.*")
@@ -46,13 +49,11 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
 
   private def listSeries(expression: String): Future[Seq[InfluxSeries]] = {
     log.info(s"Listing series $expression")
-    val points = metaStore.searchInSnapshotByRegex(expression).
+    val points = metaStore.searchMetrics(expression).
       foldLeft(Vector.empty[Vector[Any]])((acc, current) ⇒ acc :+ Vector(0, current.name))
 
     Future.successful(Seq(InfluxSeries("list_series_result", Vector("time", "name"), points)))
   }
-
-  import com.searchlight.khronus.query
 
   private def executeQuery(expression: String): Future[Seq[InfluxSeries]] = measureFutureTime("executeInfluxQuery", "executeInfluxQuery") {
     log.info(s"Executing query [$expression]")
@@ -60,53 +61,39 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
     parser.parse(expression).flatMap { criteria ⇒
       val slice = buildSlice(criteria.filters)
       val resolution = adjustResolution(slice, criteria.groupBy)
-      if (isDimensional(criteria)) {
-        executeAsDynamicQuery(criteria, slice, resolution)
-      } else {
-        executeAsSummaryQuery(criteria, slice, resolution)
+
+      val query = createQuery(criteria, slice, resolution)
+
+      queryService.executeQuery(query).map { seriesSeq ⇒
+        seriesSeq.map { series ⇒
+          InfluxSeries(series.name, Vector("time", "value"), series.points.map(point ⇒ Vector(point.timestamp, point.value)).toVector)
+        }
       }
     }
   }
 
-  private def executeAsSummaryQuery(influxCriteria: InfluxCriteria, slice: Slice, resolution: Duration): Future[Seq[InfluxSeries]] = {
-    val timeRangeMillis = buildTimeRangeMillis(slice, resolution)
-    val summariesBySourceMap = getSummariesBySourceMap(influxCriteria, resolution, slice)
-    val series: Seq[Future[InfluxSeries]] = buildInfluxSeries(influxCriteria, timeRangeMillis, summariesBySourceMap)
-    Future.sequence(series)
-  }
-
-  private def executeAsDynamicQuery(influxCriteria: InfluxCriteria, slice: Slice, resolution: Duration): Future[Seq[InfluxSeries]] = {
-    val dynamicQuery = createDynamicQuery(influxCriteria, slice, resolution)
-    dynamicSQLQueryService.executeQuery(dynamicQuery).map { seriesSeq ⇒
-      seriesSeq.map { series ⇒
-        InfluxSeries(series.name, Vector("time", "value"), series.points.map(point ⇒ Vector(point.timestamp, point.value)).toVector)
-      }
-    }
-  }
-
-  private def isDimensional(influxCriteria: InfluxCriteria): Boolean = metaStore.hasDimensions(influxCriteria.sources.head.metric)
-
-  private def createInfluxProjection(metric: Metric)(projection: SimpleProjection): query.Projection = {
+  private def createInfluxProjection(metric: MetricMetadata)(projection: SimpleProjection): model.query.Projection = {
     projection match {
       case field: Field ⇒ Functions.withName(field.name) match {
-        case Count         ⇒ query.projection.Count(metric.name)
-        case Max           ⇒ query.projection.Max(metric.name)
-        case Mean          ⇒ query.projection.Mean(metric.name)
-        case Min           ⇒ query.projection.Min(metric.name)
-        case p: Percentile ⇒ query.projection.Percentiles(metric.name, Seq(p.value))
-        case Cpm           ⇒ query.projection.Count(metric.name, Some(1 minute))
+        //case Count ⇒ service.Count(Selector(metric.name))
+        case Max  ⇒ ???
+        case Mean ⇒ ???
+        case Min  ⇒ ???
+        //case p: Percentile ⇒ service.Percentile(Selector(metric.name), p.value)
       }
       case _ ⇒ ???
     }
   }
 
-  private def createDynamicQuery(influxCriteria: InfluxCriteria, slice: Slice, resolution: Duration): DynamicQuery = {
+  private def createQuery(influxCriteria: InfluxCriteria, slice: TimeRange, resolution: Duration): Query = {
     val metric = influxCriteria.sources.head.metric
-    val predicate = And(influxCriteria.filters.collect { case sf: StringFilter ⇒ Equals(metric.name, sf.identifier, sf.value) })
-    DynamicQuery(projections = influxCriteria.projections.map(createInfluxProjection(metric)), metrics = Seq(QMetric(metric.name, metric.name)), predicate = Some(predicate), slice, Some(resolution))
+    val alias = influxCriteria.sources.head.alias.getOrElse(metric.name)
+    val predicate = And(influxCriteria.filters.collect { case sf: StringFilter ⇒ Equals(Selector(metric.name), sf.identifier, sf.value) })
+    Query(projections = influxCriteria.projections.map(createInfluxProjection(metric)),
+      selectors = Seq(Selector(metric.name, Some(alias))), Some(slice), filter = Some(predicate), Some(resolution))
   }
 
-  private def buildSlice(filters: Seq[Filter]): Slice = {
+  private def buildSlice(filters: Seq[InfluxFilter]): TimeRange = {
     var from = 1L
     var to = now
     filters foreach {
@@ -123,12 +110,12 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
     if (from == 1L)
       throw new UnsupportedOperationException("From clause required")
 
-    Slice(from, to)
+    TimeRange(from, to)
   }
 
   protected def now = System.currentTimeMillis()
 
-  private def adjustResolution(slice: Slice, groupBy: GroupBy): Duration = {
+  private def adjustResolution(slice: TimeRange, groupBy: GroupBy): Duration = {
     val desiredTimeWindow = groupBy.duration
     val forceResolution = groupBy.forceResolution
     slice.getAdjustedResolution(desiredTimeWindow, forceResolution, minResolution, maxResolution)
@@ -137,123 +124,14 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
   protected lazy val maxResolution: Int = Settings.Dashboard.MaxResolutionPoints
   protected lazy val minResolution: Int = Settings.Dashboard.MinResolutionPoints
 
-  private def buildTimeRangeMillis(slice: Slice, timeWindow: Duration): TimeRangeMillis = {
-    val alignedFrom = alignTimestamp(slice.from, timeWindow, floorRounding = false)
-    val alignedTo = alignTimestamp(slice.to, timeWindow, floorRounding = true)
-    TimeRangeMillis(alignedFrom, alignedTo, timeWindow.toMillis)
-  }
-
-  private def alignTimestamp(timestamp: Long, timeWindow: Duration, floorRounding: Boolean): Long = {
-    if (timestamp % timeWindow.toMillis == 0)
-      timestamp
-    else {
-      val division = timestamp / timeWindow.toMillis
-      if (floorRounding) division * timeWindow.toMillis else (division + 1) * timeWindow.toMillis
-    }
-  }
-
-  private def getSummariesBySourceMap(influxCriteria: InfluxCriteria, timeWindow: Duration, slice: Slice) = {
-    influxCriteria.sources.foldLeft(Map.empty[String, Future[Map[Long, Summary]]])((acc, source) ⇒ {
-      val tableId = source.alias.getOrElse(source.metric.name)
-      val summaries = getStore(source.metric.mtype).readAll(source.metric.flatName, timeWindow, slice, influxCriteria.orderAsc, influxCriteria.limit)
-      val summariesByTs = summaries.map(f ⇒ f.foldLeft(Map.empty[Long, Summary])((acc, summary) ⇒ acc + (summary.timestamp.ms -> summary)))
-      acc + (tableId -> summariesByTs)
-    })
-  }
-
-  private def getStore(metricType: MetricType) = metricType match {
-    case Histogram ⇒ getStatisticSummaryStore
-    case Counter   ⇒ getCounterSummaryStore
-    case Gauge     ⇒ getGaugeSummaryStore
-  }
-
-  protected def getStatisticSummaryStore: SummaryStore[HistogramSummary] = Summaries.histogramSummaryStore
-
-  protected def getCounterSummaryStore: SummaryStore[CounterSummary] = Summaries.counterSummaryStore
-
-  protected def getGaugeSummaryStore: SummaryStore[GaugeSummary] = Summaries.gaugeSummaryStore
-
-  private def buildInfluxSeries(influxCriteria: InfluxCriteria, timeRangeMillis: TimeRangeMillis, summariesBySourceMap: Map[String, Future[Map[Long, Summary]]]): Seq[Future[InfluxSeries]] = {
-    influxCriteria.projections.sortBy(_.seriesId).map {
-      case field: Field ⇒ {
-        generateSeq(field, timeRangeMillis, summariesBySourceMap, influxCriteria.fillValue).map(values ⇒
-          toInfluxSeries(values, field.alias.getOrElse(field.name), influxCriteria.orderAsc, influxCriteria.scale, field.tableId.get))
-      }
-      case number: Number ⇒ {
-        generateSeq(number, timeRangeMillis, summariesBySourceMap, influxCriteria.fillValue).map(values ⇒
-          toInfluxSeries(values, number.alias.get, influxCriteria.orderAsc, influxCriteria.scale))
-      }
-      case operation: Operation ⇒ {
-        for {
-          leftValues ← generateSeq(operation.left, timeRangeMillis, summariesBySourceMap, influxCriteria.fillValue)
-          rightValues ← generateSeq(operation.right, timeRangeMillis, summariesBySourceMap, influxCriteria.fillValue)
-        } yield {
-          val resultedValues = zipByTimestamp(leftValues, rightValues, operation.operator)
-          toInfluxSeries(resultedValues, operation.alias, influxCriteria.orderAsc, influxCriteria.scale)
-        }
-      }
-    }
-  }
-
-  private def generateSeq(simpleProjection: SimpleProjection, timeRangeMillis: TimeRangeMillis, summariesMap: Map[String, Future[Map[Long, Summary]]], defaultValue: Option[Double]): Future[Map[Long, Double]] =
-    simpleProjection match {
-      case field: Field   ⇒ generateSummarySeq(timeRangeMillis, Functions.withName(field.name), summariesMap(field.tableId.get), defaultValue)
-      case number: Number ⇒ generateScalarSeq(timeRangeMillis, number.value)
-      case _              ⇒ throw new UnsupportedOperationException("Nested operations are not supported yet")
-    }
-
-  private def generateScalarSeq(timeRangeMillis: TimeRangeMillis, scalar: Double): Future[Map[Long, Double]] = {
-    Future {
-      (timeRangeMillis.from to timeRangeMillis.to by timeRangeMillis.timeWindow).map(ts ⇒ ts -> scalar).toMap
-    }
-  }
-
-  private def generateSummarySeq(timeRangeMillis: TimeRangeMillis, function: Functions.Function, summariesByTs: Future[Map[Long, Summary]], defaultValue: Option[Double]): Future[Map[Long, Double]] = {
-    summariesByTs.map(summariesMap ⇒ {
-      (timeRangeMillis.from to timeRangeMillis.to by timeRangeMillis.timeWindow).foldLeft(Map.empty[Long, Double])((acc, currentTimestamp) ⇒
-        if (summariesMap.get(currentTimestamp).isDefined) {
-          function match {
-            case metaFunction: Functions.MetaFunction ⇒ acc + (currentTimestamp -> metaFunction(summariesMap(currentTimestamp), timeRangeMillis.timeWindow))
-            case simpleFunction: Functions.Function   ⇒ acc + (currentTimestamp -> simpleFunction(summariesMap(currentTimestamp)))
-          }
-        } else if (defaultValue.isDefined) {
-          acc + (currentTimestamp -> defaultValue.get)
-        } else {
-          acc
-        })
-    })
-  }
-
-  private def zipByTimestamp(tsValues1: Map[Long, Double], tsValues2: Map[Long, Double], operator: MathOperators.MathOperator): Map[Long, Double] = {
-    val zippedByTimestamp = for (timestamp ← tsValues1.keySet.intersect(tsValues2.keySet))
-      yield (timestamp, calculate(tsValues1(timestamp), tsValues2(timestamp), operator))
-
-    zippedByTimestamp.toMap
-  }
-
-  private def calculate(firstOperand: Double, secondOperand: Double, operator: MathOperators.MathOperator): Double = {
-    operator(firstOperand, secondOperand)
-  }
-
-  private def toInfluxSeries(timeSeriesValues: Map[Long, Double], projectionName: String, ascendingOrder: Boolean, scale: Option[Double], metricName: String = ""): InfluxSeries = {
-    log.debug(s"Building Influx series for projection [$projectionName] - Metric [$metricName]")
-
-    val sortedTimeSeriesValues = if (ascendingOrder) timeSeriesValues.toSeq.sortBy(_._1) else timeSeriesValues.toSeq.sortBy(-_._1)
-
-    val points = sortedTimeSeriesValues.foldLeft(Vector.empty[Vector[AnyVal]])((acc, current) ⇒ {
-      val value = BigDecimal(current._2 * scale.getOrElse(1d)).setScale(4, BigDecimal.RoundingMode.HALF_UP).toDouble
-      acc :+ Vector(current._1, value)
-    })
-    InfluxSeries(metricName, Vector(influxTimeKey, projectionName), points)
-  }
-
 }
-
-case class TimeRangeMillis(from: Long, to: Long, timeWindow: Long)
 
 object InfluxQueryResolver {
   //matches list series /expression/
   val GetSeriesPattern = "list series /(.*)/".r
   val influxTimeKey = "time"
+  private val queryService = QueryService()
 
 }
+
+case class TimeRangeMillis(from: Long, to: Long, timeWindow: Long)

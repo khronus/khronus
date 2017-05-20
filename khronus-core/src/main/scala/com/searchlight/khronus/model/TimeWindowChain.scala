@@ -16,7 +16,7 @@
 
 package com.searchlight.khronus.model
 
-import com.searchlight.khronus.store.MetaSupport
+import com.searchlight.khronus.dao.MetaSupport
 import com.searchlight.khronus.util.log.Logging
 import com.searchlight.khronus.util.{ Measurable, FutureSupport, SameThreadExecutionContext }
 import scala.concurrent.Future

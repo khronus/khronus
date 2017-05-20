@@ -4,9 +4,9 @@ import java.util.concurrent.TimeUnit
 
 import com.searchlight.khronus.model.Functions.Percentile95
 import com.searchlight.khronus.model._
-import com.searchlight.khronus.query.Slice
+import com.searchlight.khronus.model.query.TimeRange
 import com.searchlight.khronus.service.MonitoringSupport
-import com.searchlight.khronus.store.{ MetaSupport, Summaries }
+import com.searchlight.khronus.dao.{ MetaSupport, Summaries }
 import com.searchlight.khronus.util.log.Logging
 
 import scala.collection.concurrent.TrieMap
@@ -98,7 +98,7 @@ object SlowMetricsRecorder extends ConcurrencySupport with MetaSupport {
   private def getPercentile(metricName: String, duration: Duration, percentile: Int): Future[Option[Long]] = {
     metaStore.searchInSnapshotByMetricName(metricName) map {
       case (metric, lastProcess) ⇒
-        val slice = Slice(goBack(duration), System.currentTimeMillis())
+        val slice = TimeRange(goBack(duration), System.currentTimeMillis())
         val percentile = getStore(metric.mtype).readAll(metric.flatName, Tick.smallestWindow(), slice, ASCENDING_ORDER, 1).map(summaries ⇒
           summaries.headOption map (summary ⇒ summary.get(Percentile95)))(executionContextOutliers)
 

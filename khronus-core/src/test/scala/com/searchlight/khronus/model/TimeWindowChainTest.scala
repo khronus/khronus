@@ -16,7 +16,7 @@
 
 package com.searchlight.khronus.model
 
-import com.searchlight.khronus.store.MetaStore
+import com.searchlight.khronus.dao.MetaStore
 import org.scalatest.{ BeforeAndAfter, FunSuite }
 import org.scalatest.mock.MockitoSugar
 import scala.concurrent.{ Await, Future }

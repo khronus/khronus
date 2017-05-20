@@ -23,9 +23,9 @@
         <appender-ref ref="FILE"/>
     </appender>
 
-    <logger name="com.searchlight.khronus.store" level="info"/>
+    <logger name="com.searchlight.khronus.dao" level="info"/>
     <logger name="com.searchlight.khronus" level="info"/>
-    <logger name="com.searchlight.khronus.cluster.ClusterDomainEventListener" level="debug"/>
+    <logger name="com.searchlight.khronus.actor.cluster.ClusterDomainEventListener" level="debug"/>
 
     <root level="warn">
         <appender-ref ref="ASYNC"/>

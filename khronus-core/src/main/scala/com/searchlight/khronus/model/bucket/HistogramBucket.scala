@@ -46,7 +46,7 @@ object HistogramBucket extends Measurable {
       val histograms = collection.mutable.Buffer[HdrHistogram]()
       buckets.foreach { bucket ⇒ histograms += bucket.histogram }
       val biggerHistogram = biggerHistogramOf(histograms)
-      histograms.filterNot(_.equals(biggerHistogram)).foreach(histogram ⇒ biggerHistogram.add(histogram))
+      histograms.foreach(histogram ⇒ biggerHistogram.add(histogram))
       biggerHistogram
     }
     HistogramBucket(bucketNumber, histo)
@@ -59,7 +59,7 @@ object HistogramBucket extends Measurable {
         biggerHistogram = histogram
       }
     }
-    biggerHistogram
+    newHistogram(biggerHistogram.getMaxValue)
   }
 
   //1 hour in milliseconds

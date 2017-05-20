@@ -18,7 +18,7 @@ package com.searchlight.khronus.model
 
 import com.searchlight.khronus.model.bucket.{ CounterBucket, GaugeBucket, HistogramBucket }
 import com.searchlight.khronus.model.summary.{ CounterSummary, GaugeSummary, HistogramSummary }
-import com.searchlight.khronus.store._
+import com.searchlight.khronus.dao._
 import com.searchlight.khronus.util.log.Logging
 import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable }
 

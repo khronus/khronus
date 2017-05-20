@@ -1,6 +1,6 @@
 package com.searchlight.khronus.util
 
-import com.searchlight.khronus.store.{CassandraKeyspace, Buckets, Meta, Summaries}
+import com.searchlight.khronus.dao.{CassandraKeyspace, Buckets, Meta, Summaries}
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FunSuite}
 
 import scala.concurrent.duration._

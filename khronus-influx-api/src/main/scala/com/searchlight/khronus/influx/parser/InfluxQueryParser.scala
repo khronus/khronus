@@ -23,7 +23,7 @@ import scala.util.Success
 import scala.util.parsing.combinator.lexical._
 import scala.util.parsing.combinator.syntactical._
 import com.searchlight.khronus.model.{ Metric, MetricType, Functions }
-import com.searchlight.khronus.store.{ MetaSupport, MetaStore }
+import com.searchlight.khronus.dao.{ MetaSupport, MetaStore }
 import com.searchlight.khronus.util.log.Logging
 import scala.concurrent.{ Future, ExecutionContext }
 import com.searchlight.khronus.util.ConcurrencySupport
@@ -146,9 +146,9 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with InfluxCri
       case metricNameRegex ~ aliasTable ⇒ Table(metricNameRegex, aliasTable)
     })
 
-  private def filterParser: Parser[Seq[Filter]] = "where" ~> filterExpression
+  private def filterParser: Parser[Seq[InfluxFilter]] = "where" ~> filterExpression
 
-  private def filterExpression: Parser[Seq[Filter]] =
+  private def filterExpression: Parser[Seq[InfluxFilter]] =
     rep(
       stringComparatorExpression |
         timestampComparatorExpression |

@@ -15,12 +15,14 @@
  */
 package com.searchlight.khronus.model
 
-import com.searchlight.khronus.api.Measurement
+import com.fasterxml.jackson.annotation.{ JsonProperty, JsonIgnore }
+import com.fasterxml.jackson.databind.annotation.JsonSerialize
+import com.fasterxml.jackson.databind.ser.std.{ ToStringSerializer, StdSerializer }
 import com.searchlight.khronus.model.bucket.{ CounterBucket, GaugeBucket, HistogramBucket }
-import com.searchlight.khronus.store.CassandraMetricMeasurementStore._
+import com.searchlight.khronus.util.log.Logging
 import org.HdrHistogram.{ Histogram ⇒ HdrHistogram }
 
-object MetricType {
+object MetricType extends Logging {
   private val map = Map(Counter.toString -> Counter, "timer" -> Histogram, Histogram.toString -> Histogram, Gauge.toString -> Gauge)
 
   implicit def fromStringToMetricType(typeName: String): MetricType = map.getOrElse(typeName, throw new RuntimeException(s"Unknown metric type $typeName"))
@@ -31,16 +33,17 @@ object MetricType {
 sealed trait MetricType {
   def bucketWithMeasures(metric: Metric, bucketNumber: BucketNumber, measurements: List[Measurement]): Bucket
 
-  def aggregate(bucketNumber: BucketNumber, buckets: Seq[BucketResult[Bucket]]): Bucket
+  def aggregate(bucketNumber: BucketNumber, buckets: Seq[LazyBucket[Bucket]]): Bucket
 
   protected def skipNegativeValues(metric: Metric, values: Seq[Long]): Seq[Long] = {
     val (negativeValues, positiveValues) = values.partition(value ⇒ value < 0)
     if (negativeValues.nonEmpty)
-      log.warn(s"Skipping negative values for metric $metric: $negativeValues")
+      MetricType.log.warn(s"Skipping negative values for metric $metric: $negativeValues")
     positiveValues
   }
 }
 
+@JsonSerialize(using = classOf[ToStringSerializer])
 case object Counter extends MetricType {
   override val toString = "counter"
 
@@ -49,11 +52,12 @@ case object Counter extends MetricType {
     CounterBucket(bucketNumber, count)
   }
 
-  override def aggregate(bucketNumber: BucketNumber, buckets: Seq[BucketResult[Bucket]]): Bucket = {
-    CounterBucket(bucketNumber, CounterBucket.aggregate(buckets.map(_.lazyBucket().asInstanceOf[CounterBucket])))
+  override def aggregate(bucketNumber: BucketNumber, buckets: Seq[LazyBucket[Bucket]]): Bucket = {
+    CounterBucket(bucketNumber, CounterBucket.aggregate(buckets.map(lazyBucket ⇒ lazyBucket().asInstanceOf[CounterBucket])))
   }
 }
 
+@JsonSerialize(using = classOf[ToStringSerializer])
 case object Gauge extends MetricType {
   override val toString = "gauge"
 
@@ -71,11 +75,12 @@ case object Gauge extends MetricType {
     GaugeBucket(bucketNumber, min, max, sum / count, count)
   }
 
-  override def aggregate(bucketNumber: BucketNumber, buckets: Seq[BucketResult[Bucket]]): Bucket = {
-    GaugeBucket.aggregate(bucketNumber, buckets.map(_.lazyBucket().asInstanceOf[GaugeBucket]))
+  override def aggregate(bucketNumber: BucketNumber, buckets: Seq[LazyBucket[Bucket]]): Bucket = {
+    GaugeBucket.aggregate(bucketNumber, buckets.map(lazyBucket ⇒ lazyBucket().asInstanceOf[GaugeBucket]))
   }
 }
 
+@JsonSerialize(using = classOf[ToStringSerializer])
 case object Histogram extends MetricType {
   override val toString = "histogram"
 
@@ -104,19 +109,20 @@ case object Histogram extends MetricType {
       if (value <= highestTrackableValue) histogram.recordValue(value)
       else {
         val exceeded = value - highestTrackableValue
-        log.warn(s"Sample of $metric has exceeded the highestTrackableValue of $highestTrackableValue by $exceeded. Truncating the excedent. Try changing the sampling unit or increasing the highestTrackableValue")
+        MetricType.log.warn(s"Sample of $metric has exceeded the highestTrackableValue of $highestTrackableValue by $exceeded. Truncating the excedent. Try changing the sampling unit or increasing the highestTrackableValue")
         histogram.recordValue(highestTrackableValue)
       }
     })
   }
 
-  override def aggregate(bucketNumber: BucketNumber, buckets: Seq[BucketResult[Bucket]]): Bucket = {
-    HistogramBucket.aggregate(bucketNumber, buckets.map(_.lazyBucket().asInstanceOf[HistogramBucket]))
+  override def aggregate(bucketNumber: BucketNumber, buckets: Seq[LazyBucket[Bucket]]): Bucket = {
+    HistogramBucket.aggregate(bucketNumber, buckets.map(lazyBucket ⇒ lazyBucket().asInstanceOf[HistogramBucket]))
   }
 }
 
-case class Metric(name: String, mtype: MetricType, tags: Map[String, String] = Map()) {
+case class Metric(name: String, @JsonProperty("type") mtype: MetricType, tags: Map[String, String] = Map()) {
 
+  @JsonIgnore
   def isSystem = SystemMetric.isSystem(name)
 
   def flatName = {
@@ -139,7 +145,7 @@ object Metric {
   private val tagsPattern = "((\\w+))".r
 
   def fromFlatNameToMetric(flatName: String, mtype: MetricType): Metric = {
-    if (patternHasTags.findAllMatchIn(flatName).toArray.length > 0) {
+    if (patternHasTags.findAllMatchIn(flatName).nonEmpty) {
       val patternForMetricsWithTags(metricName, tagsString) = flatName
       if (tagsString != null) {
         val tags = tagsPattern.findAllIn(tagsString).grouped(2).map(group ⇒ group.head -> group.last).toMap

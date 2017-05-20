@@ -21,8 +21,8 @@ import akka.actor
 import akka.event.Logging
 import com.searchlight.khronus.influx.service.InfluxActor
 import com.searchlight.khronus.influx.store.CassandraDashboards
-import com.searchlight.khronus.service.HandShakeProtocol.{ Register, KhronusStarted }
-import com.searchlight.khronus.service.KhronusActorSystem
+import com.searchlight.khronus.actor.HandShakeProtocol.{ Register, KhronusStarted }
+import com.searchlight.khronus.actor.KhronusActorSystem
 
 class Influx(system: ExtendedActorSystem) extends Extension {
   val log = Logging(system, classOf[Influx])
@@ -52,7 +52,6 @@ class InfluxSubscriber(influxActor: ActorRef) extends Actor with ActorLogging {
   def receive: Receive = {
     case KhronusStarted(handler) ⇒
       log.info("Influx received KhronusStarted")
-      val c = CassandraDashboards
       handler ! Register(InfluxActor.Path, influxActor)
   }
 }

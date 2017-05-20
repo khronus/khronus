@@ -22,7 +22,7 @@ import com.datastax.driver.core.utils.Bytes
 import com.datastax.driver.core.{ ResultSet, Session }
 import com.searchlight.khronus.influx.service.Dashboard
 import com.searchlight.khronus.influx.store.CassandraDashboards
-import com.searchlight.khronus.store.CassandraUtils
+import com.searchlight.khronus.dao.CassandraUtils
 import com.searchlight.khronus.util.log.Logging
 import com.searchlight.khronus.util.{ ConcurrencySupport, KryoSerializer }
 import org.apache.commons.codec.binary.Base64

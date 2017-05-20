@@ -21,7 +21,7 @@ import scala.concurrent.{Await, Future}
 import scala.util.Try
 import scala.concurrent.duration._
 import com.searchlight.khronus.influx.store.CassandraDashboards
-import com.searchlight.khronus.store.CassandraCluster
+import com.searchlight.khronus.dao.CassandraCluster
 
 trait BaseInfluxIntegrationSpec extends FunSuite with BeforeAndAfterAll with BeforeAndAfter {
   System.setProperty("config.resource", "application-it-test.conf")

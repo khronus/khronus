@@ -2,8 +2,8 @@ package com.searchlight.khronus.influx.service
 
 import akka.actor.ActorSystem
 import com.searchlight.khronus.model.{ Counter, Metric }
-import com.searchlight.khronus.query.DynamicSQLQueryService
-import com.searchlight.khronus.store.MetaStore
+import com.searchlight.khronus.service.QueryService
+import com.searchlight.khronus.dao.{ MetricMetadata, MetaStore }
 import com.searchlight.khronus.util.JacksonJsonSupport
 import com.typesafe.config.ConfigFactory
 import org.mockito.Mockito
@@ -42,7 +42,7 @@ class InfluxServiceSpec extends Specification with MockitoSugar with HttpService
 
     override lazy val metaStore: MetaStore = mock[MetaStore]
 
-    override lazy val dynamicSQLQueryService = mock[DynamicSQLQueryService]
+    override lazy val queryService = mock[QueryService]
 
   }
 
@@ -83,15 +83,15 @@ class InfluxServiceSpec extends Specification with MockitoSugar with HttpService
           {
             val instance = new MockedInfluxEndpoint()
 
-            val counter = Metric("counter1", Counter)
+            val counter = MetricMetadata("counter1", Counter.toString)
             val searchExpression = ".*counter.*"
 
-            Mockito.when(instance.metaStore.searchInSnapshotByRegex(searchExpression)).thenReturn(Seq(counter))
+            Mockito.when(instance.metaStore.searchMetrics(searchExpression)).thenReturn(Seq(counter))
             Get(listSeriesURI) ~> instance.influxServiceRoute ~> check {
               response.isResponse must beTrue
               status == OK
 
-              Mockito.verify(instance.metaStore).searchInSnapshotByRegex(searchExpression)
+              Mockito.verify(instance.metaStore).searchMetrics(searchExpression)
 
               val results = responseAs[Seq[InfluxSeries]]
               results.size must beEqualTo(1)

@@ -3,8 +3,7 @@ package com.searchlight.khronus.service
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.{ ConcurrentLinkedQueue, TimeUnit }
 
-import com.searchlight.khronus.api.{ Measurement, MetricMeasurement }
-import com.searchlight.khronus.store.MetricMeasurementStoreSupport
+import com.searchlight.khronus.model.{ Measurement, MetricMeasurement }
 import com.searchlight.khronus.util.log.Logging
 import com.searchlight.khronus.util.{ ConcurrencySupport, Settings }
 
@@ -23,13 +22,14 @@ trait MonitoringSupport {
   def incrementCounter(name: String, counts: Long): Unit = MonitoringService.incrementCounter(name, counts)
 }
 
-object MonitoringService extends MetricMeasurementStoreSupport with Logging with ConcurrencySupport {
+object MonitoringService extends Logging with ConcurrencySupport {
 
   private val histograms = TrieMap[String, ConcurrentLinkedQueue[java.lang.Long]]()
   private val gauges = TrieMap[String, ConcurrentLinkedQueue[java.lang.Long]]()
   private val counters = TrieMap[String, AtomicLong]()
 
   private val enabled = Settings.InternalMetrics.Enabled
+  private val ingestionService = IngestionService()
 
   enabled {
     val scheduler = scheduledThreadPool("monitoring-flusher-worker")
@@ -67,7 +67,7 @@ object MonitoringService extends MetricMeasurementStoreSupport with Logging with
 
   private def write(metricMeasurements: List[MetricMeasurement]) = {
     if (metricMeasurements.nonEmpty) {
-      metricStore.storeMetricMeasurements(metricMeasurements)
+      ingestionService.store(metricMeasurements)
     }
   }
 

@@ -18,7 +18,7 @@ package com.searchlight.khronus.influx.service
 
 import akka.actor.Props
 import com.searchlight.khronus.influx.finder.{ DashboardSupport, InfluxQueryResolver }
-import com.searchlight.khronus.service.KhronusHandlerException
+import com.searchlight.khronus.actor.KhronusHandlerException
 import com.searchlight.khronus.util.log.Logging
 import com.searchlight.khronus.util.{ CORSSupport, ConcurrencySupport, JacksonJsonSupport }
 import spray.http.MediaTypes._

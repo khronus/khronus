@@ -16,9 +16,9 @@
 
 package com.searchlight.khronus
 
-import com.searchlight.khronus.cluster.ClusterSupport
-import com.searchlight.khronus.service.KhronusActorSystem
-import com.searchlight.khronus.store.CassandraSupport
+import com.searchlight.khronus.actor.KhronusActorSystem
+import com.searchlight.khronus.actor.cluster.ClusterSupport
+import com.searchlight.khronus.dao.CassandraSupport
 import com.searchlight.khronus.util.log.Logging
 
 object Khronus extends App with Logging {

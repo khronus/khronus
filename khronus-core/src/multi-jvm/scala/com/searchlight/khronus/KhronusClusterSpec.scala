@@ -19,15 +19,14 @@
 
 package com.searchlight.khronus
 
-import akka.actor.{ActorRef, Actor, PoisonPill, Props}
+import akka.actor.{Actor, ActorRef}
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent.{CurrentClusterState, MemberUp}
-import akka.cluster.routing.{ClusterRouterPoolSettings, ClusterRouterPool}
-import akka.cluster.singleton.ClusterSingletonManager
+import akka.cluster.routing.{ClusterRouterPool, ClusterRouterPoolSettings}
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec, MultiNodeSpecCallbacks}
 import akka.routing.RoundRobinPool
 import akka.testkit.ImplicitSender
-import com.searchlight.khronus.cluster.{RouterProvider, Master}
+import com.searchlight.khronus.actor.cluster.{Master, RouterProvider}
 import com.searchlight.khronus.model.Metric
 import com.typesafe.config.ConfigFactory
 import org.scalatest.{BeforeAndAfterAll, MustMatchers, WordSpecLike}
@@ -93,7 +92,7 @@ trait LocalRouterProvider extends RouterProvider {
   override def createRouter: ActorRef = {
     context.actorOf(ClusterRouterPool(RoundRobinPool(10), ClusterRouterPoolSettings(
       totalInstances = 100, maxInstancesPerNode = 20,
-      allowLocalRoutees = true, useRole = None)).props(com.searchlight.khronus.cluster.Worker.props), "worker-router")
+      allowLocalRoutees = true, useRole = None)).props(com.searchlight.khronus.actor.cluster.Worker.props), "worker-router")
   }
 }
 

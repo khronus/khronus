@@ -16,6 +16,8 @@
 
 package com.searchlight.khronus.influx.parser
 
+import com.searchlight.khronus.dao.MetricMetadata
+
 import scala.concurrent.duration.FiniteDuration
 import com.searchlight.khronus.model.Metric
 import com.searchlight.khronus.influx.parser.MathOperators.MathOperator
@@ -23,7 +25,7 @@ import scala.math._
 
 case class InfluxCriteria(projections: Seq[SimpleProjection],
   sources: Seq[Source],
-  filters: Seq[Filter],
+  filters: Seq[InfluxFilter],
   groupBy: GroupBy,
   fillValue: Option[Double] = None,
   scale: Option[Double] = None,
@@ -110,12 +112,12 @@ case class Identifier(value: String)
 
 // FROM
 case class Table(name: String, alias: Option[String])
-case class Source(metric: Metric, alias: Option[String] = None)
+case class Source(metric: MetricMetadata, alias: Option[String] = None)
 
 // WHERE
-trait Filter
-case class TimeFilter(identifier: String = "time", operator: String, value: Long) extends Filter
-case class StringFilter(identifier: String, operator: String, value: String) extends Filter
+trait InfluxFilter
+case class TimeFilter(identifier: String = "time", operator: String, value: Long) extends InfluxFilter
+case class StringFilter(identifier: String, operator: String, value: String) extends InfluxFilter
 
 object Operators {
   val And = "and"

@@ -6,7 +6,7 @@ import com.searchlight.khronus.model.BucketNumber._
 import com.searchlight.khronus.model.Timestamp._
 import com.searchlight.khronus.model.bucket.CounterBucket
 import com.searchlight.khronus.model.summary.CounterSummary
-import com.searchlight.khronus.store._
+import com.searchlight.khronus.dao._
 import com.searchlight.khronus.util.MonitoringSupportMock
 import org.mockito.Matchers
 import org.mockito.Matchers._

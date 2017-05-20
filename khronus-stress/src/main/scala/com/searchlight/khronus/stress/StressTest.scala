@@ -17,24 +17,15 @@
 package com.searchlight.khronus.stress
 
 import java.util.concurrent.Executors
-import akka.actor.{ Props, ActorSystem }
-import com.searchlight.khronus.api.{ MetricBatch, Measurement, MetricMeasurement }
-import com.searchlight.khronus.util.JacksonJsonSupport
-import com.typesafe.config.ConfigFactory
-import spray.http._
-import spray.client.pipelining._
 
+import akka.actor.ActorSystem
 import com.searchlight.khronus.model._
+import com.searchlight.khronus.util.JacksonJsonSupport
+import spray.client.pipelining._
+import spray.http.{ HttpRequest, HttpResponse }
 
 import scala.concurrent.Future
-import scala.util.{ Success, Failure, Random }
-import spray.http._
-import spray.client.pipelining._
-
-import spray.http.HttpRequest
-import scala.util.Failure
-import spray.http.HttpResponse
-import scala.util.Success
+import scala.util.{ Failure, Random, Success }
 
 object StressTest extends App with JacksonJsonSupport {
   implicit val system = ActorSystem("StressActorSystem")

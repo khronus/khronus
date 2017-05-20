@@ -20,7 +20,7 @@
     </appender>
 
     <logger name="com.searchlight.khronus" level="debug"/>
-    <logger name="com.searchlight.khronus.cluster" level="debug"/>
+    <logger name="com.searchlight.khronus.actor.cluster" level="debug"/>
 
     <root level="debug">
         <appender-ref ref="STDOUT" />

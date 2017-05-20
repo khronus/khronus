@@ -18,7 +18,8 @@ package com.searchlight.khronus.service
 
 import akka.actor._
 import akka.testkit._
-import com.searchlight.khronus.service.HandShakeProtocol.Register
+import com.searchlight.khronus.actor.HandShakeProtocol.Register
+import com.searchlight.khronus.actor.KhronusHandler
 import com.typesafe.config.ConfigFactory
 import org.scalatest._
 import spray.http.HttpResponse

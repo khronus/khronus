@@ -22,7 +22,7 @@ import com.searchlight.khronus.model.BucketNumber._
 import com.searchlight.khronus.model.Timestamp._
 import com.searchlight.khronus.model.bucket.HistogramBucket
 import com.searchlight.khronus.model.summary.HistogramSummary
-import com.searchlight.khronus.store._
+import com.searchlight.khronus.dao._
 import com.searchlight.khronus.util.MonitoringSupportMock
 import org.HdrHistogram.{ Histogram ⇒ HdrHistogram }
 import org.mockito.Matchers

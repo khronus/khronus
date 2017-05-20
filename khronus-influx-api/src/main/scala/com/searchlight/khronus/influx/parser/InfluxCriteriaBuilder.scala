@@ -2,14 +2,14 @@ package com.searchlight.khronus.influx.parser
 
 import scala.concurrent.{ ExecutionContext, Future }
 import com.searchlight.khronus.model._
-import com.searchlight.khronus.store.MetaSupport
+import com.searchlight.khronus.dao.MetaSupport
 import com.searchlight.khronus.util.ConcurrencySupport
 
 trait InfluxCriteriaBuilder extends MetaSupport with ConcurrencySupport {
 
   implicit val ex: ExecutionContext = executionContext("influx-query-parser-worker")
 
-  def buildInfluxCriteria(tables: Seq[Table], projections: Seq[Projection], filters: Seq[Filter], groupBy: GroupBy, fill: Option[Double], scale: Option[Double], order: Boolean, limit: Int): Future[InfluxCriteria] = {
+  def buildInfluxCriteria(tables: Seq[Table], projections: Seq[Projection], filters: Seq[InfluxFilter], groupBy: GroupBy, fill: Option[Double], scale: Option[Double], order: Boolean, limit: Int): Future[InfluxCriteria] = {
     validateAlias(projections, tables)
 
     val futureSources = tables.collect { case table ⇒ getSources(table) }
@@ -41,7 +41,7 @@ trait InfluxCriteriaBuilder extends MetaSupport with ConcurrencySupport {
   }
 
   private def getSources(table: Table): Future[Seq[Source]] = {
-    val matchedMetrics = metaStore.searchInSnapshotByRegex(getCaseInsensitiveRegex(table.name))
+    val matchedMetrics = metaStore.searchMetrics(getCaseInsensitiveRegex(table.name))
     if (matchedMetrics.isEmpty)
       throw new UnsupportedOperationException(s"Unsupported query - There isnt any metric matching the regex [${table.name}]")
     else if (matchedMetrics.size > 1 && table.alias.isDefined)

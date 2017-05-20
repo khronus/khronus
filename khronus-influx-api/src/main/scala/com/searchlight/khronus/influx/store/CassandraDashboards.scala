@@ -2,10 +2,9 @@ package com.searchlight.khronus.influx.store
 
 import com.searchlight.khronus.influx.Influx
 import com.searchlight.khronus.influx.finder.InfluxDashboardResolver
-import com.searchlight.khronus.store.CassandraKeyspace
+import com.searchlight.khronus.dao.CassandraKeyspace
 
 object CassandraDashboards extends CassandraKeyspace {
-  initialize
   val influxDashboardResolver = new InfluxDashboardResolver(session)
 
   override def keyspace = "dashboards"
