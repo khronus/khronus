@@ -18,3 +18,10 @@ package com.searchlight.khronus.influx.service
 
 case class InfluxSeries(name: String, columns: Vector[String] = Vector.empty, points: Vector[Vector[Any]] = Vector.empty)
 case class Dashboard(name: String, columns: Vector[String] = Vector.empty, points: Vector[Vector[String]] = Vector.empty)
+
+//"""{"results":[{"series":[{"name":"databases","columns":["name"],"values":[["site"]]}]}]}"""
+//   {"results":[{"name":"databases","columns":["name"],"values":[["site"]]}]}
+
+case class InfluxSerie9(name: String, columns: Vector[String] = Vector.empty, values: Vector[Vector[Any]] = Vector.empty)
+case class InfluxSeries9(series: Seq[InfluxSerie9])
+case class InfluxResults9(results: Seq[InfluxSeries9])

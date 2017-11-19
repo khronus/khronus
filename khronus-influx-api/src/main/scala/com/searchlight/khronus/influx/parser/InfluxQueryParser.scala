@@ -181,7 +181,7 @@ class InfluxQueryParser extends StandardTokenParsers with Logging with InfluxCri
   }
 
   private def timeWithSuffixToMillisParser: Parser[Long] = {
-    numericLit ~ opt(TimeSuffixes.Seconds | TimeSuffixes.Minutes | TimeSuffixes.Hours | TimeSuffixes.Days | TimeSuffixes.Weeks) ^^ {
+    numericLit ~ opt(TimeSuffixes.Milliseconds | TimeSuffixes.Seconds | TimeSuffixes.Minutes | TimeSuffixes.Hours | TimeSuffixes.Days | TimeSuffixes.Weeks) ^^ {
       case number ~ timeUnit ⇒
         timeUnit.fold(number.toLong)(toMillis(number, _))
     }

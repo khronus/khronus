@@ -17,15 +17,16 @@
 package com.searchlight.khronus.influx.finder
 
 import com.searchlight.khronus.influx.parser._
-import com.searchlight.khronus.influx.service.{ InfluxEndpoint, InfluxSeries }
+import com.searchlight.khronus.influx.service._
 import com.searchlight.khronus.model._
-import com.searchlight.khronus.store.{ Summaries, SummaryStore, Slice, MetaSupport }
-import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable, Settings }
+import com.searchlight.khronus.store.{MetaSupport, Slice, Summaries, SummaryStore}
+import com.searchlight.khronus.util.{ConcurrencySupport, Measurable, Settings}
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.collection.SeqView
+import scala.concurrent.duration._
 
 trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySupport {
   this: InfluxEndpoint ⇒
@@ -35,23 +36,45 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
   implicit val executionContext: ExecutionContext = executionContext("influx-query-resolver-worker")
   val parser = new InfluxQueryParser
 
-  def search(search: String): Future[Seq[InfluxSeries]] = search match {
-    case GetSeriesPattern(expression) ⇒ listSeries(s".*$expression.*")
-    case query                        ⇒ executeQuery(query)
+
+
+  def search(search: String): Future[InfluxResults9] = search match {
+    case "SHOW DATABASES" => showDataBases()
+    case search if search.indexOf("SHOW RETENTION POLICIES") >= 0 => showRetentionPolicies()
+    case search if search.indexOf("SHOW MEASUREMENTS") >= 0 ⇒ listSeries(search)
+    case query ⇒ executeQuery(query.toLowerCase())
   }
 
-  private def listSeries(expression: String): Future[Seq[InfluxSeries]] = {
+  def showRetentionPolicies() = {
+    log.info(s"Listing retention policies")
+    Future.successful(InfluxResults9(Seq(InfluxSeries9(Seq.empty))))
+  }
+
+  def showDataBases(): Future[InfluxResults9] = {
+    log.info(s"Listing databases")
+    Future.successful(InfluxResults9(Seq(InfluxSeries9(Seq(InfluxSerie9("databases", Vector("name"), Vector(Vector("site"))))))))
+  }
+
+  val patternShowMeasurementsWithRegex = "SHOW MEASUREMENTS WITH MEASUREMENT =~ /([^/]+)/ .*".r
+
+  private def listSeries(search: String): Future[InfluxResults9] = {
+    val expression = search match {
+      case patternShowMeasurementsWithRegex(query) => s".*$query.*"
+      case _ => ""
+    }
+
     log.info(s"Listing series $expression")
     val points = metaStore.searchInSnapshotByRegex(expression).
-      foldLeft(Vector.empty[Vector[Any]])((acc, current) ⇒ acc :+ Vector(0, current.name))
+      foldLeft(Vector.empty[Vector[Any]])((acc, current) ⇒ acc :+ Vector(current.name))
 
-    Future.successful(Seq(new InfluxSeries("list_series_result", Vector("time", "name"), points)))
+    //{"results":[{"series":[{"name":"measurements","columns":["name"],"values":[["logins.count"]]}]}]}
+    Future.successful(InfluxResults9(Seq(InfluxSeries9(Seq(InfluxSerie9("measurements", Vector("name"), points))))))
   }
 
-  private def executeQuery(expression: String): Future[Seq[InfluxSeries]] = measureFutureTime("executeInfluxQuery", "executeInfluxQuery") {
+  private def executeQuery(expression: String): Future[InfluxResults9] = measureFutureTime("executeInfluxQuery", "executeInfluxQuery") {
     log.info(s"Executing query [$expression]")
 
-    parser.parse(expression).map {
+    val results = parser.parse(expression).map {
       influxCriteria ⇒
 
         val slice = buildSlice(influxCriteria.filters)
@@ -62,6 +85,11 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
         buildInfluxSeries(influxCriteria, timeRangeMillis, summariesBySourceMap)
 
     }.flatMap(Future.sequence(_))
+
+    //TODO patch to test. fixit
+    val series = Await.result(results, 30 seconds)
+
+    Future.successful(InfluxResults9(Seq(InfluxSeries9(series))))
   }
 
   private def buildSlice(filters: Seq[Filter]): Slice = {
@@ -151,7 +179,7 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
 
   protected def getCounterSummaryStore: SummaryStore[CounterSummary] = Summaries.counterSummaryStore
 
-  private def buildInfluxSeries(influxCriteria: InfluxCriteria, timeRangeMillis: TimeRangeMillis, summariesBySourceMap: Map[String, Future[Map[Long, Summary]]]): Seq[Future[InfluxSeries]] = {
+  private def buildInfluxSeries(influxCriteria: InfluxCriteria, timeRangeMillis: TimeRangeMillis, summariesBySourceMap: Map[String, Future[Map[Long, Summary]]]): Seq[Future[InfluxSerie9]] = {
     influxCriteria.projections.sortBy(_.seriesId).map {
       case field: Field ⇒ {
         generateSeq(field, timeRangeMillis, summariesBySourceMap, influxCriteria.fillValue).map(values ⇒
@@ -211,16 +239,16 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
     operator(firstOperand, secondOperand)
   }
 
-  private def toInfluxSeries(timeSeriesValues: Map[Long, Double], projectionName: String, ascendingOrder: Boolean, scale: Option[Double], metricName: String = ""): InfluxSeries = {
+  private def toInfluxSeries(timeSeriesValues: Map[Long, Double], projectionName: String, ascendingOrder: Boolean, scale: Option[Double], metricName: String = ""): InfluxSerie9 = {
     log.debug(s"Building Influx serie for projection [$projectionName] - Metric [$metricName]")
 
     val sortedTimeSeriesValues = if (ascendingOrder) timeSeriesValues.toSeq.sortBy(_._1) else timeSeriesValues.toSeq.sortBy(-_._1)
 
-    val points = sortedTimeSeriesValues.foldLeft(Vector.empty[Vector[AnyVal]])((acc, current) ⇒ {
+    val values = sortedTimeSeriesValues.foldLeft(Vector.empty[Vector[AnyVal]])((acc, current) ⇒ {
       val value = BigDecimal(current._2 * scale.getOrElse(1d)).setScale(4, BigDecimal.RoundingMode.HALF_UP).toDouble
       acc :+ Vector(current._1, value)
     })
-    InfluxSeries(metricName, Vector(influxTimeKey, projectionName), points)
+    InfluxSerie9(metricName, Vector(influxTimeKey, projectionName), values)
   }
 
 }
@@ -229,7 +257,6 @@ case class TimeRangeMillis(from: Long, to: Long, timeWindow: Long)
 
 object InfluxQueryResolver {
   //matches list series /expression/
-  val GetSeriesPattern = "list series /(.*)/".r
   val influxTimeKey = "time"
 
 }

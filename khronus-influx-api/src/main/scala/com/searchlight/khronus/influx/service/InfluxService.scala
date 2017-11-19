@@ -17,16 +17,16 @@
 package com.searchlight.khronus.influx.service
 
 import akka.actor.Props
-import com.searchlight.khronus.influx.finder.{ DashboardSupport, InfluxQueryResolver }
+import com.searchlight.khronus.influx.finder.{DashboardSupport, InfluxQueryResolver}
 import com.searchlight.khronus.service.KhronusHandlerException
 import com.searchlight.khronus.util.log.Logging
-import com.searchlight.khronus.util.{ JacksonJsonSupport, CORSSupport, ConcurrencySupport }
+import com.searchlight.khronus.util.{CORSSupport, ConcurrencySupport, JacksonJsonSupport}
 import spray.http.MediaTypes._
 import spray.http.StatusCodes._
-import spray.httpx.encoding.{ Gzip, NoEncoding }
-import spray.routing.{ HttpService, HttpServiceActor, Route }
+import spray.httpx.encoding.{Gzip, NoEncoding}
+import spray.routing.{HttpService, HttpServiceActor, RequestContext, Route}
 
-import scala.concurrent.{ Await, ExecutionContext }
+import scala.concurrent.{Await, ExecutionContext}
 
 class InfluxActor extends HttpServiceActor with InfluxEndpoint with KhronusHandlerException {
   def receive = runRoute(influxServiceRoute)
@@ -43,45 +43,52 @@ trait InfluxEndpoint extends HttpService with JacksonJsonSupport with Logging wi
 
   implicit val ex: ExecutionContext = executionContext("influx-endpoint-worker")
 
+  def logURI(innerRoute: Route): (RequestContext => Unit) = extract(_.request.uri) { uri =>
+    log.info(s"GET URI: ${uri}")
+    innerRoute
+  }
+
   val influxServiceRoute: Route =
-    compressResponse(NoEncoding, Gzip) {
-      respondWithCORS {
-        path("series") {
-          get {
-            parameters('q.?, 'p, 'u) { (query, password, username) ⇒
-              query.map { q ⇒
-                log.info(s"GET /khronus/influx - Query: [$q]")
-                respondWithMediaType(`application/json`) {
-                  complete {
-                    search(q)
+    logURI {
+      compressResponse(NoEncoding, Gzip) {
+        respondWithCORS {
+          path("series" / "query") {
+            get {
+              parameters('q.?) { (query) ⇒
+                query.map { q ⇒
+                  log.info(s"GET /khronus/influx - Query: [$q]")
+                  respondWithMediaType(`application/json`) {
+                    complete {
+                      search(q)
+                    }
                   }
-                }
-              } getOrElse {
-                complete {
-                  (OK, s"Authenticated with username: $username and password: " + password)
+                } getOrElse {
+                  complete {
+                    (OK)
+                  }
                 }
               }
             }
-          }
-        } ~
-          path("dashboards" / "series") {
-            get {
-              parameters('q) { query ⇒
-                respondWithMediaType(`application/json`) {
-                  complete {
-                    dashboardResolver.dashboardOperation(query)
+          } ~
+            path("dashboards" / "series") {
+              get {
+                parameters('q) { query ⇒
+                  respondWithMediaType(`application/json`) {
+                    complete {
+                      dashboardResolver.dashboardOperation(query)
+                    }
                   }
                 }
-              }
-            } ~
-              post {
-                entity(as[Seq[Dashboard]]) { dashboards ⇒
-                  complete {
-                    dashboardResolver.store(dashboards.head)
+              } ~
+                post {
+                  entity(as[Seq[Dashboard]]) { dashboards ⇒
+                    complete {
+                      dashboardResolver.store(dashboards.head)
+                    }
                   }
                 }
-              }
-          }
+            }
+        }
       }
     }
 }
