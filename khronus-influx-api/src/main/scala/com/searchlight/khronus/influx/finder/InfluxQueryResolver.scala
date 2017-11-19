@@ -72,24 +72,26 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
   }
 
   private def executeQuery(expression: String): Future[InfluxResults9] = measureFutureTime("executeInfluxQuery", "executeInfluxQuery") {
-    log.info(s"Executing query [$expression]")
 
-    val results = parser.parse(expression).map {
-      influxCriteria ⇒
+    val queryResults = expression.split(';') flatMap (query => {
+      log.info(s"Executing query [$query]")
+      val values = parser.parse(query).map {
+        influxCriteria ⇒
 
-        val slice = buildSlice(influxCriteria.filters)
-        val timeWindow = adjustResolution(slice, influxCriteria.groupBy)
-        val timeRangeMillis = buildTimeRangeMillis(slice, timeWindow)
+          val slice = buildSlice(influxCriteria.filters)
+          val timeWindow = adjustResolution(slice, influxCriteria.groupBy)
+          val timeRangeMillis = buildTimeRangeMillis(slice, timeWindow)
 
-        val summariesBySourceMap = getSummariesBySourceMap(influxCriteria, timeWindow, slice)
-        buildInfluxSeries(influxCriteria, timeRangeMillis, summariesBySourceMap)
+          val summariesBySourceMap = getSummariesBySourceMap(influxCriteria, timeWindow, slice)
+          buildInfluxSeries(influxCriteria, timeRangeMillis, summariesBySourceMap)
 
-    }.flatMap(Future.sequence(_))
+      }.flatMap(Future.sequence(_))
 
-    //TODO patch to test. fixit
-    val series = Await.result(results, 30 seconds)
+      //TODO patch to test. fixit
+      Await.result(values, 30 seconds)
+    })
 
-    Future.successful(InfluxResults9(Seq(InfluxSeries9(series))))
+    Future.successful(InfluxResults9(Seq(InfluxSeries9(queryResults))))
   }
 
   private def buildSlice(filters: Seq[Filter]): Slice = {
