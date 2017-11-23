@@ -19,12 +19,12 @@ package com.searchlight.khronus.influx.finder
 import com.searchlight.khronus.influx.parser._
 import com.searchlight.khronus.influx.service._
 import com.searchlight.khronus.model._
-import com.searchlight.khronus.store.{MetaSupport, Slice, Summaries, SummaryStore}
-import com.searchlight.khronus.util.{ConcurrencySupport, Measurable, Settings}
+import com.searchlight.khronus.store.{ MetaSupport, Slice, Summaries, SummaryStore }
+import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable, Settings }
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ Await, ExecutionContext, Future }
 import scala.collection.SeqView
 import scala.concurrent.duration._
 
@@ -36,11 +36,9 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
   implicit val executionContext: ExecutionContext = executionContext("influx-query-resolver-worker")
   val parser = new InfluxQueryParser
 
-
-
   def search(search: String): Future[InfluxResults9] = search match {
-    case "SHOW DATABASES" => showDataBases()
-    case search if search.indexOf("SHOW RETENTION POLICIES") >= 0 => showRetentionPolicies()
+    case "SHOW DATABASES" ⇒ showDataBases()
+    case search if search.indexOf("SHOW RETENTION POLICIES") >= 0 ⇒ showRetentionPolicies()
     case search if search.indexOf("SHOW MEASUREMENTS") >= 0 ⇒ listSeries(search)
     case query ⇒ executeQuery(query.toLowerCase())
   }
@@ -59,8 +57,8 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
 
   private def listSeries(search: String): Future[InfluxResults9] = {
     val expression = search match {
-      case patternShowMeasurementsWithRegex(query) => s".*$query.*"
-      case _ => ""
+      case patternShowMeasurementsWithRegex(query) ⇒ s".*$query.*"
+      case _                                       ⇒ ""
     }
 
     log.info(s"Listing series $expression")
@@ -73,7 +71,7 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
 
   private def executeQuery(expression: String): Future[InfluxResults9] = measureFutureTime("executeInfluxQuery", "executeInfluxQuery") {
 
-    val queryResults = expression.split(';') flatMap (query => {
+    val queryResults = expression.split(';') flatMap (query ⇒ {
       log.info(s"Executing query [$query]")
       val values = parser.parse(query).map {
         influxCriteria ⇒

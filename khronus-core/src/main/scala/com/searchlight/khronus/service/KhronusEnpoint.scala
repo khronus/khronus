@@ -4,13 +4,13 @@ import akka.actor.Props
 import com.searchlight.khronus.model.MetricBatch
 import com.searchlight.khronus.store.CassandraMetricMeasurementStore._
 import com.searchlight.khronus.store.MetricMeasurementStoreSupport
-import com.searchlight.khronus.util.{ConcurrencySupport, JacksonJsonSupport}
+import com.searchlight.khronus.util.{ ConcurrencySupport, JacksonJsonSupport }
 import com.searchlight.khronus.util.log.Logging
 import spray.http.StatusCodes._
 import spray.httpx.encoding.{ Gzip, NoEncoding }
 import spray.routing._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Failure
 import scala.util.control.NonFatal
 
