@@ -71,7 +71,8 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
 
   private def executeQuery(expression: String): Future[InfluxResults9] = measureFutureTime("executeInfluxQuery", "executeInfluxQuery") {
 
-    val queryResults = expression.split(';') flatMap (query ⇒ {
+    //each query is separated by ;
+    val queryResults = expression.split(';').filterNot(_.length == 0) flatMap (query ⇒ {
       log.info(s"Executing query [$query]")
       val values = parser.parse(query).map {
         influxCriteria ⇒
