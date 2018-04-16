@@ -56,7 +56,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
 
   var router: Option[ActorRef] = None
 
-  self ! Initialize
+//  self ! Initialize
 
   def receive: Receive = uninitialized
 
