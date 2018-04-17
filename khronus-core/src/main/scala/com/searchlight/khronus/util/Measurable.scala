@@ -20,6 +20,14 @@ trait Measurable extends Logging with MonitoringSupport {
     blockReturn
   }
 
+  def measureTime[T](label: String)(block: ⇒ T): T = {
+    val start = now
+    val blockReturn = block
+    val elapsed = now - start
+    log.info(s"$label - time spent: ${elapsed}ms")
+    blockReturn
+  }
+
   def measureTime[T](label: String, metric: Metric, duration: Duration)(block: ⇒ T): T = {
     if (!metric.isSystem) {
       measureTime(formatLabel(label, metric, duration), s"${p(metric, duration)} $label")(block)

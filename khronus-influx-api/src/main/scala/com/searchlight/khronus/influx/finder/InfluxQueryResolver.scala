@@ -50,19 +50,18 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
     log.info(s"Executing query [$expression]")
     val init = System.currentTimeMillis()
 
-    val f = parser.parse(expression).map {
+    val parsed = measureTime("parser.parse")(parser.parse(expression))
+
+    val f = parsed.map {
       influxCriteria ⇒
 
-        val slice = buildSlice(influxCriteria.filters)
-        val timeWindow = adjustResolution(slice, influxCriteria.groupBy)
-        val timeRangeMillis = buildTimeRangeMillis(slice, timeWindow)
+        val slice = measureTime("buildSlice")(buildSlice(influxCriteria.filters))
+        val timeWindow = measureTime("adjustResolution")(adjustResolution(slice, influxCriteria.groupBy))
+        val timeRangeMillis = measureTime("buildTimeRangeMillis")(buildTimeRangeMillis(slice, timeWindow))
 
-        val summariesBySourceMap = getSummariesBySourceMap(influxCriteria, timeWindow, slice)
+        val summariesBySourceMap = measureTime("getSummariesBySourceMap")(getSummariesBySourceMap(influxCriteria, timeWindow, slice))
 
-        val start = System.currentTimeMillis()
-        val series = buildInfluxSeries(influxCriteria, timeRangeMillis, summariesBySourceMap)
-        log.info(s"buildInfluxSeries: ${System.currentTimeMillis() - start}")
-        series
+        measureTime("buildInfluxSeries")(buildInfluxSeries(influxCriteria, timeRangeMillis, summariesBySourceMap))
 
     }.flatMap(Future.successful(_))
 
