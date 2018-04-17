@@ -3,10 +3,10 @@ package com.searchlight.khronus.store
 import java.util.concurrent.TimeUnit
 
 import com.searchlight.khronus.util.log.Logging
-import com.searchlight.khronus.util.{ConcurrencySupport, Measurable}
+import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable }
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ Await, ExecutionContext, Future }
 
 trait Snapshot[T] extends Logging with ConcurrencySupport with Measurable {
 

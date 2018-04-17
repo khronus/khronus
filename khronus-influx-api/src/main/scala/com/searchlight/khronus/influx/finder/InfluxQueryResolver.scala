@@ -17,15 +17,13 @@
 package com.searchlight.khronus.influx.finder
 
 import com.searchlight.khronus.influx.parser._
-import com.searchlight.khronus.influx.service.{InfluxEndpoint, InfluxSeries}
+import com.searchlight.khronus.influx.service.{ InfluxEndpoint, InfluxSeries }
 import com.searchlight.khronus.model._
-import com.searchlight.khronus.store.{MetaSupport, Slice, Summaries, SummaryStore}
-import com.searchlight.khronus.util.{ConcurrencySupport, Measurable, Settings}
+import com.searchlight.khronus.store.{ MetaSupport, Slice, Summaries, SummaryStore }
+import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable, Settings }
 
-import scala.collection.concurrent.TrieMap
-import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.collection.SeqView
+import scala.concurrent.duration.{ FiniteDuration, _ }
+import scala.concurrent.{ Await, ExecutionContext, Future }
 
 trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySupport {
   this: InfluxEndpoint ⇒
@@ -50,8 +48,9 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
 
   private def executeQuery(expression: String): Future[Seq[InfluxSeries]] = measureFutureTime("executeInfluxQuery", "executeInfluxQuery") {
     log.info(s"Executing query [$expression]")
+    val init = System.currentTimeMillis()
 
-    parser.parse(expression).map {
+    val f = parser.parse(expression).map {
       influxCriteria ⇒
 
         val slice = buildSlice(influxCriteria.filters)
@@ -66,6 +65,11 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
         series
 
     }.flatMap(Future.successful(_))
+
+    Await.ready(f, 10 seconds)
+    log.info(s"Finish executeQuery: ${System.currentTimeMillis() - init}")
+
+    f
   }
 
   private def buildSlice(filters: Seq[Filter]): Slice = {
@@ -136,8 +140,6 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
     }
   }
 
-  import scala.concurrent.duration._
-
   private def getSummariesBySourceMap(influxCriteria: InfluxCriteria, timeWindow: FiniteDuration, slice: Slice) = {
     influxCriteria.sources.foldLeft(Map.empty[String, Map[Long, Summary]])((acc, source) ⇒ {
       val tableId = source.alias.getOrElse(source.metric.name)
@@ -191,17 +193,17 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
   }
 
   private def generateSummarySeq(timeRangeMillis: TimeRangeMillis, function: Functions.Function, summariesMap: Map[Long, Summary], defaultValue: Option[Double]): Map[Long, Double] = {
-      (timeRangeMillis.from to timeRangeMillis.to by timeRangeMillis.timeWindow).foldLeft(Map.empty[Long, Double])((acc, currentTimestamp) ⇒
-        if (summariesMap.get(currentTimestamp).isDefined) {
-          function match {
-            case metaFunction: Functions.MetaFunction ⇒ acc + (currentTimestamp -> metaFunction(summariesMap(currentTimestamp), timeRangeMillis.timeWindow))
-            case simpleFunction: Functions.Function   ⇒ acc + (currentTimestamp -> simpleFunction(summariesMap(currentTimestamp)))
-          }
-        } else if (defaultValue.isDefined) {
-          acc + (currentTimestamp -> defaultValue.get)
-        } else {
-          acc
-        })
+    (timeRangeMillis.from to timeRangeMillis.to by timeRangeMillis.timeWindow).foldLeft(Map.empty[Long, Double])((acc, currentTimestamp) ⇒
+      if (summariesMap.get(currentTimestamp).isDefined) {
+        function match {
+          case metaFunction: Functions.MetaFunction ⇒ acc + (currentTimestamp -> metaFunction(summariesMap(currentTimestamp), timeRangeMillis.timeWindow))
+          case simpleFunction: Functions.Function   ⇒ acc + (currentTimestamp -> simpleFunction(summariesMap(currentTimestamp)))
+        }
+      } else if (defaultValue.isDefined) {
+        acc + (currentTimestamp -> defaultValue.get)
+      } else {
+        acc
+      })
   }
 
   private def zipByTimestamp(tsValues1: Map[Long, Double], tsValues2: Map[Long, Double], operator: MathOperators.MathOperator): Map[Long, Double] = {

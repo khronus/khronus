@@ -20,6 +20,6 @@ import com.searchlight.khronus.service.ActorSystemSupport
 
 trait ClusterSupport {
   this: ActorSystemSupport ⇒
-//  system.actorOf(ClusterDomainEventListener.props, "cluster-listener")
-//  system.actorOf(Master.props, "master")
+  //  system.actorOf(ClusterDomainEventListener.props, "cluster-listener")
+  //  system.actorOf(Master.props, "master")
 }
