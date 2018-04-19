@@ -22,15 +22,17 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.Success
 import scala.util.parsing.combinator.lexical._
 import scala.util.parsing.combinator.syntactical._
-import com.searchlight.khronus.model.{Functions, Metric, MetricType}
-import com.searchlight.khronus.store.{MetaStore, MetaSupport}
+import com.searchlight.khronus.model.{ Functions, Metric, MetricType }
+import com.searchlight.khronus.store.{ MetaStore, MetaSupport }
 import com.searchlight.khronus.util.log.Logging
 
-import scala.concurrent.{ExecutionContext, Future}
-import com.searchlight.khronus.util.{ConcurrencySupport, Measurable}
+import scala.concurrent.{ ExecutionContext, Future }
+import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable }
 import com.searchlight.khronus.influx.parser.MathOperators.MathOperator
 
-class InfluxQueryParser extends StandardTokenParsers with Measurable with Logging with InfluxCriteriaBuilder with ConcurrencySupport {
+import scala.collection.concurrent.TrieMap
+
+class InfluxQueryParser extends StandardTokenParsers with Measurable with Logging with InfluxCriteriaBuilder with ConcurrencySupport with QueryCache {
 
   class InfluxLexical extends StdLexical
 
@@ -45,27 +47,28 @@ class InfluxQueryParser extends StandardTokenParsers with Measurable with Loggin
   lexical.delimiters += ("*", Operators.Lt, Operators.Eq, Operators.Neq, Operators.Lte, Operators.Gte, Operators.Gt, Separator, "(", ")", ".", ";")
   lexical.delimiters ++= MathOperators.allSymbols
 
-  def parse(influxQuery: String): Future[InfluxCriteria] = {
-    log.debug(s"Parsing influx query [$influxQuery]")
+  implicit val cache: scala.collection.concurrent.Map[String, (Boolean, InfluxCriteria)] = TrieMap()
 
-    // TODO - Hack because of conflict: group by time & time as identifier
-    val queryToParse = influxQuery.replace("group by time", "group_by_time")
+  def parse(influxQuery: String): Future[InfluxCriteria] = cacheQuery(influxQuery) { now ⇒
+    {
+      log.debug(s"Parsing influx query [$influxQuery]")
 
-    val scanner = measureTime("new lexical.Scanner")(new lexical.Scanner(queryToParse))
-    val r = phrase(influxQueryParser)(scanner) match {
-      case Success(r, q) ⇒ r
-      case x             ⇒ log.error(s"Error parsing query [$influxQuery]: $x"); throw new UnsupportedOperationException(s"Unsupported query [$influxQuery]: $x")
+      // TODO - Hack because of conflict: group by time & time as identifier
+      val queryToParse = influxQuery.replace("group by time", "group_by_time")
+
+      val scanner = new lexical.Scanner(queryToParse)
+      phrase(influxQueryParser)(scanner) match {
+        case Success(r, q) ⇒ r
+        case x             ⇒ log.error(s"Error parsing query [$influxQuery]: $x"); throw new UnsupportedOperationException(s"Unsupported query [$influxQuery]: $x")
+      }
     }
-
-    log.info(s"fin parse()")
-    r
   }
 
   private def influxQueryParser: Parser[Future[InfluxCriteria]] =
-    "select" ~> measureTime("projectionParser")(projectionParser) ~ "from" ~ measureTime("tableParser")(tableParser) ~ measureTime("filterParser")(opt(filterParser)) ~
-      measureTime("groupByParser")(groupByParser) ~ measureTime("fillerParser")(opt(fillerParser)) ~ measureTime("scaleParser")(opt(scaleParser)) ~ measureTime("projectionParser")(opt(limitParser)) ~ measureTime("orderParser")(opt(orderParser)) <~ opt(";") ^^ {
+    "select" ~> projectionParser ~ "from" ~ tableParser ~ opt(filterParser) ~
+      groupByParser ~ opt(fillerParser) ~ opt(scaleParser) ~ opt(limitParser) ~ opt(orderParser) <~ opt(";") ^^ {
         case projections ~ _ ~ tables ~ filters ~ groupBy ~ fill ~ scale ~ limit ~ order ⇒
-          measureTime("buildInfluxCriteria")(buildInfluxCriteria(tables, projections, filters.getOrElse(Nil), groupBy, fill, scale, order.getOrElse(true), limit.getOrElse(Int.MaxValue)))
+          buildInfluxCriteria(tables, projections, filters.getOrElse(Nil), groupBy, fill, scale, order.getOrElse(true), limit.getOrElse(Int.MaxValue))
       }
 
   private def projectionParser: Parser[Seq[Projection]] =

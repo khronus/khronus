@@ -1,7 +1,7 @@
 package com.searchlight.khronus.influx.parser
 
-import scala.concurrent.{ExecutionContext, Future}
-import com.searchlight.khronus.model.{Functions, Metric, MetricType}
+import scala.concurrent.{ ExecutionContext, Future }
+import com.searchlight.khronus.model.{ Functions, Metric, MetricType }
 import com.searchlight.khronus.store.MetaSupport
 import com.searchlight.khronus.util.ConcurrencySupport
 
@@ -41,7 +41,7 @@ trait InfluxCriteriaBuilder extends MetaSupport with ConcurrencySupport {
   }
 
   private def getSources(table: Table): Future[Seq[Source]] = {
-    val matchedMetrics = Seq(Metric("tito", "counter"))//metaStore.searchInSnapshotByRegex(getCaseInsensitiveRegex(table.name))
+    val matchedMetrics = Seq(Metric("tito", "counter")) //metaStore.searchInSnapshotByRegex(getCaseInsensitiveRegex(table.name))
     if (matchedMetrics.isEmpty)
       throw new UnsupportedOperationException(s"Unsupported query - There isnt any metric matching the regex [${table.name}]")
     else if (matchedMetrics.size > 1 && table.alias != None)

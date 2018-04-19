@@ -25,20 +25,23 @@ import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable, Settings }
 import scala.concurrent.duration.{ FiniteDuration, _ }
 import scala.concurrent.{ Await, ExecutionContext, Future }
 
-object Main extends App with Measurable {
-
-
-  def doIt() = {
-    val parser = new InfluxQueryParser
-
-    measureTime("parserComplex")(Await.result(parser.parse("""select count(value) from "~system.storeTemporalBuckets..*.30SECONDS" where time > now()-1h group by time(1s) order asc"""), 2 seconds))
-//    measureTime("parserSimple")(Await.result(parser.parse("""select count(value) from "~system.storeTemporalBuckets" where time > now()-1h group by time(1s) order asc"""), 2 seconds))
-//    measureTime("parserSimple2")(Await.result(parser.parse("""select count(value) from "csperf:browserEvents.mainFeature.nymeria.all" where time > now()-12h group by time(30s) order asc"""), 2 seconds))
-  }
-
-  doIt()
-  System.exit(0)
-}
+//object Main extends App with Measurable {
+//
+//
+//  def doIt() = {
+//    val parser = new InfluxQueryParser
+//
+//    measureTime("parserComplex")(Await.result(parser.parse("""select count(value) from "~system.storeTemporalBuckets..*.30SECONDS" where time > now()-1h group by time(1s) order asc"""), 2 seconds))
+//    measureTime("parserComplex")(Await.result(parser.parse("""select count(value) from "~system.storeTemporalBuckets..*.30SECONDS" where time > now()-1h group by time(1s) order asc"""), 2 seconds))
+//    measureTime("parserComplex")(Await.result(parser.parse("""select count(value) from "~system.storeTemporalBuckets..*.30SECONDS" where time > now()-1h group by time(1s) order asc"""), 2 seconds))
+//    measureTime("parserComplex")(Await.result(parser.parse("""select count(value) from "~system.storeTemporalBuckets..*.30SECONDS" where time > now()-1h group by time(1s) order asc"""), 2 seconds))
+//    measureTime("parserSimple2")(Await.result(parser.parse("""select count(value) from "csperf:browserEvents.mainFeature.nymeria.all" where time > now()-12h and time < now()-1h group by time(30s) order asc"""), 2 seconds))
+//    measureTime("parserSimple2")(Await.result(parser.parse("""select count(value) from "csperf:browserEvents.mainFeature.nymeria.all" where time > now()-12h and time < now()-1h group by time(30s) order asc"""), 2 seconds))
+//  }
+//
+//  doIt()
+//  System.exit(0)
+//}
 
 trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySupport {
   this: InfluxEndpoint ⇒
@@ -70,11 +73,11 @@ trait InfluxQueryResolver extends MetaSupport with Measurable with ConcurrencySu
     val f = parsed.map {
       influxCriteria ⇒
 
-        val slice = measureTime("buildSlice")(buildSlice(influxCriteria.filters))
-        val timeWindow = measureTime("adjustResolution")(adjustResolution(slice, influxCriteria.groupBy))
-        val timeRangeMillis = measureTime("buildTimeRangeMillis")(buildTimeRangeMillis(slice, timeWindow))
+        val slice = buildSlice(influxCriteria.filters)
+        val timeWindow = adjustResolution(slice, influxCriteria.groupBy)
+        val timeRangeMillis = buildTimeRangeMillis(slice, timeWindow)
 
-        val summariesBySourceMap = measureTime("getSummariesBySourceMap")(getSummariesBySourceMap(influxCriteria, timeWindow, slice))
+        val summariesBySourceMap = getSummariesBySourceMap(influxCriteria, timeWindow, slice)
 
         measureTime("buildInfluxSeries")(buildInfluxSeries(influxCriteria, timeRangeMillis, summariesBySourceMap))
 

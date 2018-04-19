@@ -17,16 +17,16 @@
 package com.searchlight.khronus.influx.service
 
 import akka.actor.Props
-import com.searchlight.khronus.influx.finder.{DashboardSupport, InfluxQueryResolver}
-import com.searchlight.khronus.service.{KhronusHandlerException, SprayMetrics}
+import com.searchlight.khronus.influx.finder.{ DashboardSupport, InfluxQueryResolver }
+import com.searchlight.khronus.service.{ KhronusHandlerException, SprayMetrics }
 import com.searchlight.khronus.util.log.Logging
-import com.searchlight.khronus.util.{CORSSupport, ConcurrencySupport, JacksonJsonSupport}
+import com.searchlight.khronus.util.{ CORSSupport, ConcurrencySupport, JacksonJsonSupport }
 import spray.http.MediaTypes._
 import spray.http.StatusCodes._
-import spray.httpx.encoding.{Gzip, NoEncoding}
-import spray.routing.{HttpService, HttpServiceActor, Route}
+import spray.httpx.encoding.{ Gzip, NoEncoding }
+import spray.routing.{ HttpService, HttpServiceActor, Route }
 
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{ Await, ExecutionContext }
 
 class InfluxActor extends HttpServiceActor with InfluxEndpoint with KhronusHandlerException {
   def receive = runRoute(influxServiceRoute)
