@@ -57,15 +57,15 @@ class InfluxQueryParser extends StandardTokenParsers with Measurable with Loggin
       val queryToParse = influxQuery.replace("group by time", "group_by_time")
 
       val scanner = new lexical.Scanner(queryToParse)
-      phrase(influxQueryParser)(scanner) match {
+      phrase(influxQueryParser(now))(scanner) match {
         case Success(r, q) ⇒ r
         case x             ⇒ log.error(s"Error parsing query [$influxQuery]: $x"); throw new UnsupportedOperationException(s"Unsupported query [$influxQuery]: $x")
       }
     }
   }
 
-  private def influxQueryParser: Parser[Future[InfluxCriteria]] =
-    "select" ~> projectionParser ~ "from" ~ tableParser ~ opt(filterParser) ~
+  private def influxQueryParser(now: Long): Parser[Future[InfluxCriteria]] =
+    "select" ~> projectionParser ~ "from" ~ tableParser ~ opt(filterParser(now)) ~
       groupByParser ~ opt(fillerParser) ~ opt(scaleParser) ~ opt(limitParser) ~ opt(orderParser) <~ opt(";") ^^ {
         case projections ~ _ ~ tables ~ filters ~ groupBy ~ fill ~ scale ~ limit ~ order ⇒
           buildInfluxCriteria(tables, projections, filters.getOrElse(Nil), groupBy, fill, scale, order.getOrElse(true), limit.getOrElse(Int.MaxValue))
@@ -154,14 +154,14 @@ class InfluxQueryParser extends StandardTokenParsers with Measurable with Loggin
       case metricNameRegex ~ aliasTable ⇒ Table(metricNameRegex, aliasTable)
     })
 
-  private def filterParser: Parser[Seq[Filter]] = "where" ~> filterExpression
+  private def filterParser(now: Long): Parser[Seq[Filter]] = "where" ~> filterExpression(now)
 
-  private def filterExpression: Parser[Seq[Filter]] =
+  private def filterExpression(now: Long): Parser[Seq[Filter]] =
     rep(
       stringComparatorExpression |
         timestampComparatorExpression |
         timeBetweenExpression |
-        relativeTimeExpression).map(x ⇒ x.flatten)
+        relativeTimeExpression(now)).map(x ⇒ x.flatten)
 
   def stringComparatorExpression: Parser[Seq[StringFilter]] = {
     ident ~ (Operators.Eq | Operators.Neq) ~ stringParser <~ opt(Operators.And) ^^ {
@@ -181,7 +181,7 @@ class InfluxQueryParser extends StandardTokenParsers with Measurable with Loggin
     }
   }
 
-  def relativeTimeExpression: Parser[Seq[TimeFilter]] = {
+  def relativeTimeExpression(now: Long): Parser[Seq[TimeFilter]] = {
     "time" ~ (Operators.Lt | Operators.Lte | Operators.Gt | Operators.Gte) ~ "now" ~ "(" ~ ")" ~ opt("-") ~ opt(timeWithSuffixToMillisParser) <~ opt(Operators.And) ^^ {
       case identifier ~ operator ~ _ ~ _ ~ _ ~ _ ~ timeInMillis ⇒
         List(TimeFilter(identifier, operator, now - timeInMillis.getOrElse(0L)))
@@ -255,7 +255,5 @@ class InfluxQueryParser extends StandardTokenParsers with Measurable with Loggin
       }
     }
   }
-
-  protected def now: Long = System.currentTimeMillis()
 
 }

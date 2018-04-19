@@ -41,7 +41,7 @@ trait InfluxCriteriaBuilder extends MetaSupport with ConcurrencySupport {
   }
 
   private def getSources(table: Table): Future[Seq[Source]] = {
-    val matchedMetrics = Seq(Metric("tito", "counter")) //metaStore.searchInSnapshotByRegex(getCaseInsensitiveRegex(table.name))
+    val matchedMetrics = metaStore.searchInSnapshotByRegex(getCaseInsensitiveRegex(table.name))
     if (matchedMetrics.isEmpty)
       throw new UnsupportedOperationException(s"Unsupported query - There isnt any metric matching the regex [${table.name}]")
     else if (matchedMetrics.size > 1 && table.alias != None)

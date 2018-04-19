@@ -463,7 +463,6 @@ class InfluxQueryParserSpec extends FunSuite with Matchers with MockitoSugar {
     val mockedNow = 1414767928000L
     val mockedParser = new InfluxQueryParser() {
       override val metaStore: MetaStore = mock[MetaStore]
-      override def now: Long = mockedNow
     }
     val regex = mockedParser.getCaseInsensitiveRegex(metricName)
 
