@@ -20,16 +20,17 @@ import java.lang
 import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 
-import com.datastax.driver.core.{ BatchStatement, ResultSet, Session }
-import com.searchlight.khronus.model.{ Metric, MonitoringSupport, Tick, Timestamp }
+import com.datastax.driver.core.{BatchStatement, ResultSet, Session}
+import com.searchlight.khronus.model.{Metric, MonitoringSupport, Tick, Timestamp}
 import com.searchlight.khronus.util.log.Logging
-import com.searchlight.khronus.util.{ ConcurrencySupport, Measurable, Settings }
+import com.searchlight.khronus.util.{ConcurrencySupport, Measurable, Settings}
+import org.apache.commons.lang.time.FastDateFormat
 
 import scala.collection.JavaConverters._
 import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
 import scala.concurrent.duration._
-import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Failure
 
 case class MetricMetadata(metric: Metric, timestamp: Timestamp)
@@ -141,6 +142,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
   def allActiveMetrics: Future[Seq[Metric]] = retrieveMetrics.map(_.filter { case (metric, (timestamp, active)) ⇒ active }.keys.toSeq)
 
   import scala.concurrent.duration._
+  val df = FastDateFormat.getDateInstance(FastDateFormat.LONG)
   def deleteObsoleteMetrics() = {
     val resultSet: ResultSet = session.execute(GetByKeyStmt.bind(MetricsKey).setFetchSize(50000))
     val metrics = resultSet.all().asScala.map { row ⇒
@@ -150,7 +152,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
     val older = System.currentTimeMillis() - (45 days).toMillis
     metrics.foreach{
       case (metric, (timestamp, active)) => if ((!active) && (timestamp.ms < older)){
-        log.info(s"Deleting metric [$metric] because is $active and lastUpdated is ${date(timestamp)}")
+        log.info(s"Deleting metric [$metric] because is $active and lastUpdated is ${df.format(timestamp.ms)}")
       }
     }
   }
