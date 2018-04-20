@@ -52,6 +52,8 @@ trait MetaStore extends Snapshot[Map[Metric, (Timestamp, Boolean)]] {
   def notifyEmptySlice(metric: Metric, duration: Duration)
 
   def notifyMetricMeasurement(metric: Metric, active: Boolean)
+
+  def deleteObsoleteMetrics()
 }
 
 trait MetaSupport {
@@ -122,7 +124,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
     }
   }
 
-  def searchInSnapshotByRegex(regex: String): Seq[Metric] = cache(regex) {
+  def searchInSnapshotByRegex(regex: String): Seq[Metric] = {
     val pattern = Pattern.compile(regex)
     val matcher = pattern.matcher("")
     snapshot.keys.filter(k ⇒ matcher.reset(k.name).matches()).toSeq
@@ -137,6 +139,21 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
   def allMetrics: Future[Seq[Metric]] = retrieveMetrics.map(_.keys.toSeq)
 
   def allActiveMetrics: Future[Seq[Metric]] = retrieveMetrics.map(_.filter { case (metric, (timestamp, active)) ⇒ active }.keys.toSeq)
+
+  import scala.concurrent.duration._
+  def deleteObsoleteMetrics() = {
+    val resultSet: ResultSet = session.execute(GetByKeyStmt.bind(MetricsKey).setFetchSize(50000))
+    val metrics = resultSet.all().asScala.map { row ⇒
+      (toMetric(row.getString("metric")), (Timestamp(row.getLong("timestamp")), row.getBool("active")))
+    }
+
+    val older = System.currentTimeMillis() - (45 days).toMillis
+    metrics.foreach{
+      case (metric, (timestamp, active)) => if ((!active) && (timestamp.ms < older)){
+        log.info(s"Deleting metric [$metric] because is $active and lastUpdated is ${date(timestamp)}")
+      }
+    }
+  }
 
   private def retrieveMetrics(implicit executor: ExecutionContext): Future[Map[Metric, (Timestamp, Boolean)]] = {
     log.debug("Retrieving meta...")

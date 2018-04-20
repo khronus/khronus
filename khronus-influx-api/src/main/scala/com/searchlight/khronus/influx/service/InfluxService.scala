@@ -46,6 +46,14 @@ trait InfluxEndpoint extends HttpService with JacksonJsonSupport with Logging wi
   val influxServiceRoute: Route = SprayMetrics.time("influxServiceRouterDuration") {
     compressResponse(NoEncoding, Gzip) {
       respondWithCORS {
+        path("delete") {
+          get {
+            complete {
+              deleteOldMetrics()
+              (OK, "metrics deleted")
+            }
+          }
+        } ~
         path("series") {
           get {
             parameters('q.?, 'p, 'u) { (query, password, username) ⇒
