@@ -49,7 +49,7 @@ class InfluxQueryParser extends StandardTokenParsers with Measurable with Loggin
 
   implicit val cache: scala.collection.concurrent.Map[String, (Boolean, InfluxCriteria)] = TrieMap()
 
-  def parse(influxQuery: String): Future[InfluxCriteria] = cacheQuery(influxQuery) { now ⇒
+  def parse(influxQuery: String): Future[InfluxCriteria] =
     {
       log.debug(s"Parsing influx query [$influxQuery]")
 
@@ -57,12 +57,11 @@ class InfluxQueryParser extends StandardTokenParsers with Measurable with Loggin
       val queryToParse = influxQuery.replace("group by time", "group_by_time")
 
       val scanner = new lexical.Scanner(queryToParse)
-      phrase(influxQueryParser(now))(scanner) match {
+      phrase(influxQueryParser(System.currentTimeMillis()))(scanner) match {
         case Success(r, q) ⇒ r
         case x             ⇒ log.error(s"Error parsing query [$influxQuery]: $x"); throw new UnsupportedOperationException(s"Unsupported query [$influxQuery]: $x")
       }
     }
-  }
 
   private def influxQueryParser(now: Long): Parser[Future[InfluxCriteria]] =
     "select" ~> projectionParser ~ "from" ~ tableParser ~ opt(filterParser(now)) ~

@@ -107,7 +107,22 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
       future.map(_ ⇒ log.trace(s"Stored meta chunk successfully"))
   }
 
-  def searchInSnapshotByRegex(regex: String): Seq[Metric] = {
+  val cacheStore: TrieMap[String, Seq[Metric]] = TrieMap()
+
+  def cache(regex: String)(block: => Seq[Metric]): Seq[Metric] = {
+    cacheStore.get(regex) match {
+      case None => {
+        val metrics = block
+        if (metrics.size > 0)
+          cacheStore.put(regex, metrics)
+        metrics
+      }
+
+      case Some(metrics) => metrics
+    }
+  }
+
+  def searchInSnapshotByRegex(regex: String): Seq[Metric] = cache(regex) {
     val pattern = Pattern.compile(regex)
     val matcher = pattern.matcher("")
     snapshot.keys.filter(k ⇒ matcher.reset(k.name).matches()).toSeq
