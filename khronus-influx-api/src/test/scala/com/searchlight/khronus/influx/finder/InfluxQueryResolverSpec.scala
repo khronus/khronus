@@ -58,7 +58,8 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
   override lazy val minResolution: Int = 700
 
   override val parser: InfluxQueryParser = new InfluxQueryParser() {
-    override val metaStore: MetaStore = metaStoreMock
+    override def getMetricFromCache(regex: String): Seq[Metric] = metaStore.searchInSnapshotByRegex(regex)
+    //override val metaStore: MetaStore = metaStoreMock
   }
 
   before {
@@ -67,7 +68,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
 
   test("Select a valid field for a counter metric returns influx series ok") {
     val metricName = "counterMetric"
-    val regex = parser.getCaseInsensitiveRegex(metricName)
+    val regex = metricName
 
     val duration = 1 hour
     val to = duration.toMillis * 100
@@ -100,21 +101,20 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
 
   test("Select * for a valid counter metric returns influx series ok") {
     val metricName = "counterMetric"
-    val regex = parser.getCaseInsensitiveRegex(metricName)
 
     val duration = 1 hour
     val to = duration.toMillis * 100
     val from = duration.toMillis * 100
     val query = s"""select * from "$metricName" where time >= $from and time <= $to force group by time (1h)"""
 
-    when(metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Counter)))
+    when(metaStore.searchInSnapshotByRegex(metricName)).thenReturn(Seq(Metric(metricName, MetricType.Counter)))
 
     val summary = CounterSummary(from, 100L)
     when(getCounterSummaryStore.readAll(metricName, FiniteDuration(1, TimeUnit.HOURS), Slice(from, to), true, Int.MaxValue)).thenReturn(Future { Seq(summary) })
 
     val results = await(search(query))
 
-    verify(metaStore).searchInSnapshotByRegex(regex)
+    verify(metaStore).searchInSnapshotByRegex(metricName)
     verify(getCounterSummaryStore).readAll(metricName, FiniteDuration(1, TimeUnit.HOURS), Slice(from, to), true, Int.MaxValue)
 
     results.size should be(2)
@@ -124,21 +124,20 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
 
   test("Select * for a valid histogram metric returns influx series ok") {
     val metricName = "histogramMetric"
-    val regex = parser.getCaseInsensitiveRegex(metricName)
 
     val duration = 5 minutes
     val to = duration.toMillis * 100
     val from = to - duration.toMillis
     val query = s"""select * from "$metricName" where time >= $from and time <= $to force group by time (5m) limit 10 order desc"""
 
-    when(metaStore.searchInSnapshotByRegex(regex)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
+    when(metaStore.searchInSnapshotByRegex(metricName)).thenReturn(Seq(Metric(metricName, MetricType.Timer)))
 
     val summary = HistogramSummary(from, 50L, 80L, 90L, 95L, 99L, 999L, 3L, 1000L, 100L, 200L)
     when(getStatisticSummaryStore.readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), false, 10)).thenReturn(Future { Seq(summary) })
 
     val results = await(search(query))
 
-    verify(metaStore).searchInSnapshotByRegex(regex)
+    verify(metaStore).searchInSnapshotByRegex(metricName)
     verify(getStatisticSummaryStore).readAll(metricName, FiniteDuration(5, TimeUnit.MINUTES), Slice(from, to), false, 10)
 
     // Select * makes 1 series for each function
@@ -162,7 +161,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
   test("Select with regex matching some timers returns influx series ok") {
     val commonName = "Timer"
     val regexCommon = s".*$commonName.*"
-    val regex = parser.getCaseInsensitiveRegex(regexCommon)
+    val regex = regexCommon
 
     val duration = 5 minutes
     val to = duration.toMillis * 100
@@ -194,7 +193,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
 
   test("Select many fields from timer returns influx series ok") {
     val metricName = "histogramMetric"
-    val regex = parser.getCaseInsensitiveRegex(metricName)
+    val regex = metricName
 
     val duration = 5 minutes
     val time = duration.toMillis * 100
@@ -223,7 +222,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
 
   test("Select a constant returns influx series ok") {
     val metricName = "histogramMetric"
-    val regex = parser.getCaseInsensitiveRegex(metricName)
+    val regex = metricName
 
     val duration = 5 minutes
     val to = duration.toMillis * 100
@@ -256,8 +255,8 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
   test("Select with operation returns influx series ok") {
     val counterName = "counterMetric"
     val timerName = "timerMetric"
-    val regexCounter = parser.getCaseInsensitiveRegex(counterName)
-    val regexTimer = parser.getCaseInsensitiveRegex(timerName)
+    val regexCounter = counterName
+    val regexTimer = timerName
 
     val duration = 5 minutes
     val to = duration.toMillis * 100
@@ -294,8 +293,8 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
   test("Select with a filling number returns influx series ok") {
     val counterName = "counterMetric"
     val timerName = "timerMetric"
-    val regexCounter = parser.getCaseInsensitiveRegex(counterName)
-    val regexTimer = parser.getCaseInsensitiveRegex(timerName)
+    val regexCounter = counterName
+    val regexTimer = timerName
 
     val duration = 5 minutes
     val window96 = duration.toMillis * 96
@@ -380,7 +379,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
 
   test("Select without time boundaries should fail") {
     val metricName = "histogramMetric"
-    val regex = parser.getCaseInsensitiveRegex(metricName)
+    val regex = metricName
     val to = System.currentTimeMillis()
     val query = s"""select * from "$metricName" where time <=  $to group by time (5m)"""
 
@@ -395,7 +394,7 @@ class InfluxQueryResolverSpec extends FunSuite with BeforeAndAfter with Matchers
 
   private def testAdjustResolution(sliceDuration: FiniteDuration, desiredGroupBy: String, expectedDuration: FiniteDuration, force: String = "") = {
     val metricName = "histogramMetric"
-    val regex = parser.getCaseInsensitiveRegex(metricName)
+    val regex = metricName
     val to = System.currentTimeMillis()
     val from = to - sliceDuration.toMillis
 

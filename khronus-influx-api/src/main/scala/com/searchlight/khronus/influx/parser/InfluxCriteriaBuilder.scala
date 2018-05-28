@@ -1,11 +1,11 @@
 package com.searchlight.khronus.influx.parser
 
-import scala.concurrent.{ ExecutionContext, Future }
-import com.searchlight.khronus.model.{ Functions, MetricType }
-import com.searchlight.khronus.store.MetaSupport
+import com.searchlight.khronus.model.{Functions, MetricType}
 import com.searchlight.khronus.util.ConcurrencySupport
 
-trait InfluxCriteriaBuilder extends MetaSupport with ConcurrencySupport {
+import scala.concurrent.{ExecutionContext, Future}
+
+trait InfluxCriteriaBuilder extends ConcurrencySupport with InfluxParserCache {
 
   implicit val ex: ExecutionContext = executionContext("influx-query-parser-worker")
 
@@ -41,18 +41,13 @@ trait InfluxCriteriaBuilder extends MetaSupport with ConcurrencySupport {
   }
 
   private def getSources(table: Table): Future[Seq[Source]] = {
-    val matchedMetrics = metaStore.searchInSnapshotByRegex(getCaseInsensitiveRegex(table.name))
+    val matchedMetrics = getMetricFromCache(table.name)
     if (matchedMetrics.isEmpty)
       throw new UnsupportedOperationException(s"Unsupported query - There isnt any metric matching the regex [${table.name}]")
     else if (matchedMetrics.size > 1 && table.alias != None)
       throw new UnsupportedOperationException(s"Unsupported query - Regex [${table.name}] matches more than one metric, so it can't have an alias (${table.alias}})")
 
     Future.successful(matchedMetrics.collect { case m ⇒ Source(m, table.alias) })
-  }
-
-  def getCaseInsensitiveRegex(metricNameRegex: String) = {
-    val caseInsensitiveRegex = "(?i)"
-    s"$caseInsensitiveRegex$metricNameRegex"
   }
 
   private def buildProjections(projections: Seq[Projection], sources: Seq[Source]): Seq[SimpleProjection] = {
