@@ -61,75 +61,22 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
   def receive: Receive = uninitialized
 
   def uninitialized: Receive = {
-    case Initialize ⇒ LeaderElection.leaderElectionStore.acquireLock() onComplete {
-      case Success(acquire) ⇒ if (acquire) initializeLeader() else initializeBackupLeader()
-      case Failure(ex) ⇒ {
-        log.error(ex, "Error trying to check for leader. Schedule to re initialize in 10 seconds")
-        system.scheduler.scheduleOnce(10 seconds, self, Initialize)
-      }
-    }
-
-    case AddCronScheduleFailure(reason) ⇒
-      log.error(reason, "Could not schedule tick")
-      throw reason
 
     case everythingElse ⇒ //ignore
   }
 
   private[cluster] def initializeLeader() = {
-    log.info(s"Becoming Leader ${self.path}")
-    hasLeadership = true
-    checkLeadershipErrorCount.set(0)
 
-    if (checkLeadershipScheduler == null || checkLeadershipScheduler.isEmpty) {
-      checkLeadershipScheduler = scheduleCheckLeadership()
-    }
-
-    router = Some(createRouter())
-
-    heartbeatScheduler = scheduleHeartbeat()
-    tickActorRef = scheduleTick()
-
-    incrementCounter("leader")
-    become(leader())
   }
 
   private def initializeBackupLeader() = {
-    log.info(s"Initializing backup leader ${self.path}")
-    hasLeadership = false
 
-    releaseResources()
-
-    if (checkLeadershipScheduler == null || checkLeadershipScheduler.isEmpty) {
-      checkLeadershipScheduler = scheduleCheckLeadership()
-    }
-
-    incrementCounter("backupLeader")
-    become(backupLeader())
   }
 
   def backupLeader(): Receive = {
     case CheckLeadership ⇒ {
-      if (hasLeadership) {
-        log.error("A backup leader could not have the leader mark as true. Marked as false and continue")
-        hasLeadership = false
-      }
 
-      LeaderElection.leaderElectionStore.acquireLock() onComplete {
-        case Success(acquired) if acquired ⇒ {
-          log.info("backupLeader has succeeded locking the Leader lock")
-          incrementCounter("backupLeaderElectionSuccess")
-          initializeLeader()
-        }
-        case Success(acquired) if !acquired ⇒ {
-          log.debug("backupLeader waiting for lock...")
-          incrementCounter("backupLeaderLostElection")
-        }
-        case Failure(ex) ⇒ {
-          log.error("Error trying to check the Leader lock", ex)
-          incrementCounter("backupLeaderErrorElection")
-        }
-      }
+
     }
 
     case Terminated(child) ⇒ log.info(s"Receive terminated on Master from ${child.path}")
@@ -144,26 +91,7 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
     }
 
     case CheckLeadership ⇒ {
-      LeaderElection.leaderElectionStore.renewLock() onComplete {
-        case Success(acquired) if !acquired ⇒ {
-          log.error("Lost leadership!!! Change to backupLeader")
-          incrementCounter("leaderLostRenew")
-          initializeBackupLeader()
-        }
-        case Success(acquired) if acquired ⇒ {
-          log.debug("Still being Leader...")
-          incrementCounter("leaderSuccessRenew")
-        }
-        case Failure(ex) ⇒ {
-          if (checkLeadershipErrorCount.incrementAndGet() > MAX_CHECKLEADER_ERROR_COUNT) {
-            log.error("Failed to maintain leadership. Exceed maximum number of errors in update leadership. Change to backupLeader")
-            incrementCounter("leaderChangeToBackupOnError")
-            initializeBackupLeader()
-          } else {
-            log.error("Error trying to check for leader")
-          }
-        }
-      }
+
     }
 
     case Master.Tick ⇒ lookupMetrics onComplete {
@@ -172,41 +100,10 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
     }
 
     case PendingMetrics(metrics) ⇒
-      recordSystemMetrics(metrics)
 
-      var metricsToProcess = metrics.toSet
-
-      if (pendingMetrics > 0) {
-        log.warning(s"There are still $pendingMetrics pending metrics from previous Tick. Merging previous with current metrics")
-        //recover pending metrics
-        metricsToProcess ++= affinityConsistentHashRing.remainingMetrics()
-      }
-
-      pendingMetrics = metricsToProcess.size
-
-      affinityConsistentHashRing.assignWorkers(metricsToProcess.toSeq)
-
-      if (busyWorkers.nonEmpty) log.warning(s"There are still ${busyWorkers.size} busy workers from previous Tick. This may mean that either workers are still processing metrics or Terminated message has not been received yet. Workers $busyWorkers")
-      else start = System.currentTimeMillis()
-
-      var workers = idleWorkers.filter(worker ⇒ affinityConsistentHashRing.hasPendingMetrics(worker))
-
-      while (pendingMetrics > 0 && workers.nonEmpty) {
-        val worker = workers.head
-
-        if (affinityConsistentHashRing.hasPendingMetrics(worker)) {
-          dispatch(worker, "dispatch")
-          busyWorkers += worker
-          idleWorkers = idleWorkers - worker
-        }
-        workers = workers.tail
-      }
 
     case Register(worker) ⇒
       log.info("Registering Worker [{}]", worker.path.name)
-      idleWorkers += worker
-      affinityConsistentHashRing.addWorker(worker)
-      removeBusyWorker(worker)
 
     case WorkDone(worker) ⇒
       if (pendingMetrics > 0 && affinityConsistentHashRing.hasPendingMetrics(worker)) {
@@ -231,9 +128,6 @@ class Master extends Actor with ActorLogging with RouterProvider with MetricFind
     val metrics = affinityConsistentHashRing.nextMetrics(worker)
 
     if (metrics.nonEmpty) {
-      log.debug(s"$dispatchType ${metrics.mkString(",")} to ${worker.path}")
-      incrementCounter(dispatchType)
-      worker ! Work(metrics)
     }
 
     pendingMetrics -= metrics.size

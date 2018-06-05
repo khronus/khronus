@@ -153,7 +153,7 @@ class CassandraMetaStore(session: Session) extends MetaStore with Logging with C
     metrics.foreach{
       case (metric, (timestamp, active)) => if ((!active) && (timestamp.ms < older)){
         log.info(s"Deleting metric [$metric] because is $active and lastUpdated is ${df.format(timestamp.ms)}")
-        session.execute(s"""delete from meta where key = 'metrics' and metric = '${asString(metric)}'""")
+        //session.execute(s"""delete from meta where key = 'metrics' and metric = '${asString(metric)}'""")
       }
     }
   }
